@@ -71,102 +71,92 @@ main( int argc,
     
     // -- Load model --
     { // scope for model ref_ptr
-    osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
-    int         animNum = -1;
-    osg::ref_ptr< osgCal::MeshFilter > meshFilter = 0;
+        osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
+        int         animNum = -1;
+        osg::ref_ptr< osgCal::MeshFilter > meshFilter = 0;
 
-    try
-    {
-    if ( argc > 1 )
-    {
-        std::string fn = argv[1];
-        std::string ext = osgDB::getLowerCaseFileExtension( fn );
-        std::string dir = osgDB::getFilePath( fn );
-        std::string name = osgDB::getStrippedName( fn );
-
-        if ( dir == "" )
+        try
         {
-            dir = ".";
-        }
-
-        if ( ext == "caf" )
-        {
-            coreModel->load( dir + "/cal3d.cfg" );
-
-            for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
+            if ( argc > 1 )
             {
-                if ( coreModel->getAnimationNames()[i] == name )
+                std::string fn = argv[1];
+                std::string ext = osgDB::getLowerCaseFileExtension( fn );
+                std::string dir = osgDB::getFilePath( fn );
+                std::string name = osgDB::getStrippedName( fn );
+
+                if ( dir == "" )
                 {
-                    animNum = i;
-                    break;
+                    dir = ".";
+                }
+
+                if ( ext == "caf" )
+                {
+                    coreModel->load( dir + "/cal3d.cfg" );
+
+                    for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
+                    {
+                        if ( coreModel->getAnimationNames()[i] == name )
+                        {
+                            animNum = i;
+                            break;
+                        }
+                    }
+
+                    if ( animNum == -1 ) 
+                    {
+                        // animation is absent in cal3d.cfg, so load it manually
+                        CalCoreModel* cm = coreModel->getCalCoreModel();
+
+                        std::cout << coreModel->getScale() << std::endl;
+                        if ( coreModel->getScale() != 1 )
+                        {
+                            // to eliminate scaling of the model by non-scaled anumation
+                            // we scale model back, load animation, and rescale one more time
+                            cm->scale( 1.0 / coreModel->getScale() );
+                        }
+
+                        animNum = cm->loadCoreAnimation( fn );
+
+                        if ( coreModel->getScale() != 1 )
+                        {
+                            cm->scale( coreModel->getScale() );
+                        }
+                    }
+                }
+                else if ( ext == "cmf" )
+                {
+                    coreModel->load( dir + "/cal3d.cfg" );
+                    meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
+                }
+                else
+                {
+                    coreModel->load( fn );
                 }
             }
-
-            if ( animNum == -1 ) 
+            else
             {
-                // animation is absent in cal3d.cfg, so load it manually
-                CalCoreModel* cm = coreModel->getCalCoreModel();
-
-                std::cout << coreModel->getScale() << std::endl;
-                if ( coreModel->getScale() != 1 )
-                {
-                    // to eliminate scaling of the model by non-scaled anumation
-                    // we scale model back, load animation, and rescale one more time
-                    cm->scale( 1.0 / coreModel->getScale() );
-                }
-
-                animNum = cm->loadCoreAnimation( fn );
-
-                if ( coreModel->getScale() != 1 )
-                {
-                    cm->scale( coreModel->getScale() );
-                }
+                std::cout << "Usage:\n"
+                          << "  osgCalViewer <cal3d>.cfg\n"
+                          << "  osgCalViewer <mesh-name>.cmf\n"
+                          << "  osgCalViewer <animation-name>.caf" << std::endl;
+                return 0;
             }
         }
-        else if ( ext == "cmf" )
+        catch ( std::runtime_error& e )
         {
-            // TODO: add mesh skipping to CoreModel::load
-            // It takes too much time to load all other meshes and their materials.
-            // Skip can only skip mesh addition to mesh set (with material loading),
-            // thus we can safely load VBO cache skipping lengthly preparing time
-            // for large meshes (for small meshes it can be more longer to load cache,
-            // but who cares).
-            coreModel->load( dir + "/cal3d.cfg" );
-            meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
+            std::cout << "runtime error during load:" << std::endl
+                      << e.what() << std::endl;
+            return EXIT_FAILURE;
         }
-        else
-        {
-            coreModel->load( fn );
-        }
-    }
-    else
-    {
-        std::cout << "Usage:\n"
-                  << "  osgCalViewer <cal3d>.cfg\n"
-                  << "  osgCalViewer <mesh-name>.cmf\n"
-                  << "  osgCalViewer <animation-name>.caf" << std::endl;
-        return 0;
-    }
-    }
-    catch ( std::runtime_error& e )
-    {
-        std::cout << "runtime error during load:" << std::endl
-                  << e.what() << std::endl;
-//                  << std::endl
-//                  << "Press ENTER to exit..." << std::endl;
-//        std::string s;
-//        std::cin >> s;
-        return EXIT_FAILURE;
-    }
 
                                     
-//    osg::ref_ptr< osgCal::AllMeshesSoftware > amhw = new osgCal::AllMeshesSoftware;
-    osg::ref_ptr< osgCal::AllMeshesHardware > amhw = new osgCal::AllMeshesHardware;
+//        osg::ref_ptr< osgCal::AllMeshesSoftware > amhw = new osgCal::AllMeshesSoftware;
+        osg::ref_ptr< osgCal::AllMeshesHardware > amhw = new osgCal::AllMeshesHardware;
             
-    root->addChild( makeModel( coreModel.get(),
-                               amhw.get(),
-                               meshFilter.get(),
-                               animNum ) );
+        root->addChild( makeModel( coreModel.get(),
+                                   amhw.get(),
+                                   meshFilter.get(),
+                                   animNum ) );
     } // end of model's ref_ptr scope
 
     // -- Setup viewer --
