@@ -415,13 +415,14 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         // -- Done with mesh --
         meshes.push_back( m );
 
-        std::cout << "mesh: " << m.name << std::endl
-                  << "material:\n" << m.hwStateDesc << std::endl
-                  << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
-                  << "  m.hardwareMesh->meshId    = " << m.hardwareMesh->meshId << std::endl
-                  << "  m.hardwareMesh->submeshId = " << m.hardwareMesh->submeshId << std::endl
-                  << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
-                  << "  m.indexesCount            = " << m.getIndexesCount() << std::endl;
+        osg::notify( osg::INFO )
+            << "mesh: " << m.name << std::endl
+            << "material:\n" << m.hwStateDesc << std::endl
+            << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
+            << "  m.hardwareMesh->meshId    = " << m.hardwareMesh->meshId << std::endl
+            << "  m.hardwareMesh->submeshId = " << m.hardwareMesh->submeshId << std::endl
+            << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
+            << "  m.indexesCount            = " << m.getIndexesCount() << std::endl;
     }
 
     // -- Check zero weight bones --
@@ -569,8 +570,7 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
         }
         else if ( prefix == "Glossiness:" )
         {
-            glossiness = stringToFloat( suffix ) * 128;
-            // TODO: this must be done in exporter
+            glossiness = stringToFloat( suffix );
         }
         else if ( prefix == "Sides:" )
         {
