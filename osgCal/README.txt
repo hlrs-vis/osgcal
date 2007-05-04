@@ -22,6 +22,7 @@ Features:
   an API for changing between different animations without knowing anything
   about cal3d.
 * Uses GLSL hardware skinning, yet supporting OSG picking.
+* Can be switched to fixed function implementation.
 * Supports normal mapped, two-sided & transparent meshes.
 * Uses different shaders (with minimum of instructions) for different
   materials.
