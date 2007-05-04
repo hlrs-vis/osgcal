@@ -1,0 +1,174 @@
+/* -*- c++ -*-
+    Copyright (C) 2003 <ryu@gpul.org>
+    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+#ifndef __OSGCAL__MODEL_H__
+#define __OSGCAL__MODEL_H__
+
+#include <osg/Group>
+#include <osg/Geometry>
+
+#include <cal3d/cal3d.h>
+
+#include <osgCal/CoreModel>
+#include <osgCal/Export>
+
+namespace osgCal {
+
+    // -- Mesh type selection for Model::load --
+
+    enum MeshType
+    {
+        MT_HARDWARE = 0,
+        MT_SOFTWARE = 1
+    };
+
+    struct OSGCAL_EXPORT MeshTyper : public osg::Referenced
+    {
+            virtual ~MeshTyper() {};
+            virtual MeshType type( const CoreModel::Mesh& mesh ) = 0;
+    };
+
+    struct OSGCAL_EXPORT AllMeshesHardware : public MeshTyper
+    {
+            virtual MeshType type( const CoreModel::Mesh& mesh )
+            {
+                return MT_HARDWARE;
+            }
+    };
+
+    struct OSGCAL_EXPORT AllMeshesSoftware : public MeshTyper
+    {
+            virtual MeshType type( const CoreModel::Mesh& mesh )
+            {
+                return MT_SOFTWARE;
+            }
+    };
+    
+    // -- Mesh filtering for Model::load --
+
+    struct OSGCAL_EXPORT MeshFilter : public osg::Referenced
+    {
+            virtual ~MeshFilter() {};
+            virtual bool filter( const CoreModel::Mesh& mesh ) = 0;
+    };
+
+    struct OSGCAL_EXPORT AllMeshes : public MeshFilter
+    {
+            bool filter( const CoreModel::Mesh& mesh ) { return true; }
+    };
+
+    struct OSGCAL_EXPORT OneMesh : public MeshFilter
+    {
+            std::string meshName;
+
+            OneMesh( const std::string& mn )
+                : meshName( mn )
+            {}
+
+            bool filter( const CoreModel::Mesh& mesh ) { return mesh.name == meshName; }
+    };
+
+    // -- Model --
+    
+    class OSGCAL_EXPORT Model: public osg::Group//osg::Geode
+    {
+
+        public:
+
+            META_Object(osgCal, Model);
+
+            Model();
+
+        public:
+
+            /**
+             * Create model from core model.
+             * This function may be called only once.
+             */
+            void load( CoreModel* coreModel,
+                       MeshTyper* meshTyper = 0,
+                       MeshFilter* meshFilter = 0 );
+
+            /**
+             * Update meshes.
+             * Software meshes only since hw meshes are calculated on video board
+             * each frame.
+             */
+            void update();
+
+            CalModel*  getCalModel() { return calModel; }
+            CoreModel* getCoreModel() { return coreModel.get(); }
+            VertexBuffer* getVertexBuffer() { return vertexBuffer.get(); }           
+            /**
+             * Return local model's normals buffer. It exists only
+             * when there are some software meshes. Otherwise it's NULL.
+             */
+            NormalBuffer* getNormalBuffer() { return normalBuffer.get(); }
+
+            typedef osg::ByteArray UpdateFlagBuffer;
+
+            UpdateFlagBuffer* getUpdateFlagBuffer() { return updateFlagBuffer.get(); }
+
+            /**
+             * Blend animation cycle to the specified weight
+             * in specified time.
+             */
+            void blendCycle( int id,
+                             float weight,
+                             float delay );
+
+            /**
+             * Clear animation cycle in specified amount of time.
+             */
+            void clearCycle( int id,
+                             float delay );
+
+            osg::Geometry* getMesh( const std::string& name ) const throw (std::runtime_error);
+
+        protected:
+
+            virtual ~Model();
+
+        private:
+
+            Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
+
+            osg::ref_ptr< CoreModel >   coreModel;
+            CalModel*                   calModel;
+
+            typedef std::map< std::string, osg::ref_ptr< osg::Geometry > > MeshMap;
+
+            MeshMap                     meshes;
+
+            /**
+             * Local model's vertex buffer.
+             */
+            osg::ref_ptr< VertexBuffer >        vertexBuffer;
+
+            /**
+             * Local model's normals buffer.
+             * Used only in software mode.
+             */
+            osg::ref_ptr< NormalBuffer >        normalBuffer;
+
+            osg::ref_ptr< UpdateFlagBuffer >    updateFlagBuffer;
+    };
+
+}; // namespace osgCal
+
+#endif
