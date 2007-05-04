@@ -179,7 +179,7 @@ endif
 # Directories traversed in the TOPDIR/examples directory
 
 APPLICATION_DIRS = \
-	exporter nmexport preparer viewer
+	preparer viewer
 
 #     osgversion
 
