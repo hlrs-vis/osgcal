@@ -66,56 +66,9 @@ main( int argc,
       const char** argv )
 {
     osg::setNotifyLevel( osg::DEBUG_FP );
-    
-    // -- Setup viewer --
-    osgViewer::Viewer viewer;
-
-    // set up the camera manipulators.
-    {
-        osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
-
-        keyswitchManipulator->addMatrixManipulator( '1', "Trackball", new osgGA::TrackballManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '2', "Flight", new osgGA::FlightManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '3', "Drive", new osgGA::DriveManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '4', "Terrain", new osgGA::TerrainManipulator() );
-
-//         std::string pathfile;
-//         char keyForAnimationPath = '5';
-//         while (arguments.read("-p",pathfile))
-//         {
-//             osgGA::AnimationPathManipulator* apm = new osgGA::AnimationPathManipulator(pathfile);
-//             if (apm || !apm->valid()) 
-//             {
-//                 unsigned int num = keyswitchManipulator->getNumMatrixManipulators();
-//                 keyswitchManipulator->addMatrixManipulator( keyForAnimationPath, "Path", apm );
-//                 keyswitchManipulator->selectMatrixManipulator(num);
-//                 ++keyForAnimationPath;
-//             }
-//         }
-
-        viewer.setCameraManipulator( keyswitchManipulator.get() );
-    }
-
-    // add the state manipulator
-    viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );
-    
-    // add the thread model handler
-//    viewer.addEventHandler(new ThreadingHandler);
-
-    // add the stats handler
-    viewer.addEventHandler( new osgViewer::StatsHandler );
-
-    // add the help handler
-//    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
 
     osg::Group* root = new osg::Group();
-    viewer.realize();
-    viewer.frame();
-
-//    viewer.getCullSettings().setDefaults();
-//    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
-//    viewer.getCullSettings().setCullingMode( osg::CullSettings::DEFAULT_CULLING & ~osg::CullSettings::NEAR_PLANE_CULLING);
-
+    
     // -- Load model --
     { // scope for model ref_ptr
     osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
@@ -188,7 +141,11 @@ main( int argc,
     }
     else
     {
-        coreModel->load( "abdulla/cal3d.cfg" );        
+        std::cout << "Usage:\n"
+                  << "  osgCalViewer <cal3d>.cfg\n"
+                  << "  osgCalViewer <mesh-name>.cmf\n"
+                  << "  osgCalViewer <animation-name>.caf" << std::endl;
+        return 0;
     }
     }
     catch ( std::runtime_error& e )
@@ -211,6 +168,54 @@ main( int argc,
                                meshFilter.get(),
                                animNum ) );
     } // end of model's ref_ptr scope
+
+    // -- Setup viewer --
+    osgViewer::Viewer viewer;
+
+    // set up the camera manipulators.
+    {
+        osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
+
+        keyswitchManipulator->addMatrixManipulator( '1', "Trackball", new osgGA::TrackballManipulator() );
+        keyswitchManipulator->addMatrixManipulator( '2', "Flight", new osgGA::FlightManipulator() );
+        keyswitchManipulator->addMatrixManipulator( '3', "Drive", new osgGA::DriveManipulator() );
+        keyswitchManipulator->addMatrixManipulator( '4', "Terrain", new osgGA::TerrainManipulator() );
+
+//         std::string pathfile;
+//         char keyForAnimationPath = '5';
+//         while (arguments.read("-p",pathfile))
+//         {
+//             osgGA::AnimationPathManipulator* apm = new osgGA::AnimationPathManipulator(pathfile);
+//             if (apm || !apm->valid()) 
+//             {
+//                 unsigned int num = keyswitchManipulator->getNumMatrixManipulators();
+//                 keyswitchManipulator->addMatrixManipulator( keyForAnimationPath, "Path", apm );
+//                 keyswitchManipulator->selectMatrixManipulator(num);
+//                 ++keyForAnimationPath;
+//             }
+//         }
+
+        viewer.setCameraManipulator( keyswitchManipulator.get() );
+    }
+
+    // add the state manipulator
+    viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );
+    
+    // add the thread model handler
+//    viewer.addEventHandler(new ThreadingHandler);
+
+    // add the stats handler
+    viewer.addEventHandler( new osgViewer::StatsHandler );
+
+    // add the help handler
+//    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
+
+    viewer.realize();
+    viewer.frame();
+
+//    viewer.getCullSettings().setDefaults();
+//    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
+//    viewer.getCullSettings().setCullingMode( osg::CullSettings::DEFAULT_CULLING & ~osg::CullSettings::NEAR_PLANE_CULLING);
 
 //    root->getOrCreateStateSet()->setAttributeAndModes( new osg::CullFace, osg::StateAttribute::ON );
     // turn on back face culling
