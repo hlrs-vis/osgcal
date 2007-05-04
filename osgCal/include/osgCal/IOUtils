@@ -1,0 +1,134 @@
+/* -*- c++ -*-
+    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+#ifndef __OSGCAL__IOUTILS_H__
+#define __OSGCAL__IOUTILS_H__
+
+#include <stdexcept>
+
+#include <cal3d/cal3d.h>
+
+#include <osgCal/Export>
+#include <osg/Array>
+
+namespace osgCal
+{
+
+    // -- Some string utilities (used in material map names) --
+    
+    /**
+     * Return "prefix" from "prefix:foo:bar/baz" or empty string
+     * when no ':' found.
+     */
+    std::string getPrefix( const std::string& str );
+
+    /**
+     * Return "suffix" from "foo:bar/baz:suffix" or whole string
+     * when no ':' found.
+     */
+    std::string getSuffix( const std::string& str );
+
+    std::string getAfter( const std::string& prefix,
+                          const std::string& str );
+
+    bool prefixEquals( const std::string& str,
+                       const std::string& prefix );
+
+    bool endsWith( const std::string& str,
+                   const std::string& suffix );
+
+
+    // -- Some other utilities --
+    
+    bool OSGCAL_EXPORT isFileOlder( const std::string& fileName1,
+                                    const std::string& fileName2 );
+
+
+    // -- Vertex buffer objects & I/O --
+#define OSGCAL_MAX_BONES_PER_MESH       30
+#define OSGCAL_MAX_VERTEX_PER_MODEL     1000000
+
+    typedef osg::Vec3Array      VertexBuffer;
+    typedef osg::Vec4Array      WeightBuffer;
+    typedef osg::Vec4sArray     MatrixIndexBuffer;
+    typedef osg::Vec3Array      NormalBuffer;
+    typedef osg::Vec3Array      TangentBuffer;
+    typedef osg::Vec3Array      BinormalBuffer;
+    typedef osg::Vec2Array      TexCoordBuffer;
+    typedef osg::UIntArray      IndexBuffer;
+
+    struct OSGCAL_EXPORT VBOs
+    {
+        public:
+
+            int vertexCount;
+            int faceCount;
+
+            osg::ref_ptr< VertexBuffer >        vertexBuffer;
+            osg::ref_ptr< WeightBuffer >        weightBuffer;
+            osg::ref_ptr< MatrixIndexBuffer >   matrixIndexBuffer;
+            osg::ref_ptr< NormalBuffer >        normalBuffer;
+            osg::ref_ptr< TangentBuffer >       tangentBuffer;
+            osg::ref_ptr< BinormalBuffer >      binormalBuffer;
+            osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
+            osg::ref_ptr< IndexBuffer >         indexBuffer;
+            // CalIndex equals to 4 byte UInt
+            // since we handle more than 65536/3 faces
+
+            VBOs( int maxVertices = OSGCAL_MAX_VERTEX_PER_MODEL,
+                  int maxFaces = OSGCAL_MAX_VERTEX_PER_MODEL * 3
+                )
+                : vertexCount( maxVertices )
+                , faceCount( maxFaces )
+                , vertexBuffer( new VertexBuffer( maxVertices ) )
+                , weightBuffer( new WeightBuffer( maxVertices ) )
+                , matrixIndexBuffer( new MatrixIndexBuffer( maxVertices ) )
+                , normalBuffer( new NormalBuffer( maxVertices ) )
+                , tangentBuffer( new TangentBuffer( maxVertices ) )
+                , binormalBuffer( new BinormalBuffer( maxVertices ) )
+                , texCoordBuffer( new TexCoordBuffer( maxVertices ) )
+                , indexBuffer( new IndexBuffer( maxFaces*3 ) )
+            {}
+
+            virtual ~VBOs() {}
+    };
+
+    std::string OSGCAL_EXPORT VBOsCacheFileName( const std::string& cfgFileName );
+    std::string OSGCAL_EXPORT HWModelCacheFileName( const std::string& cfgFileName );
+
+    VBOs* OSGCAL_EXPORT loadVBOs( const std::string& fileName ) throw (std::runtime_error);
+    void  OSGCAL_EXPORT saveVBOs( VBOs* vbos,
+                                  const std::string& fileName ) throw (std::runtime_error);
+
+    VBOs* OSGCAL_EXPORT loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error);
+
+
+    // -- CalHardwareModel I/O --
+    
+    CalHardwareModel* OSGCAL_EXPORT loadHardwareModel( CalCoreModel* calCoreModel,
+                                                       const std::string& fileName )
+        throw (std::runtime_error);
+    void OSGCAL_EXPORT saveHardwareModel( CalHardwareModel* calHardwareModel,
+                                          const std::string& fileName ) throw (std::runtime_error);
+
+    // -- CalCoreModel I/O --
+
+    CalCoreModel* OSGCAL_EXPORT loadCoreModel( const std::string& cfgFileName,
+                                               float& scale ) throw (std::runtime_error);
+}; // namespace osgCal
+
+#endif
