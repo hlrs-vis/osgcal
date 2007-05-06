@@ -4,7 +4,8 @@ include $(TOPDIR)/Make/makedefs
 CXXFILES =\
 	osgCalPreparer.cpp\
 
-LIBS     += -lcal3d -losgDB -L$(ROOTDIR)/bin -losgCal
+INC      += -I/usr/local/OpenSceneGraph/include
+LIBS     += -L/usr/local/OpenSceneGraph/lib -lcal3d -losgDB -L$(ROOTDIR)/bin -losgCal
 
 INSTFILES = \
 	$(CXXFILES)\
