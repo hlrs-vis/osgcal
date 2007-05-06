@@ -18,11 +18,11 @@ CXXFILES =\
 #   -m3dnow -mmmx    -- no difference
 #    -ffast-math     -- no difference + unstable FPS
 
-INC     += -I/usr/local/OpenSceneGraph/include
+INC     += -I/usr/local/OpenSceneGraph/include -I/usr/local/include
 
 DEF     += -DOSGCAL_LIBRARY
 
-LIBS    += -L/usr/local/OpenSceneGraph/lib $(GL_LIBS) $(OTHER_LIBS) -lcal3d -losg -losgDB
+LIBS    += -L/usr/local/OpenSceneGraph/lib -L/usr/local/lib $(GL_LIBS) $(OTHER_LIBS) -lcal3d -losg -losgDB
 
 TARGET_BASENAME = osgCal
 LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
