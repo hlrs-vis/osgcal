@@ -200,9 +200,6 @@ main( int argc,
     // add the help handler
 //    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
 
-    viewer.realize();
-    viewer.frame();
-
 //    viewer.getCullSettings().setDefaults();
 //    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
 //    viewer.getCullSettings().setCullingMode( osg::CullSettings::DEFAULT_CULLING & ~osg::CullSettings::NEAR_PLANE_CULLING);
