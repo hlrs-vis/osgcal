@@ -32,7 +32,7 @@ CoreModel.cpp: \
 		shaders/SkeletalFragmentShader.h
 
 shaders/SkeletalVertexShader.h: SkeletalVertexShader.glsl
-		sed -f ../glsl2cpp.sed ../SkeletalVertexShader.glsl >../shaders/SkeletalVertexShader.h
+		dos2unix <../SkeletalVertexShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShader.h
 
 shaders/SkeletalFragmentShader.h: SkeletalFragmentShader.glsl
-		sed -f ../glsl2cpp.sed ../SkeletalFragmentShader.glsl >../shaders/SkeletalFragmentShader.h
+		dos2unix <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
