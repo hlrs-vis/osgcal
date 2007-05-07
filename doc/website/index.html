@@ -1,0 +1,89 @@
+<html>
+<head>
+ <link rel="STYLESHEET" type="text/css" href="estilo.css"/>
+ <title>osgCal2 - Adapting cal3d to OpenScenegraph</title>
+</head>
+<body bgcolor="white">
+<center><h1>osgCal2</h1></center>
+<br>
+<b>News?</b><br>
+<p><b>2005-06-01</b>: osgCal2 <b>0.2.1</b> released! The previous file was
+wrong, use this new version. I forgot also to mention that it has Jan
+Ciger's changes, to improve rendering code and state management.</p>
+
+<p><b>2005-06-01</b>: osgCal2 <b>0.2.0</b> released! Download it 
+<a href="https://sourceforge.net/project/showfiles.php?group_id=79240">here</a>. It's ported to OSG 0.9.9 and Cal3D 0.10.0. Other
+changes include:
+<ul>
+ <li>Fixed the problem with flip textures
+ <li>Fixed initial time values for the animations
+ <li>Fixed problem with the new empty constructor of Model class
+ <li>New method to load animations and associate one name to save and
+recover them later.
+ <li>New code for read/write animations with its name associated.
+ <li>Fixed the problem of locate textures in the correct path, now the .osg
+model can find them.
+</ul>
+Thanks to Jose A. Iglesias for most of these enhancements.</p>
+
+<p><b>2005-03-30</b>: <b>New status</b>: There are currently <b>two</b> active
+branches of this project. One of them is the one that was always at this
+page, it's LGPL as always, and it will remain the same. There is another
+branch, maintained by Loic Dachary, licensed under GPL, with changes that
+his group have made. Their policy is to release their changes under GPL and
+I respect this, but as this conflicts with my own policy for the project,
+both branches will be developed independently.<br>
+A new version of the (LGPL) sources will be uploaded to the SourceForge CVS as soon
+as possible with many improvements and synced with OSG 0.9.8.<br>
+You can access the GPL version at <a
+href="http://cvs.gna.org/viewcvs/underware/osgcal/">'Gna!'</a>, and their
+stable versions are published at <a
+href="http://download.gna.org/underware/debian/unstable/">the download area
+of Gna!</a><br>
+To minimize confussions, we will refer to the GPL version as osgCal, and to
+the LGPL version as osgCal2, as the GPL one is already in Debian with this
+name.<br>
+The SF.net CVS repository is reactivated and has the latest patches from
+Jose A. Iglesias.
+
+<p><b>2003-04-27</b>: CVS moved to <a href="https://sourceforge.net/projects/osgcal/">sourceforge</a></p>
+
+<p><b>2003-04-20</b>: 0.1.2 & 0.1.3: Alberto Farre ported it to Windows, and
+added some VisualStudio project files.  He also enhaced the sample to cicle
+between animations with the 'm' key. Keep present that not all the
+animations are thinked for looping although they are all played as loops, so
+some of them can do extrange things... </p>
+
+<p><b>2003-04-19</b>: 0.1.1: Ported to osgProducer and cleaned up the
+example.</p>
+
+<p><b>2003-04-19</b>: 0.1: I've fixed some bugs found by Robert both in the
+library and in the data. Download the new files, please.</p>
+
+<b>What is it?</b><br>
+<p><tt>osgCal</tt> is an adapter for using <a
+href="http://cal3d.sourceforge.net">cal3d</a> inside <a
+href="http://www.openscenegraph.org">OpenSceneGraph</a>.</p>
+
+<p>Cal3D is a character animation library based on skeletons and bones.</p>
+
+<b>Where to download?</b><br>
+<ul>
+  <li><a href="https://sourceforge.net/project/showfiles.php?group_id=79240">Here</a> is the latest release.
+</ul>
+
+<p>If you are a <b><a href="http://www.debian.org">Debian</a></b> user, you
+can use APT to download the <b>GPL</b> version from Debian, but take into
+account that this is the GPL version, and you must ask questions on this
+branch to their authors.</p>
+
+<br><b>Some screenshots?</b><br>
+
+<p>Yes, here you can see the cal3d paladin walking on top of an smoking
+cessnafire:<br>
+
+<a href="paladin_cessnafire.png"><img src="paladin_cessnafire_little.png"
+border="0"></a>
+
+</body>
+</html>

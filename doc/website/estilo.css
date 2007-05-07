@@ -1,0 +1,17 @@
+BODY { font-family: arial,helvetica; background-color: white !important}
+A:link { color: #ff8000; text-decoration: none; }
+A:visited { color: #cf5000; text-decoration: none; }
+A:hover { color: #ffa000; text-decoration: underline; }
+img { border: 0 }
+
+p  { margin-top: .5em;  }
+li { margin: 0; list-style-position: inside }
+ul { margin: 0 }
+	  
+
+.caja { width: 100%; background-color: #000 }
+.caja-peq { width: 80pt; background-color: #000 }
+.caja-titulo { color: white; font-weight: bold }
+.caja-contenido { padding: 3pt; background-color: white; width: 100% }
+TD.obligatorio { text-decoration: underline; font-weight: bold; }
+DIV.obligatorio { text-decoration: underline; font-weight: bold; }
