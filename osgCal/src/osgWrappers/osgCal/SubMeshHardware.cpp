@@ -10,9 +10,9 @@
 #include <osgIntrospection/StaticMethodInfo>
 #include <osgIntrospection/Attributes>
 
-#include <dtsOsgCal/CoreModel>
-#include <dtsOsgCal/Model>
-#include <dtsOsgCal/SubMeshHardware>
+#include <osgCal/CoreModel>
+#include <osgCal/Model>
+#include <osgCal/SubMeshHardware>
 
 // Must undefine IN and OUT macros defined in Windows headers
 #ifdef IN
@@ -22,18 +22,18 @@
 #undef OUT
 #endif
 
-BEGIN_VALUE_REFLECTOR(dtsOsgCal::SubMeshHardware)
+BEGIN_VALUE_REFLECTOR(osgCal::SubMeshHardware)
 	I_Method0(osg::Object *, cloneType);
 	I_Method1(osg::Object *, clone, IN, const osg::CopyOp &, x);
 	I_Method1(bool, isSameKindAs, IN, const osg::Object *, obj);
 	I_Method0(const char *, libraryName);
 	I_Method0(const char *, className);
-	I_Constructor3(IN, dtsOsgCal::Model *, model, IN, int, meshIndex, IN, bool, meshIsStatic);
-	I_Method1(void, drawImplementation, IN, osg::State &, state);
+	I_Constructor3(IN, osgCal::Model *, model, IN, int, meshIndex, IN, bool, meshIsStatic);
+	I_Method1(void, drawImplementation, IN, osg::RenderInfo &, renderInfo);
 	I_Method0(void, create);
 	I_Method0(void, update);
 	I_Method0(osg::BoundingBox, computeBound);
-	I_Method0(dtsOsgCal::CoreModel::Mesh *, getCoreModelMesh);
-	I_ReadOnlyProperty(dtsOsgCal::CoreModel::Mesh *, CoreModelMesh);
+	I_Method0(osgCal::CoreModel::Mesh *, getCoreModelMesh);
+	I_ReadOnlyProperty(osgCal::CoreModel::Mesh *, CoreModelMesh);
 END_REFLECTOR
 
