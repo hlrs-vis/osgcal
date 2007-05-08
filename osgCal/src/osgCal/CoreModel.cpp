@@ -305,9 +305,9 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
     try // try load cached vbos
     {
-        if ( Cal::LIBRARY_VERSION != 1000 )
+        if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 )
         {
-            throw std::runtime_error( "caching was only tested on cal3d 0.10.0" );
+            throw std::runtime_error( "caching was only tested on cal3d 0.10.0 and 0.11.0" );
         }
 //         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
 //         {
