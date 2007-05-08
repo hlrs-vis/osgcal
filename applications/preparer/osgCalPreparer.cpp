@@ -52,9 +52,9 @@ int
 main( int argc,
       const char** argv )
 {
-    if ( Cal::LIBRARY_VERSION != 1000 )
+    if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 )
     {
-        perror( "error: osgCalPreparer tested only on cal3d version 0.10.0" );
+        perror( "error: osgCalPreparer tested only on cal3d version 0.10.0 & 0.11.0" );
         return 2;
     }
     
