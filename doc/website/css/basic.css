@@ -1,0 +1,49 @@
+body {
+	color: black;
+	background-color: white;
+	font-family: Georgia, Times New Roman, Times, serif;    
+}
+
+.lang_header {
+	color: black;
+	background-color: white;
+	font-family : Georgia, Times New Roman, Times, serif;
+	font-size : small;
+}
+
+.footer {
+	color: black;
+	background-color: white;
+	/*font-family : Georgia, Times New Roman, Times, serif;/*serif;*/
+	/*font-size : small;*/
+	font-family : serif;
+	font-size : small;
+}
+
+p {  }
+.caption { /*padding-top: 1em;*/ }
+/*.date    { font-size:100%; color:#555555; line-height:100%;}*/
+.date_first { margin-bottom:0.5em; margin-top:0em;   font-weight: bold; }
+.date       { margin-bottom:0.5em; margin-top:1.5em; font-weight: bold; }
+
+.heading_first { font-size : large; margin-bottom:0.5em; margin-top:0em;   font-weight: bold; }
+.heading       { font-size : large; margin-bottom:0.5em; margin-top:1.5em; font-weight: bold; }
+
+.p_small_bottom { margin-bottom:0.5em;  }
+
+pre { margin-left:0.5em; margin-bottom:1em; margin-top:0.5em;}
+
+td {}
+
+hr.l1			{color:#555555; height:1px; border-style:none; background-color:#555555;
+                 /*margin-top:0; margin-bottom:0;*/}
+
+a:link { color: blue }
+
+a:visited { color: purple }
+
+a:hover { }
+
+a:active { color: red }
+
+.list			{margin-left:0em; margin-bottom:1.5em; margin-top:0em;}
