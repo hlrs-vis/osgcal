@@ -8,6 +8,7 @@
  * http://sam.zoy.org/wtfpl/COPYING for more details.
  */
 #include <osgViewer/Viewer>
+#include <osg/ArgumentParser>
 #include <osg/MatrixTransform>
 #include <osg/CullFace>
 #include <osg/Light>
@@ -47,7 +48,7 @@ makeModel( osgCal::CoreModel* cm,
 
     if ( animNum != -1 )
     {
-        model->getCalModel()->getMixer()->blendCycle(animNum, 1.0f, 0);
+        model->blendCycle( animNum, 1.0f, 0 );
     }
 
     return model;
@@ -61,11 +62,244 @@ T normalize( const T& v )
     return r;
 }
 
+/**
+ * Add window in multi-window setup.
+ */
+void
+addWindow( osgViewer::Viewer& viewer,
+           int x,
+           int y,
+           int width,
+           int height,
+           float xTranslate,
+           float yTranslate )
+{
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = x;
+    traits->y = y;
+    traits->width = width;
+    traits->height = height;
+    traits->windowDecoration = true;
+    traits->doubleBuffer = true;
+    traits->sharedContext = 0;
+
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+
+    osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+    camera->setGraphicsContext(gc.get());
+    camera->setViewport(new osg::Viewport(0,0, traits->width, traits->height));
+    GLenum buffer = traits->doubleBuffer ? GL_BACK : GL_FRONT;
+    camera->setDrawBuffer(buffer);
+    camera->setReadBuffer(buffer);
+
+    // add this slave camra to the viewer, with a shift left of the projection matrix
+    viewer.addSlave(camera.get(), osg::Matrixd::translate( xTranslate, yTranslate, 0.0),
+                    osg::Matrixd());
+}
+
+// copied from osgviewer sample
+class FullScreenToggleHandler : public osgGA::GUIEventHandler 
+{
+public: 
+
+    FullScreenToggleHandler() {}
+        
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
+        if (!viewer) return false;
+    
+        switch(ea.getEventType())
+        {
+            case(osgGA::GUIEventAdapter::KEYDOWN):
+            {
+                if (ea.getKey()=='f')
+                {
+                    osgViewer::Viewer::Windows windows;
+                    viewer->getWindows(windows);
+                    
+                    for(osgViewer::Viewer::Windows::iterator itr = windows.begin();
+                        itr != windows.end();
+                        ++itr)
+                    {
+                        toggleFullscreen(*itr);
+                    }
+                }
+            }
+            default: break;
+        }
+        
+        return false;
+    }
+    
+    /** Get the keyboard and mouse usage of this manipulator.*/
+    virtual void getUsage(osg::ApplicationUsage& usage) const
+    {
+        usage.addKeyboardMouseBinding("f", "Toggle full screen.");
+    }
+
+
+    void toggleFullscreen(osgViewer::GraphicsWindow* window)
+    {
+
+        osg::GraphicsContext::WindowingSystemInterface* wsi = osg::GraphicsContext::getWindowingSystemInterface();
+        if (!wsi) 
+        {
+            osg::notify(osg::NOTICE)<<"Error, no WindowSystemInterface available, cannot toggle window fullscreen."<<std::endl;
+            return;
+        }
+        
+        unsigned int screen_width, screen_height;
+        wsi->getScreenResolution(*(window->getTraits()), screen_width, screen_height);
+        
+        int x, y, width, height;
+        window->getWindowRectangle(x, y, width, height);
+        
+        bool isFullScreen = x==0 && y==0 && width==(int)screen_width && height==(int)screen_height;
+        if (isFullScreen)
+        {
+            window->setWindowRectangle(screen_width/4, screen_height/4, screen_width/2, screen_height/2);
+            window->setWindowDecoration(true);
+        }
+        else
+        {
+            window->setWindowDecoration(false);
+            window->setWindowRectangle(0, 0, screen_width, screen_height);
+        }
+        
+        window->grabFocusIfPointerInWindow();
+    }
+        
+    bool _done;
+};
+
+
+class AnimationToggleHandler : public osgGA::GUIEventHandler 
+{
+    public: 
+
+        AnimationToggleHandler( osgCal::Model* m )
+            : model( m )
+            , animationNames( m->getCoreModel()->getAnimationNames() )
+            , currentAnimation( -1 )
+        {
+        }
+        
+        bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+        {
+            osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
+            if (!viewer) return false;
+    
+            switch(ea.getEventType())
+            {
+                case(osgGA::GUIEventAdapter::KEYDOWN):
+                {
+                    if (ea.getKey() >= '1' && ea.getKey() < '1' + (int)animationNames.size())
+                    {
+                        if ( currentAnimation != -1 )
+                        {
+                            model->clearCycle( currentAnimation, 1.0 ); // clear in 1sec
+                        }
+                        
+                        currentAnimation = ea.getKey() - '1';
+
+                        model->blendCycle( currentAnimation, 1.0f, 1.0 );                        
+                    }
+                    else if ( ea.getKey() == '0' )
+                    {
+                        model->clearCycle( currentAnimation, 0.0 ); // clear now
+                        // TODO: actually it's better to blend to idle animation
+                        currentAnimation = -1;
+                    }
+                }
+                default: break;
+            }
+        
+            return false;
+        }
+    
+        /** Get the keyboard and mouse usage of this manipulator.*/
+        virtual void getUsage(osg::ApplicationUsage& usage) const
+        {
+            usage.addKeyboardMouseBinding( "0", "Stop animation" );
+            
+            for ( size_t i = 0; i < animationNames.size(); i++ )
+            {
+                char k[] = { i + '1', '\0' };
+                usage.addKeyboardMouseBinding( k, animationNames[i] );
+            }
+        }
+
+    private:
+
+        osgCal::Model*              model;
+        std::vector< std::string >  animationNames;
+        int                         currentAnimation;
+
+};
+
+
+
 int
 main( int argc,
-      const char** argv )
+      char** argv )
 {
-    osg::setNotifyLevel( osg::DEBUG_FP );
+    // use an ArgumentParser object to manage the program arguments.
+    osg::ArgumentParser arguments(&argc, argv);
+
+    arguments.getApplicationUsage()->setApplicationName("osgCalViewer");
+    arguments.getApplicationUsage()->setDescription("osgCalViewer");
+    arguments.getApplicationUsage()->setCommandLineUsage("osgCalViewer [options] cal3d.cfg ...");
+    arguments.getApplicationUsage()->addCommandLineOption("--sw", "Use software skinning and fixed-function drawing");
+    arguments.getApplicationUsage()->addCommandLineOption("--hw", "Use hardware (GLSL) skinning and drawing");
+    arguments.getApplicationUsage()->addCommandLineOption("--no-debug", "Don't display debug information");
+    arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display command line parameters");
+    arguments.getApplicationUsage()->addCommandLineOption("--help-env","Display environmental variables available");
+    arguments.getApplicationUsage()->addCommandLineOption("--help-all","Display all command line, env vars and keyboard & mouse bindings.");
+
+    // if user request help write it out to cout.
+    bool helpAll = arguments.read("--help-all");
+    unsigned int helpType =
+        ((helpAll || arguments.read("-h") || arguments.read("--help"))
+         ? osg::ApplicationUsage::COMMAND_LINE_OPTION : 0 ) |
+        ((helpAll || arguments.read("--help-env"))
+         ? osg::ApplicationUsage::ENVIRONMENTAL_VARIABLE : 0 );
+    
+    if ( helpType )
+    {
+        arguments.getApplicationUsage()->write( std::cout, helpType );
+        return 1;
+    }
+
+    // report any errors if they have occurred when parsing the program arguments.
+    if ( arguments.errors() )
+    {
+        arguments.writeErrorMessages( std::cout );
+        return 1;
+    }
+    
+    std::string fn;
+
+    // note currently doesn't delete the loaded file entries from the command line yet...
+    for(int pos=1;pos<arguments.argc();++pos)
+    {
+        if (!arguments.isOption(pos))
+        {
+            fn = arguments[pos];
+        }
+    }
+
+    if ( arguments.argc() <= 1 || fn == "" )
+    {
+        arguments.getApplicationUsage()->write( std::cout,
+                                                osg::ApplicationUsage::COMMAND_LINE_OPTION );
+        return 1;
+    }
+
+    if ( arguments.read( "--no-debug" ) == false )
+    {
+        osg::setNotifyLevel( osg::DEBUG_FP );
+    }
 
     osg::Group* root = new osg::Group();
     
@@ -77,69 +311,57 @@ main( int argc,
 
         try
         {
-            if ( argc > 1 )
+            std::string ext = osgDB::getLowerCaseFileExtension( fn );
+            std::string dir = osgDB::getFilePath( fn );
+            std::string name = osgDB::getStrippedName( fn );
+
+            if ( dir == "" )
             {
-                std::string fn = argv[1];
-                std::string ext = osgDB::getLowerCaseFileExtension( fn );
-                std::string dir = osgDB::getFilePath( fn );
-                std::string name = osgDB::getStrippedName( fn );
+                dir = ".";
+            }
 
-                if ( dir == "" )
+            if ( ext == "caf" )
+            {
+                coreModel->load( dir + "/cal3d.cfg" );
+
+                for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
                 {
-                    dir = ".";
-                }
-
-                if ( ext == "caf" )
-                {
-                    coreModel->load( dir + "/cal3d.cfg" );
-
-                    for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
+                    if ( coreModel->getAnimationNames()[i] == name )
                     {
-                        if ( coreModel->getAnimationNames()[i] == name )
-                        {
-                            animNum = i;
-                            break;
-                        }
-                    }
-
-                    if ( animNum == -1 ) 
-                    {
-                        // animation is absent in cal3d.cfg, so load it manually
-                        CalCoreModel* cm = coreModel->getCalCoreModel();
-
-                        std::cout << coreModel->getScale() << std::endl;
-                        if ( coreModel->getScale() != 1 )
-                        {
-                            // to eliminate scaling of the model by non-scaled anumation
-                            // we scale model back, load animation, and rescale one more time
-                            cm->scale( 1.0 / coreModel->getScale() );
-                        }
-
-                        animNum = cm->loadCoreAnimation( fn );
-
-                        if ( coreModel->getScale() != 1 )
-                        {
-                            cm->scale( coreModel->getScale() );
-                        }
+                        animNum = i;
+                        break;
                     }
                 }
-                else if ( ext == "cmf" )
+
+                if ( animNum == -1 ) 
                 {
-                    coreModel->load( dir + "/cal3d.cfg" );
-                    meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
+                    // animation is absent in cal3d.cfg, so load it manually
+                    CalCoreModel* cm = coreModel->getCalCoreModel();
+
+                    std::cout << coreModel->getScale() << std::endl;
+                    if ( coreModel->getScale() != 1 )
+                    {
+                        // to eliminate scaling of the model by non-scaled anumation
+                        // we scale model back, load animation, and rescale one more time
+                        cm->scale( 1.0 / coreModel->getScale() );
+                    }
+
+                    animNum = cm->loadCoreAnimation( fn );
+
+                    if ( coreModel->getScale() != 1 )
+                    {
+                        cm->scale( coreModel->getScale() );
+                    }
                 }
-                else
-                {
-                    coreModel->load( fn );
-                }
+            }
+            else if ( ext == "cmf" )
+            {
+                coreModel->load( dir + "/cal3d.cfg" );
+                meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
             }
             else
             {
-                std::cout << "Usage:\n"
-                          << "  osgCalViewer <cal3d>.cfg\n"
-                          << "  osgCalViewer <mesh-name>.cmf\n"
-                          << "  osgCalViewer <animation-name>.caf" << std::endl;
-                return 0;
+                coreModel->load( fn );
             }
         }
         catch ( std::runtime_error& e )
@@ -149,44 +371,24 @@ main( int argc,
             return EXIT_FAILURE;
         }
 
-                                    
-//        osg::ref_ptr< osgCal::AllMeshesSoftware > amhw = new osgCal::AllMeshesSoftware;
-        osg::ref_ptr< osgCal::AllMeshesHardware > amhw = new osgCal::AllMeshesHardware;
+        osg::ref_ptr< osgCal::MeshTyper > meshTyper = new osgCal::AllMeshesHardware;
+
+        while ( arguments.read( "--sw" ) ) { meshTyper = new osgCal::AllMeshesSoftware; }
+        while ( arguments.read( "--hw" ) ) { meshTyper = new osgCal::AllMeshesHardware; }
             
         root->addChild( makeModel( coreModel.get(),
-                                   amhw.get(),
+                                   meshTyper.get(),
                                    meshFilter.get(),
                                    animNum ) );
     } // end of model's ref_ptr scope
 
     // -- Setup viewer --
     osgViewer::Viewer viewer;
-
-    // set up the camera manipulators.
-    {
-        osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
-
-        keyswitchManipulator->addMatrixManipulator( '1', "Trackball", new osgGA::TrackballManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '2', "Flight", new osgGA::FlightManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '3', "Drive", new osgGA::DriveManipulator() );
-        keyswitchManipulator->addMatrixManipulator( '4', "Terrain", new osgGA::TerrainManipulator() );
-
-//         std::string pathfile;
-//         char keyForAnimationPath = '5';
-//         while (arguments.read("-p",pathfile))
-//         {
-//             osgGA::AnimationPathManipulator* apm = new osgGA::AnimationPathManipulator(pathfile);
-//             if (apm || !apm->valid()) 
-//             {
-//                 unsigned int num = keyswitchManipulator->getNumMatrixManipulators();
-//                 keyswitchManipulator->addMatrixManipulator( keyForAnimationPath, "Path", apm );
-//                 keyswitchManipulator->selectMatrixManipulator(num);
-//                 ++keyForAnimationPath;
-//             }
-//         }
-
-        viewer.setCameraManipulator( keyswitchManipulator.get() );
-    }
+    
+//     addWindow( viewer,   0,   0, 640, 480,  1.0, -1.0 );
+//     addWindow( viewer, 640,   0, 640, 480, -1.0, -1.0 );
+//     addWindow( viewer,   0, 480, 640, 480,  1.0,  1.0 );
+//     addWindow( viewer, 640, 480, 640, 480, -1.0,  1.0 );
 
     // add the state manipulator
     viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );
@@ -194,11 +396,18 @@ main( int argc,
     // add the thread model handler
 //    viewer.addEventHandler(new ThreadingHandler);
 
+    // add the full screen toggle handler
+    viewer.addEventHandler( new FullScreenToggleHandler );
+
     // add the stats handler
     viewer.addEventHandler( new osgViewer::StatsHandler );
 
     // add the help handler
-//    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
+    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
+
+    // add the animation toggle handler
+    viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0) ) );
+    
 
 //    viewer.getCullSettings().setDefaults();
 //    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
