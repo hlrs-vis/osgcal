@@ -238,6 +238,52 @@ class AnimationToggleHandler : public osgGA::GUIEventHandler
 
 };
 
+class ToggleHandler : public osgGA::GUIEventHandler 
+{
+    public: 
+
+        ToggleHandler( bool& toggleVar,
+                       char  key,
+                       const std::string& help )
+            : toggleVar( &toggleVar )
+            , key( key )
+            , help( help )
+        {
+        }
+        
+        bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+        {
+            osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
+            if (!viewer) return false;
+    
+            switch(ea.getEventType())
+            {
+                case(osgGA::GUIEventAdapter::KEYDOWN):
+                {
+                    if ( ea.getKey() == key )
+                    {
+                        *toggleVar = !(*toggleVar);
+                    }
+                }
+                default: break;
+            }
+        
+            return false;
+        }
+    
+        /** Get the keyboard and mouse usage of this manipulator.*/
+        virtual void getUsage(osg::ApplicationUsage& usage) const
+        {
+            usage.addKeyboardMouseBinding( std::string( 1, key ), help );
+        }
+
+    private:
+
+        bool*       toggleVar;
+        char        key;
+        std::string help;
+};
+
 
 
 int
@@ -408,6 +454,9 @@ main( int argc,
     // add the animation toggle handler
     viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0) ) );
     
+    // add the pause handler
+    bool paused = false;
+    viewer.addEventHandler( new ToggleHandler( paused, 'p', "Pause animation" ) );
 
 //    viewer.getCullSettings().setDefaults();
 //    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
@@ -448,7 +497,37 @@ main( int argc,
 //    osg::Light* light = (osg::Light*)
 //        root->getOrCreateStateSet()->getAttribute( osg::StateAttribute::LIGHT );
 //    std::cout << "light: " << light << std::endl;
-//    viewer.getEventHandlerList().push_back( new osgGA::TrackballManipulator() );  
+//    viewer.getEventHandlerList().push_back( new osgGA::TrackballManipulator() );
 
-    return viewer.run();
+    viewer.setCameraManipulator(new osgGA::TrackballManipulator());
+    viewer.realize();
+
+    osg::Timer_t startTick = osg::Timer::instance()->tick();
+
+    enum PauseState { Unpaused, Paused };
+    PauseState   pauseState = Unpaused;
+    osg::Timer_t pauseStartTick = 0;
+    double       totalPauseTime = 0; 
+
+    while ( !viewer.done() )
+    {
+        osg::Timer_t tick = osg::Timer::instance()->tick();
+
+        if ( pauseState == Unpaused && paused )
+        {
+            pauseState = Paused;
+            pauseStartTick = tick;
+        }
+        if ( pauseState == Paused && !paused )
+        {
+            pauseState = Unpaused;
+            totalPauseTime += osg::Timer::instance()->delta_s( pauseStartTick, tick );
+        }
+
+        double currentTime = osg::Timer::instance()->delta_s( 
+            startTick,
+            pauseState == Unpaused ? tick : pauseStartTick );
+
+        viewer.frame( currentTime - totalPauseTime );
+    }
 }
