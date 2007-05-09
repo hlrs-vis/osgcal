@@ -68,14 +68,12 @@ class CalUpdateCallback: public osg::NodeCallback
             }
             else
             {
-                double time = nv->getFrameStamp()->getReferenceTime();
+                double time = nv->getFrameStamp()->getSimulationTime();
                 deltaTime = time - prevTime;
                 prevTime = time;
             }
 
             CalModel* calModel = model->getCalModel();
-
-            //std::cout << "dt = " << deltaTime << std::endl;
 
             calModel->getAbstractMixer()->updateAnimation(deltaTime);
             calModel->getAbstractMixer()->updateSkeleton();
@@ -83,7 +81,7 @@ class CalUpdateCallback: public osg::NodeCallback
             model->update();
 
             traverse(node, nv);
-            node->dirtyBound();
+//            node->dirtyBound(); <- is it necessary?
         }
 
     private:
