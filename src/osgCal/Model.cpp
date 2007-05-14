@@ -232,7 +232,8 @@ Model::update()
                     continue;
                 }
 
-                throw std::runtime_error( "unexpected drawable type" );
+                //throw std::runtime_error( "unexpected drawable type" );
+                // ^ maybe user add his own drawables
             }
             
             continue;
@@ -258,7 +259,8 @@ Model::update()
                 }
                 else
                 {
-                    throw std::runtime_error( "unexpected drawable type" );                    
+                    throw std::runtime_error( "unexpected drawable type" );
+                    // ^ currently, first mesh is always SubMeshSoftware/Hardware
                 }
             }
 
