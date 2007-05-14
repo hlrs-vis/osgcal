@@ -54,7 +54,7 @@ namespace osgCal
 
     // -- Some other utilities --
     
-    bool OSGCAL_EXPORT isFileOlder( const std::string& fileName1,
+    OSGCAL_EXPORT bool isFileOlder( const std::string& fileName1,
                                     const std::string& fileName2 );
 
 
@@ -107,27 +107,27 @@ namespace osgCal
             virtual ~VBOs() {}
     };
 
-    std::string OSGCAL_EXPORT VBOsCacheFileName( const std::string& cfgFileName );
-    std::string OSGCAL_EXPORT HWModelCacheFileName( const std::string& cfgFileName );
+    OSGCAL_EXPORT std::string VBOsCacheFileName( const std::string& cfgFileName );
+    OSGCAL_EXPORT std::string HWModelCacheFileName( const std::string& cfgFileName );
 
-    VBOs* OSGCAL_EXPORT loadVBOs( const std::string& fileName ) throw (std::runtime_error);
-    void  OSGCAL_EXPORT saveVBOs( VBOs* vbos,
+    OSGCAL_EXPORT VBOs* loadVBOs( const std::string& fileName ) throw (std::runtime_error);
+    OSGCAL_EXPORT void  saveVBOs( VBOs* vbos,
                                   const std::string& fileName ) throw (std::runtime_error);
 
-    VBOs* OSGCAL_EXPORT loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error);
+    OSGCAL_EXPORT VBOs* loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error);
 
 
     // -- CalHardwareModel I/O --
     
-    CalHardwareModel* OSGCAL_EXPORT loadHardwareModel( CalCoreModel* calCoreModel,
+    OSGCAL_EXPORT CalHardwareModel* loadHardwareModel( CalCoreModel* calCoreModel,
                                                        const std::string& fileName )
         throw (std::runtime_error);
-    void OSGCAL_EXPORT saveHardwareModel( CalHardwareModel* calHardwareModel,
+    OSGCAL_EXPORT void saveHardwareModel( CalHardwareModel* calHardwareModel,
                                           const std::string& fileName ) throw (std::runtime_error);
 
     // -- CalCoreModel I/O --
 
-    CalCoreModel* OSGCAL_EXPORT loadCoreModel( const std::string& cfgFileName,
+    OSGCAL_EXPORT CalCoreModel* loadCoreModel( const std::string& cfgFileName,
                                                float& scale ) throw (std::runtime_error);
 }; // namespace osgCal
 
