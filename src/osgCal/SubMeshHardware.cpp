@@ -15,13 +15,16 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <GL/glu.h>
-
 #include <osg/VertexProgram>
 #include <osg/GL2Extensions>
 #include <osg/CullFace>
 
 #include <osgCal/SubMeshHardware>
+
+#include <GL/glu.h> // Ovidiu Sabou (for compiling using Visual C++):
+                    // The glu header must be included after the osg
+                    // headers (which in turn include windows.h
+                    // first).
 
 using namespace osgCal;
 
