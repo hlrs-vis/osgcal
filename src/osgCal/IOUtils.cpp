@@ -113,6 +113,10 @@ HWModelCacheFileName( const std::string& cfgFileName )
 
 // -- VBOs data type & I/O --
 
+#if defined(_MSC_VER)
+    typedef int int32_t;
+#endif
+    
 VBOs*
 loadVBOs( const std::string& fn ) throw (std::runtime_error)
 {
@@ -594,6 +598,32 @@ loadCoreModel( const std::string& cfgFileName,
                                              + CalError::getLastErrorDescription() );
                 }
                 calCoreModel->getCoreMesh( meshId )->setName( nameToLoad );
+
+                // -- Remove zero influence vertices --
+                // warning: this is a temporary workaround and subject to remove!
+                // (this actually must be fixed in blender exporter)
+                CalCoreMesh* cm = calCoreModel->getCoreMesh( meshId );
+
+                for ( int i = 0; i < cm->getCoreSubmeshCount(); i++ )
+                {
+                    CalCoreSubmesh* sm = cm->getCoreSubmesh( i );
+
+                    std::vector< CalCoreSubmesh::Vertex >& v = sm->getVectorVertex();
+
+                    for ( size_t j = 0; j < v.size(); j++ )
+                    {
+                        std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
+
+                        for ( size_t ii = 0; ii < infl.size(); ii++ )
+                        {
+                            if ( infl[ii].weight == 0 )
+                            {
+                                infl.erase( infl.begin() + ii );
+                                --ii;
+                            }
+                        }
+                    }
+                }
             }
             else if ( !strcmp( buffer, "material" ) )  
             {
