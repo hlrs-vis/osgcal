@@ -353,6 +353,13 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         m.coreSubMesh    = m.coreMesh->getCoreSubmesh( m.hardwareMesh->submeshId );
         m.name           = m.coreMesh->getName();
 
+        if ( m.hardwareMesh->faceCount == 0 )
+        {
+            continue; // rare case, first reported by Ovidiu Sabou
+                      // it not caused any bug on my machine,
+                      // but Ovidiu had osgCalViewer cras
+        }
+
         // -- Calculate maxBonesInfluence & rigidness --
         GLfloat* vertexBuffer = (GLfloat*) bos->vertexBuffer->getDataPointer();
         GLshort* matrixIndexBuffer = (GLshort*) bos->matrixIndexBuffer->getDataPointer();
@@ -364,7 +371,6 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
         m.maxBonesInfluence = 0;
         m.rigid = true;
-        bool unrigged = true; // all weights equal zero
         
         for ( ; begin < end; ++begin )
         {
@@ -378,11 +384,6 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
                 m.rigid = false;
             }
 
-            if ( weightBuffer[ *begin * 4 ] > 0.0 )
-            {
-                unrigged = false;
-            }
-                 
             if ( m.maxBonesInfluence < 1 && weightBuffer[ *begin * 4 + 0 ] > 0.0 )
                 m.maxBonesInfluence = 1;
             if ( m.maxBonesInfluence < 2 && weightBuffer[ *begin * 4 + 1 ] > 0.0 )
@@ -391,9 +392,18 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
                 m.maxBonesInfluence = 3;
             if ( m.maxBonesInfluence < 4 && weightBuffer[ *begin * 4 + 3 ] > 0.0 )
                 m.maxBonesInfluence = 4;
+
+//             std::cout << matrixIndexBuffer[ *begin * 4 + 0 ] << '\t'
+//                       << matrixIndexBuffer[ *begin * 4 + 1 ] << '\t'
+//                       << matrixIndexBuffer[ *begin * 4 + 2 ] << '\t'
+//                       << matrixIndexBuffer[ *begin * 4 + 3 ] << "\t\t"
+//                       << weightBuffer[ *begin * 4 + 0 ] << '\t'
+//                       << weightBuffer[ *begin * 4 + 1 ] << '\t'
+//                       << weightBuffer[ *begin * 4 + 2 ] << '\t'
+//                       << weightBuffer[ *begin * 4 + 3 ] << std::endl;
         }
 
-        if ( unrigged )
+        if ( m.maxBonesInfluence == 0 ) // unrigged mesh
         {
             m.rigid = true; // mesh is rigid when all its vertices are
                             // rigged to one bone with weight = 1.0,
@@ -417,12 +427,14 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
         osg::notify( osg::INFO )
             << "mesh: " << m.name << std::endl
-            << "material:\n" << m.hwStateDesc << std::endl
+            << "material: " << m.hardwareMesh->pCoreMaterial->getName() << std::endl
+            << m.hwStateDesc << std::endl
             << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
             << "  m.hardwareMesh->meshId    = " << m.hardwareMesh->meshId << std::endl
             << "  m.hardwareMesh->submeshId = " << m.hardwareMesh->submeshId << std::endl
             << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
-            << "  m.indexesCount            = " << m.getIndexesCount() << std::endl;
+            << "  m.indexesCount            = " << m.getIndexesCount() << std::endl
+            << "  m.rigid                   = " << m.rigid << std::endl;
     }
 
     // -- Check zero weight bones --
