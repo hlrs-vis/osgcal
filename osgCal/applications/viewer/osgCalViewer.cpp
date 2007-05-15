@@ -98,6 +98,91 @@ addWindow( osgViewer::Viewer& viewer,
 }
 
 // copied from osgviewer sample
+class ThreadingHandler : public osgGA::GUIEventHandler 
+{
+public: 
+
+    ThreadingHandler()
+    {
+       _tickOrLastKeyPress = osg::Timer::instance()->tick();
+    }
+
+        
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
+        if (!viewer) return false;
+    
+        switch(ea.getEventType())
+        {
+            case(osgGA::GUIEventAdapter::KEYUP):
+            {
+
+                double delta = osg::Timer::instance()->delta_s(_tickOrLastKeyPress, osg::Timer::instance()->tick());
+
+                if (ea.getKey()=='m' && delta>1.0)
+                {
+
+                    _tickOrLastKeyPress = osg::Timer::instance()->tick();
+
+                    switch(viewer->getThreadingModel())
+                    {
+                        case(osgViewer::Viewer::SingleThreaded):
+                            viewer->setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
+                            osg::notify(osg::NOTICE)<<"Threading model 'CullDrawThreadPerContext' selected."<<std::endl;
+                            break;
+                        case(osgViewer::Viewer::CullDrawThreadPerContext):
+                            viewer->setThreadingModel(osgViewer::Viewer::DrawThreadPerContext);
+                            osg::notify(osg::NOTICE)<<"Threading model 'DrawThreadPerContext' selected."<<std::endl;
+                            break;
+                        case(osgViewer::Viewer::DrawThreadPerContext):
+                            viewer->setThreadingModel(osgViewer::Viewer::CullThreadPerCameraDrawThreadPerContext);
+                            osg::notify(osg::NOTICE)<<"Threading model 'CullThreadPerCameraDrawThreadPerContext' selected."<<std::endl;
+                            break;
+                        case(osgViewer::Viewer::CullThreadPerCameraDrawThreadPerContext):
+                            viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+                            osg::notify(osg::NOTICE)<<"Threading model 'SingleThreaded' selected."<<std::endl;
+                            break;
+                        case(osgViewer::Viewer::AutomaticSelection):
+                            viewer->setThreadingModel(viewer->suggestBestThreadingModel());
+                            osg::notify(osg::NOTICE)<<"Threading model 'AutomaticSelection' selected."<<std::endl;
+                            break;
+                    }
+                    return true;
+                }
+                if (ea.getKey()=='e')
+                {
+                    switch(viewer->getEndBarrierPosition())
+                    {
+                        case(osgViewer::Viewer::BeforeSwapBuffers):
+                            viewer->setEndBarrierPosition(osgViewer::Viewer::AfterSwapBuffers);
+                            osg::notify(osg::NOTICE)<<"Threading model 'AfterSwapBuffers' selected."<<std::endl;
+                            break;
+                        case(osgViewer::Viewer::AfterSwapBuffers):
+                            viewer->setEndBarrierPosition(osgViewer::Viewer::BeforeSwapBuffers);
+                            osg::notify(osg::NOTICE)<<"Threading model 'BeforeSwapBuffers' selected."<<std::endl;
+                            break;
+                    }
+                    return true;
+                }
+            }
+            default: break;
+        }
+        
+        return false;
+    }
+    
+    /** Get the keyboard and mouse usage of this manipulator.*/
+    virtual void getUsage(osg::ApplicationUsage& usage) const
+    {
+        usage.addKeyboardMouseBinding("m","Toggle threading model.");
+        usage.addKeyboardMouseBinding("e","Toggle the placement of the end of frame barrier.");
+    }
+
+    osg::Timer_t _tickOrLastKeyPress;
+    bool _done;
+};
+
 class FullScreenToggleHandler : public osgGA::GUIEventHandler 
 {
 public: 
@@ -302,6 +387,10 @@ main( int argc,
     arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display command line parameters");
     arguments.getApplicationUsage()->addCommandLineOption("--help-env","Display environmental variables available");
     arguments.getApplicationUsage()->addCommandLineOption("--help-all","Display all command line, env vars and keyboard & mouse bindings.");
+    arguments.getApplicationUsage()->addCommandLineOption("--SingleThreaded","Select SingleThreaded threading model for viewer.");
+    arguments.getApplicationUsage()->addCommandLineOption("--CullDrawThreadPerContext","Select CullDrawThreadPerContext threading model for viewer.");
+    arguments.getApplicationUsage()->addCommandLineOption("--DrawThreadPerContext","Select DrawThreadPerContext threading model for viewer.");
+    arguments.getApplicationUsage()->addCommandLineOption("--CullThreadPerCameraDrawThreadPerContext","Select CullThreadPerCameraDrawThreadPerContext threading model for viewer.");
 
     // if user request help write it out to cout.
     bool helpAll = arguments.read("--help-all");
@@ -440,7 +529,7 @@ main( int argc,
     viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );
     
     // add the thread model handler
-//    viewer.addEventHandler(new ThreadingHandler);
+    viewer.addEventHandler(new ThreadingHandler);
 
     // add the full screen toggle handler
     viewer.addEventHandler( new FullScreenToggleHandler );
@@ -457,6 +546,11 @@ main( int argc,
     // add the pause handler
     bool paused = false;
     viewer.addEventHandler( new ToggleHandler( paused, 'p', "Pause animation" ) );
+
+    while (arguments.read("--SingleThreaded")) viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    while (arguments.read("--CullDrawThreadPerContext")) viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
+    while (arguments.read("--DrawThreadPerContext")) viewer.setThreadingModel(osgViewer::Viewer::DrawThreadPerContext);
+    while (arguments.read("--CullThreadPerCameraDrawThreadPerContext")) viewer.setThreadingModel(osgViewer::Viewer::CullThreadPerCameraDrawThreadPerContext);
 
 //    viewer.getCullSettings().setDefaults();
 //    viewer.getCullSettings().setComputeNearFarMode( osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR );
