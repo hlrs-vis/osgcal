@@ -428,10 +428,44 @@ SubMeshHardware::update()
         
             rotationTranslationMatrices.push_back( std::make_pair( r, v ) );
 
-            if ( rotation[0] != 1 || rotation[4] != 1 || rotation[8] != 1 ||
-                 translation[0] != 0 || translation[1] != 0 || translation[2] != 0 )
+            if ( 
+                 rotation[0] != 1 || rotation[3] != 0 || rotation[6] != 0 ||
+                 rotation[1] != 0 || rotation[4] != 1 || rotation[7] != 0 ||
+                 rotation[2] != 0 || rotation[5] != 0 || rotation[8] != 1 ||
+                 translation[0] != 0 || translation[1] != 0 || translation[2] != 0
+
+                 // cal3d reports nonzero translations for non-animated models
+                 // and non zero quaternions.
+                 // So we can check for deformations using some epsilon value.
+                 // Two problems:
+                 //   * It is cal3d that must return correct values, no epsilons
+                 //   * When model starts animate there is a delay to compile skinning
+                 //     shaders
+                 // So, the epsilon check is commented until at least 2nd problem
+                 // solved.
+                 
+//                  v.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
+//                  ||
+//                  osg::Vec3( rotationBoneSpace.x,
+//                             rotationBoneSpace.y,
+//                             rotationBoneSpace.z ).length() > 1e-6 // usually 1e-7 .. 1e-8
+                )
             {
                 deformed = true;
+//                 std::cout << "quaternion: "
+//                           << rotationBoneSpace.x << ' '
+//                           << rotationBoneSpace.y << ' '
+//                           << rotationBoneSpace.z << ' '
+//                           << rotationBoneSpace.w << std::endl
+//                           << "rotation:\n"
+//                           << rotation[0] << ' ' << rotation[3] << ' ' << rotation[6] << std::endl
+//                           << rotation[1] << ' ' << rotation[4] << ' ' << rotation[7] << std::endl
+//                           << rotation[2] << ' ' << rotation[5] << ' ' << rotation[8] << std::endl
+//                           << "translation: "
+//                           << translation[0] << ' ' << translation[1] << ' ' << translation[2]
+//                           << "; len = " << v.length() << std::endl
+//                           << "len / bbox.radius = " << v.length() / boundingBox.radius()
+//                           << std::endl;
             }
         }
     }    
