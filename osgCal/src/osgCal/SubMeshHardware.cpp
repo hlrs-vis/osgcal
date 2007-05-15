@@ -89,6 +89,7 @@ SubMeshHardware::clone( const osg::CopyOp& ) const
 void
 SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 {
+    //std::cout << "SubMeshHardware::drawImplementation: start" << std::endl;
     osg::State& state = *renderInfo.getState();
     
     CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
@@ -308,6 +309,8 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 
     UNBIND( TEX_COORD ); // extensions->glBindBuffer(GL_ARRAY_BUFFER_ARB,0);
     UNBIND( INDEX ); // extensions->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
+
+    //std::cout << "SubMeshHardware::drawImplementation: end" << std::endl;
 }
 
 void
