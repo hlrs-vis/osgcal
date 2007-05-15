@@ -73,12 +73,16 @@ class CalUpdateCallback: public osg::NodeCallback
                 prevTime = time;
             }
 
+            //std::cout << "CalUpdateCallback: " << deltaTime << std::endl;
+
             CalModel* calModel = model->getCalModel();
 
             calModel->getAbstractMixer()->updateAnimation(deltaTime);
             calModel->getAbstractMixer()->updateSkeleton();
 
             model->update();
+
+            //std::cout << "CalUpdateCallback: ok" << std::endl;
 
             traverse(node, nv);
 //            node->dirtyBound(); <- is it necessary?
@@ -173,6 +177,11 @@ Model::load( CoreModel* cm,
                 throw std::runtime_error( "Model::load - unknown mesh type" );
         }
 
+        g->setDataVariance( osg::Object::DYNAMIC );
+        // ^ No drawing during updates. Otherwise there will be a
+        // crash in multithreaded osgViewer modes
+        // (first reported by Jan Ciger)
+
         meshes[ mesh.name ] = g;
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable( g );
@@ -187,6 +196,9 @@ Model::load( CoreModel* cm,
             // per-vertex transformations
             osg::MatrixTransform* mt = new osg::MatrixTransform;
 
+            mt->setDataVariance( osg::Object::DYNAMIC );
+            // ^ not sure, is this necessary?
+            
             mt->setMatrix( osg::Matrix::identity() );
             mt->addChild( geode );
             addChild( mt );
