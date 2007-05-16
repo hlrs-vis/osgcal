@@ -76,11 +76,20 @@ class CalUpdateCallback: public osg::NodeCallback
             //std::cout << "CalUpdateCallback: " << deltaTime << std::endl;
 
             CalModel* calModel = model->getCalModel();
+            CalMixer* calMixer = (CalMixer*)calModel->getAbstractMixer();
 
-            calModel->getAbstractMixer()->updateAnimation(deltaTime);
-            calModel->getAbstractMixer()->updateSkeleton();
+            if ( //calMixer->getAnimationVector().size() == <total animations count>
+                 calMixer->getAnimationActionList().size() != 0 ||
+                 calMixer->getAnimationCycle().size() != 0 )
+            {
+                // we update only when we animate something
+                calMixer->updateAnimation(deltaTime); 
+                calMixer->updateSkeleton();
 
-            model->update();
+                model->update();
+                // Model::update is 5-10 times slower than updateAnimation + updateSkeleton
+                // for idle animations.
+            }
 
             //std::cout << "CalUpdateCallback: ok" << std::endl;
 
