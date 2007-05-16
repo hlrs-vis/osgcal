@@ -251,8 +251,18 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
         }
     }
 
-    vbos->vertexCount = calHardwareModel->getTotalVertexCount();
-    vbos->faceCount   = calHardwareModel->getTotalFaceCount();
+    vbos->setVertexCount( calHardwareModel->getTotalVertexCount() );
+    vbos->setFaceCount( calHardwareModel->getTotalFaceCount() );
+    // set{Vertex/Face}Count also resizes VBOs from default 1000000 size
+    // to their real size.
+    //
+    // BTW: that was an "Out of memory" error on some ATI cards
+    // (first reported by Jan Ciger)
+    //
+    // TODO: Interesting -- ATI doesn't support VBOs of a 1 million elements?
+    // The one buffer (and the total sum) is smaller than available
+    // memory, why these "Out of memory" errors?
+    //
 
     GLfloat* texCoordBuffer = (GLfloat*) vbos->texCoordBuffer->getDataPointer();
     GLshort* matrixIndexBuffer = (GLshort*) vbos->matrixIndexBuffer->getDataPointer();

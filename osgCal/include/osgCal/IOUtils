@@ -105,6 +105,24 @@ namespace osgCal
             {}
 
             virtual ~VBOs() {}
+
+            void setVertexCount( int vc )
+            {
+                vertexCount = vc;
+                vertexBuffer->resize( vc );
+                weightBuffer->resize( vc );
+                matrixIndexBuffer->resize( vc );
+                normalBuffer->resize( vc );
+                tangentBuffer->resize( vc );
+                binormalBuffer->resize( vc );
+                texCoordBuffer->resize( vc );
+            }
+
+            void setFaceCount( int fc )
+            {
+                faceCount = fc;
+                indexBuffer->resize( fc*3 );
+            }
     };
 
     OSGCAL_EXPORT std::string VBOsCacheFileName( const std::string& cfgFileName );
