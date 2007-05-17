@@ -42,7 +42,7 @@ shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, te
 shaderText += "    float NdotL = max(0.0, dot( normal, normalize(lightVec) ));\n";
 } else {        
 shaderText += "    vec3 normal = face*normalize(transformedNormal);\n";
-shaderText += "    vec3 lightDir = normalize(vec3(gl_LightSource[0].position));\n";
+shaderText += "    vec3 lightDir = /*normalize*/(vec3(gl_LightSource[0].position));\n";
 shaderText += "    float NdotL = max(0.0, dot( normal, lightDir ));\n";
 }
 shaderText += "   \n";
@@ -86,7 +86,7 @@ shaderText += "        float NdotHV = dot( normal, normalize(/*H*/halfVec) ); //
 shaderText += "//         vec3 R = reflect( -lightDir, normal );\n";
 shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) );\n";
 shaderText += "        //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector\n";
-shaderText += "        float NdotHV = dot( normal, normalize(/*H*/gl_LightSource[0].halfVector.xyz) );\n";
+shaderText += "        float NdotHV = dot( normal, /*normalize(H*/gl_LightSource[0].halfVector.xyz );\n";
 shaderText += "        // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? \n";
 }
 shaderText += "        if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";

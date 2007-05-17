@@ -42,7 +42,7 @@ void main()
     float NdotL = max(0.0, dot( normal, normalize(lightVec) ));
 #else        
     vec3 normal = face*normalize(transformedNormal);
-    vec3 lightDir = normalize(vec3(gl_LightSource[0].position));
+    vec3 lightDir = /*normalize*/(vec3(gl_LightSource[0].position));
     float NdotL = max(0.0, dot( normal, lightDir ));
 #endif
    
@@ -86,7 +86,7 @@ void main()
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
         //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector
-        float NdotHV = dot( normal, normalize(/*H*/gl_LightSource[0].halfVector.xyz) );
+        float NdotHV = dot( normal, /*normalize(H*/gl_LightSource[0].halfVector.xyz );
         // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
 #endif
         if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
