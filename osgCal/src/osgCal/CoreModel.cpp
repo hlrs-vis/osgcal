@@ -113,13 +113,22 @@ class SkeletalShadersSet : public osg::Referenced
 {
     public:
 
+        ~SkeletalShadersSet()
+        {
+            osg::notify( osg::DEBUG_FP ) << "destroying SkeletalShadersSet... " << std::endl;
+            vertexShaders.clear();
+            fragmentShaders.clear();
+            programs.clear();
+            osg::notify( osg::DEBUG_FP ) << "SkeletalShadersSet destroyed" << std::endl;
+        }
+
         osg::Program* get( int flags )
         {
-            ShadersMap::const_iterator shm = shaders.find( flags );
+            ProgramsMap::const_iterator pmi = programs.find( flags );
 
-            if ( shm != shaders.end() )
+            if ( pmi != programs.end() )
             {
-                return shm->second.get();
+                return pmi->second.get();
             }
             else
             {
@@ -134,7 +143,7 @@ class SkeletalShadersSet : public osg::Referenced
 
                 PARSE_FLAGS;
                 
-                osg::Program* s = new osg::Program;
+                osg::Program* p = new osg::Program;
 
                 char name[ 256 ];
                 sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s)",
@@ -146,47 +155,89 @@ class SkeletalShadersSet : public osg::Referenced
                          NORMAL_MAPPING ? ", normal mapping" : "",
                          SHINING ? ", shining" : "" );
                             
-                s->setName( name );
+                p->setName( name );
 
-                s->addShader( new osg::Shader( osg::Shader::VERTEX,
-                                               getVertexShaderText( flags ).data() ) );
-                s->addShader( new osg::Shader( osg::Shader::FRAGMENT,
-                                               getFragmentShaderText( flags ).data() ) );
-                s->addBindAttribLocation( "position", 0 );
+                p->addShader( getVertexShader( flags ) );
+                p->addShader( getFragmentShader( flags ) );
 
-                shaders[ flags ] = s;
-                return s;
+                p->addBindAttribLocation( "position", 0 );
+                // Attribute location binding is needed for ATI.
+                // ATI will draw nothing until one of the attributes
+                // will bound to zero location (BTW, this behaviour
+                // described in OpenGL spec. don't know why on nVidia
+                // it works w/o binding).
+
+                programs[ flags ] = p;
+                return p;
             }            
         }
         
     private:
 
-        std::string getVertexShaderText( int flags )
-        {
-            PARSE_FLAGS;
-            (void)RGBA, (void)OPACITY; // remove unused variable warning
+        osg::Shader* getVertexShader( int flags )
+        {           
+            flags &= ~SHADER_FLAG_RGBA & ~SHADER_FLAG_OPACITY;
+                   // remove irrelevant flags that can lead to
+                   // duplicate shaders in map  
 
-            std::string shaderText;
+            ShadersMap::const_iterator smi = vertexShaders.find( flags );
 
-            #include "shaders/SkeletalVertexShader.h"
+            if ( smi != vertexShaders.end() )
+            {
+                return smi->second.get();
+            }
+            else
+            {                
+                PARSE_FLAGS;
+                (void)RGBA, (void)OPACITY; // remove unused variable warning
 
-            return shaderText;
+                std::string shaderText;
+
+                #include "shaders/SkeletalVertexShader.h"
+
+                osg::Shader* vs = new osg::Shader( osg::Shader::VERTEX,
+                                                   shaderText.data() );
+                vertexShaders[ flags ] = vs;
+                return vs;
+            }
         }
 
-        std::string getFragmentShaderText( int flags )
+        osg::Shader* getFragmentShader( int flags )
         {
-            PARSE_FLAGS;
-            (void)BONES_COUNT; // remove unused variable warning
+            flags &= ~SHADER_FLAG_BONES(0)
+                   & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
+                   & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
+                   // remove irrelevant flags that can lead to
+                   // duplicate shaders in map  
 
-            std::string shaderText;
+            ShadersMap::const_iterator smi = fragmentShaders.find( flags );
 
-            #include "shaders/SkeletalFragmentShader.h"
+            if ( smi != fragmentShaders.end() )
+            {
+                return smi->second.get();
+            }
+            else
+            {                
+                PARSE_FLAGS;
+                (void)BONES_COUNT; // remove unused variable warning
 
-            return shaderText;
+                std::string shaderText;
+
+                #include "shaders/SkeletalFragmentShader.h"
+
+                osg::Shader* fs = new osg::Shader( osg::Shader::FRAGMENT,
+                                                   shaderText.data() );
+                fragmentShaders[ flags ] = fs;
+                return fs;
+            }
         }
 
-        typedef std::map< int, osg::ref_ptr< osg::Program > > ShadersMap;
-        ShadersMap shaders;
+        typedef std::map< int, osg::ref_ptr< osg::Program > > ProgramsMap;
+        ProgramsMap programs;
+
+        typedef std::map< int, osg::ref_ptr< osg::Shader > > ShadersMap;
+        ShadersMap vertexShaders;
+        ShadersMap fragmentShaders;
 };
 
 
