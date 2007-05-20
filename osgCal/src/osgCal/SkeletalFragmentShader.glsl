@@ -7,6 +7,8 @@ uniform sampler2D decalMap;
 #if NORMAL_MAPPING == 1
 uniform sampler2D normalMap;
 
+//varying mat3 eyeBasis; // in tangent space
+
 varying vec3 lightVec;
 #if SHINING
 varying vec3 halfVec;//blinn
@@ -39,10 +41,14 @@ void main()
     vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);
     vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));
+    //  normal = normalize( normal * eyeBasis );
+    // when normal is transformed to eye space we get somewhat
+    // different lighting difference is small, but exists.
+    // and (at least for single light) it's slower
     float NdotL = max(0.0, dot( normal, normalize(lightVec) ));
 #else        
     vec3 normal = face*normalize(transformedNormal);
-    vec3 lightDir = /*normalize*/(vec3(gl_LightSource[0].position));
+    vec3 lightDir = vec3(gl_LightSource[0].position);
     float NdotL = max(0.0, dot( normal, lightDir ));
 #endif
    
@@ -86,7 +92,7 @@ void main()
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
         //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector
-        float NdotHV = dot( normal, /*normalize(H*/gl_LightSource[0].halfVector.xyz );
+        float NdotHV = dot( normal, gl_LightSource[0].halfVector.xyz );
         // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
 #endif
         if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
