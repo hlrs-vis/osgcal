@@ -624,4 +624,8 @@ main( int argc,
 
         viewer.frame( currentTime - totalPauseTime );
     }
+
+    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
+
+    return 0;
 }
