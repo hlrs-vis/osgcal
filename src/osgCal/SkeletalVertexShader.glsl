@@ -32,7 +32,10 @@ varying vec3 transformedNormal;
 
 #if NORMAL_MAPPING == 1
 varying vec3 lightVec;
+#if SHINING
 varying vec3 halfVec;//blinn
+#endif
+//varying mat3 eyeBasis; // in tangent space
 #endif
 
 #if SHINING
@@ -124,9 +127,13 @@ void main()
                               gl_NormalMatrix * transformedBinormal,
                               transformedNormal );
 
-    lightVec = normalize(gl_LightSource[0].position.xyz * tangentBasis);
-    halfVec = normalize(gl_LightSource[0].halfVector.xyz * tangentBasis);
+//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,
+//                      vec3(0,1,0) * tangentBasis,
+//                      vec3(0,0,1) * tangentBasis );
+
+    lightVec = gl_LightSource[0].position.xyz * tangentBasis;
  #if SHINING
+    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;
     //eyeVec *= tangentBasis;
  #endif // no shining
 #endif // NORMAL_MAPPING == 1
@@ -151,9 +158,13 @@ void main()
                               gl_NormalMatrix * binormal,
                               transformedNormal );
 
-    lightVec = normalize(gl_LightSource[0].position.xyz * tangentBasis);
-    halfVec = normalize(gl_LightSource[0].halfVector.xyz * tangentBasis);
+//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,
+//                      vec3(0,1,0) * tangentBasis,
+//                      vec3(0,0,1) * tangentBasis );
+
+    lightVec = gl_LightSource[0].position.xyz * tangentBasis;
  #if SHINING
+    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;
     //eyeVec *= tangentBasis;
  #endif // no shining
 #endif // NORMAL_MAPPING == 1

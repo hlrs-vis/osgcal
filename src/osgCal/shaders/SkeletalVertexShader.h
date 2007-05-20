@@ -32,7 +32,10 @@ shaderText += "varying vec3 transformedNormal;\n";
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "varying vec3 lightVec;\n";
+if ( SHINING ) {
 shaderText += "varying vec3 halfVec;//blinn\n";
+}
+shaderText += "//varying mat3 eyeBasis; // in tangent space\n";
 }
 shaderText += "\n";
 if ( SHINING ) {
@@ -124,9 +127,13 @@ shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * transformedTangen
 shaderText += "                              gl_NormalMatrix * transformedBinormal,\n";
 shaderText += "                              transformedNormal );\n";
 shaderText += "\n";
-shaderText += "    lightVec = normalize(gl_LightSource[0].position.xyz * tangentBasis);\n";
-shaderText += "    halfVec = normalize(gl_LightSource[0].halfVector.xyz * tangentBasis);\n";
+shaderText += "//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,\n";
+shaderText += "//                      vec3(0,1,0) * tangentBasis,\n";
+shaderText += "//                      vec3(0,0,1) * tangentBasis );\n";
+shaderText += "\n";
+shaderText += "    lightVec = gl_LightSource[0].position.xyz * tangentBasis;\n";
  if ( SHINING ) {
+shaderText += "    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } // NORMAL_MAPPING == 1
@@ -151,9 +158,13 @@ shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * tangent,\n";
 shaderText += "                              gl_NormalMatrix * binormal,\n";
 shaderText += "                              transformedNormal );\n";
 shaderText += "\n";
-shaderText += "    lightVec = normalize(gl_LightSource[0].position.xyz * tangentBasis);\n";
-shaderText += "    halfVec = normalize(gl_LightSource[0].halfVector.xyz * tangentBasis);\n";
+shaderText += "//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,\n";
+shaderText += "//                      vec3(0,1,0) * tangentBasis,\n";
+shaderText += "//                      vec3(0,0,1) * tangentBasis );\n";
+shaderText += "\n";
+shaderText += "    lightVec = gl_LightSource[0].position.xyz * tangentBasis;\n";
  if ( SHINING ) {
+shaderText += "    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } // NORMAL_MAPPING == 1

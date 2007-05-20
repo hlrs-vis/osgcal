@@ -7,6 +7,8 @@ shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "uniform sampler2D normalMap;\n";
 shaderText += "\n";
+shaderText += "//varying mat3 eyeBasis; // in tangent space\n";
+shaderText += "\n";
 shaderText += "varying vec3 lightVec;\n";
 if ( SHINING ) {
 shaderText += "varying vec3 halfVec;//blinn\n";
@@ -39,10 +41,14 @@ if ( NORMAL_MAPPING == 1 ) {
 shaderText += "    vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);\n";
 shaderText += "    vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));\n";
 shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));\n";
+shaderText += "    //  normal = normalize( normal * eyeBasis );\n";
+shaderText += "    // when normal is transformed to eye space we get somewhat\n";
+shaderText += "    // different lighting difference is small, but exists.\n";
+shaderText += "    // and (at least for single light) it's slower\n";
 shaderText += "    float NdotL = max(0.0, dot( normal, normalize(lightVec) ));\n";
 } else {        
 shaderText += "    vec3 normal = face*normalize(transformedNormal);\n";
-shaderText += "    vec3 lightDir = /*normalize*/(vec3(gl_LightSource[0].position));\n";
+shaderText += "    vec3 lightDir = vec3(gl_LightSource[0].position);\n";
 shaderText += "    float NdotL = max(0.0, dot( normal, lightDir ));\n";
 }
 shaderText += "   \n";
@@ -86,7 +92,7 @@ shaderText += "        float NdotHV = dot( normal, normalize(/*H*/halfVec) ); //
 shaderText += "//         vec3 R = reflect( -lightDir, normal );\n";
 shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) );\n";
 shaderText += "        //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector\n";
-shaderText += "        float NdotHV = dot( normal, /*normalize(H*/gl_LightSource[0].halfVector.xyz );\n";
+shaderText += "        float NdotHV = dot( normal, gl_LightSource[0].halfVector.xyz );\n";
 shaderText += "        // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? \n";
 }
 shaderText += "        if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
