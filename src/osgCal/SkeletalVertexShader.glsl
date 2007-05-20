@@ -54,63 +54,26 @@ void main()
 #endif
 
 #if BONES_COUNT >= 1
-    vec3 transformedPosition;
-    
-    transformedPosition =  //remark '=' instead of '+='
-        weight.x * (rotationMatrices[int(index.x)] * position + 
-                       translationVectors[int(index.x)]);
-    transformedNormal =  // remark '=' instead of '+='
-        weight.x * (rotationMatrices[int(index.x)] * normal);
- #if NORMAL_MAPPING == 1
-    vec3 transformedTangent;
-    vec3 transformedBinormal;
+    mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];
+    vec3 totalTranslation = weight.x * translationVectors[int(index.x)];
 
-    transformedTangent =  // remark '=' instead of '+='
-        weight.x * (rotationMatrices[int(index.x)] * tangent);
-    transformedBinormal =  // remark '=' instead of '+='
-        weight.x * (rotationMatrices[int(index.x)] * binormal);
- #endif // NORMAL_MAPPING == 1
 #if BONES_COUNT >= 2
-    transformedPosition += 
-        weight.y * (rotationMatrices[int(index.y)] * position + 
-                       translationVectors[int(index.y)]);
-    transformedNormal += 
-        weight.y * (rotationMatrices[int(index.y)] * normal);
- #if NORMAL_MAPPING == 1
-    transformedTangent += 
-        weight.y * (rotationMatrices[int(index.y)] * tangent);
-    transformedBinormal += 
-        weight.y * (rotationMatrices[int(index.y)] * binormal);
- #endif // NORMAL_MAPPING == 1
+    totalRotation += weight.y * rotationMatrices[int(index.y)];
+    totalTranslation += weight.y * translationVectors[int(index.y)];
+
 #if BONES_COUNT >= 3
-    transformedPosition += 
-        weight.z * (rotationMatrices[int(index.z)] * position + 
-                       translationVectors[int(index.z)]);
-    transformedNormal += 
-        weight.z * (rotationMatrices[int(index.z)] * normal);
- #if NORMAL_MAPPING == 1
-    transformedTangent += 
-        weight.z * (rotationMatrices[int(index.z)] * tangent);
-    transformedBinormal += 
-        weight.z * (rotationMatrices[int(index.z)] * binormal);
- #endif // NORMAL_MAPPING == 1
+    totalRotation += weight.z * rotationMatrices[int(index.z)];
+    totalTranslation += weight.z * translationVectors[int(index.z)];
+
 #if BONES_COUNT >= 4
-    transformedPosition += 
-        weight.w * (rotationMatrices[int(index.w)] * position + 
-                       translationVectors[int(index.w)]);
-    transformedNormal += 
-        weight.w * (rotationMatrices[int(index.w)] * normal);
- #if NORMAL_MAPPING == 1
-    transformedTangent += 
-        weight.w * (rotationMatrices[int(index.w)] * tangent);
-    transformedBinormal += 
-        weight.w * (rotationMatrices[int(index.w)] * binormal);
- #endif // NORMAL_MAPPING == 1
+    totalRotation += weight.w * rotationMatrices[int(index.w)];
+    totalTranslation += weight.w * translationVectors[int(index.w)];
 #endif // BONES_COUNT >= 4
 #endif // BONES_COUNT >= 3
 #endif // BONES_COUNT >= 2
 
-    transformedNormal = gl_NormalMatrix * transformedNormal;
+    vec3 transformedPosition = totalRotation * position + totalTranslation;
+    transformedNormal = gl_NormalMatrix * (totalRotation * normal);
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
 #if FOG && !SHINING
     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -123,8 +86,8 @@ void main()
 #endif // no fog
 
 #if NORMAL_MAPPING == 1
-    mat3 tangentBasis = mat3( gl_NormalMatrix * transformedTangent,
-                              gl_NormalMatrix * transformedBinormal,
+    mat3 tangentBasis = mat3( gl_NormalMatrix * totalRotation * tangent,
+                              gl_NormalMatrix * totalRotation * binormal,
                               transformedNormal );
 
 //     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,

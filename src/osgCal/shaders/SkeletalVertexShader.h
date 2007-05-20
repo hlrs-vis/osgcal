@@ -54,63 +54,26 @@ shaderText += "                            // so define it locally\n";
 }
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
-shaderText += "    vec3 transformedPosition;\n";
-shaderText += "    \n";
-shaderText += "    transformedPosition =  //remark '=' instead of '+='\n";
-shaderText += "        weight.x * (rotationMatrices[int(index.x)] * position + \n";
-shaderText += "                       translationVectors[int(index.x)]);\n";
-shaderText += "    transformedNormal =  // remark '=' instead of '+='\n";
-shaderText += "        weight.x * (rotationMatrices[int(index.x)] * normal);\n";
- if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    vec3 transformedTangent;\n";
-shaderText += "    vec3 transformedBinormal;\n";
+shaderText += "    mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];\n";
+shaderText += "    vec3 totalTranslation = weight.x * translationVectors[int(index.x)];\n";
 shaderText += "\n";
-shaderText += "    transformedTangent =  // remark '=' instead of '+='\n";
-shaderText += "        weight.x * (rotationMatrices[int(index.x)] * tangent);\n";
-shaderText += "    transformedBinormal =  // remark '=' instead of '+='\n";
-shaderText += "        weight.x * (rotationMatrices[int(index.x)] * binormal);\n";
- } // NORMAL_MAPPING == 1
 if ( BONES_COUNT >= 2 ) {
-shaderText += "    transformedPosition += \n";
-shaderText += "        weight.y * (rotationMatrices[int(index.y)] * position + \n";
-shaderText += "                       translationVectors[int(index.y)]);\n";
-shaderText += "    transformedNormal += \n";
-shaderText += "        weight.y * (rotationMatrices[int(index.y)] * normal);\n";
- if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    transformedTangent += \n";
-shaderText += "        weight.y * (rotationMatrices[int(index.y)] * tangent);\n";
-shaderText += "    transformedBinormal += \n";
-shaderText += "        weight.y * (rotationMatrices[int(index.y)] * binormal);\n";
- } // NORMAL_MAPPING == 1
+shaderText += "    totalRotation += weight.y * rotationMatrices[int(index.y)];\n";
+shaderText += "    totalTranslation += weight.y * translationVectors[int(index.y)];\n";
+shaderText += "\n";
 if ( BONES_COUNT >= 3 ) {
-shaderText += "    transformedPosition += \n";
-shaderText += "        weight.z * (rotationMatrices[int(index.z)] * position + \n";
-shaderText += "                       translationVectors[int(index.z)]);\n";
-shaderText += "    transformedNormal += \n";
-shaderText += "        weight.z * (rotationMatrices[int(index.z)] * normal);\n";
- if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    transformedTangent += \n";
-shaderText += "        weight.z * (rotationMatrices[int(index.z)] * tangent);\n";
-shaderText += "    transformedBinormal += \n";
-shaderText += "        weight.z * (rotationMatrices[int(index.z)] * binormal);\n";
- } // NORMAL_MAPPING == 1
+shaderText += "    totalRotation += weight.z * rotationMatrices[int(index.z)];\n";
+shaderText += "    totalTranslation += weight.z * translationVectors[int(index.z)];\n";
+shaderText += "\n";
 if ( BONES_COUNT >= 4 ) {
-shaderText += "    transformedPosition += \n";
-shaderText += "        weight.w * (rotationMatrices[int(index.w)] * position + \n";
-shaderText += "                       translationVectors[int(index.w)]);\n";
-shaderText += "    transformedNormal += \n";
-shaderText += "        weight.w * (rotationMatrices[int(index.w)] * normal);\n";
- if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    transformedTangent += \n";
-shaderText += "        weight.w * (rotationMatrices[int(index.w)] * tangent);\n";
-shaderText += "    transformedBinormal += \n";
-shaderText += "        weight.w * (rotationMatrices[int(index.w)] * binormal);\n";
- } // NORMAL_MAPPING == 1
+shaderText += "    totalRotation += weight.w * rotationMatrices[int(index.w)];\n";
+shaderText += "    totalTranslation += weight.w * translationVectors[int(index.w)];\n";
 } // BONES_COUNT >= 4
 } // BONES_COUNT >= 3
 } // BONES_COUNT >= 2
 shaderText += "\n";
-shaderText += "    transformedNormal = gl_NormalMatrix * transformedNormal;\n";
+shaderText += "    vec3 transformedPosition = totalRotation * position + totalTranslation;\n";
+shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * normal);\n";
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
 if ( FOG && !SHINING ) {
 shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
@@ -123,8 +86,8 @@ shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * transformedTangent,\n";
-shaderText += "                              gl_NormalMatrix * transformedBinormal,\n";
+shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * totalRotation * tangent,\n";
+shaderText += "                              gl_NormalMatrix * totalRotation * binormal,\n";
 shaderText += "                              transformedNormal );\n";
 shaderText += "\n";
 shaderText += "//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,\n";
