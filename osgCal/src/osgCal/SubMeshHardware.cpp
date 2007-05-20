@@ -534,47 +534,62 @@ SubMeshHardware::update()
         boundingBox.expandBy( v );                                  \
     }
 
-#define PROCESS_X( _process_y )                                                 \
-    if ( w.x() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.x()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.x()].second;    \
-        v = (mul3(rm, sv) + tv) * w.x();                                        \
-                                                                                \
-        _process_y;                                                             \
-    }                                                                           \
-    else                                                                        \
-    {                                                                           \
-        v = sv;                                                                 \
+#define PROCESS_X( _process_y )                                         \
+    /*if ( w.x() )*/                                                    \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi.x()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.x()].second; \
+        v = (mul3(rm, sv) + tv) * w.x();                                \
+                                                                        \
+        _process_y;                                                     \
+    }                                                                   \
+//     else                                                             
+//     {                                                                
+//         v = sv;                                                      
+//     }
+
+    // Strange, but multiplying each matrix on source vector works
+    // faster than accumulating matrix and multiply at the end (as in
+    // shader)
+    //
+    // And more strange, removing of  branches gives 15% speedup.
+    // Seems that instruction prediction is really bad thing.
+    //
+    // More strange -- after removing branches compilation with
+    // -ftree-vectorize doesn't give any considerable speedup
+    // (only 2-3%).
+    //
+    // And it seems that memory access (even for accumulating matix)
+    // is really expensive (commenting of branches in accumulating code
+    // doesn't change speed at all)
+
+#define PROCESS_Y( _process_z )                                         \
+    /*if ( w.y() )*/                                                    \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi.y()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.y()].second; \
+        v += (mul3(rm, sv) + tv) * w.y();                               \
+                                                                        \
+        _process_z;                                                     \
     }
 
-#define PROCESS_Y( _process_z )                                                 \
-    if ( w.y() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.y()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.y()].second;    \
-        v += (mul3(rm, sv) + tv) * w.y();                                       \
-                                                                                \
-        _process_z;                                                             \
-    }                                                                           \
+#define PROCESS_Z( _process_w )                                         \
+    /*if ( w.z() )*/                                                    \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi.z()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.z()].second; \
+        v += (mul3(rm, sv) + tv) * w.z();                               \
+                                                                        \
+        _process_w;                                                     \
+    }
 
-#define PROCESS_Z( _process_w )                                                 \
-    if ( w.z() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.z()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.z()].second;    \
-        v += (mul3(rm, sv) + tv) * w.z();                                       \
-                                                                                \
-        _process_w;                                                             \
-    }                                                                           \
-
-#define PROCESS_W()                                                             \
-    if ( w.w() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.w()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.w()].second;    \
-        v += (mul3(rm, sv) + tv) * w.w();                                       \
-    }                                                                           \
+#define PROCESS_W()                                                     \
+    /*if ( w.w() )*/                                                    \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi.w()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.w()].second; \
+        v += (mul3(rm, sv) + tv) * w.w();                               \
+    }
 
 #define STOP
 
