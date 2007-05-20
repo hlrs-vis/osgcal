@@ -8,15 +8,15 @@ CXXFILES =\
 	SubMeshHardware.cpp \
 	SubMeshSoftware.cpp
 
-#CXXFLAGS=-march=k8 -ftree-vectorize -O2  -I$(ROOTDIR)/include -DOSGCAL_LIBRARY #-fopenmp
+#OPTF='-march=k8 -ftree-vectorize -O2' # -fopenmp
 #   ^ interesing, but openmp gives speedup only with these options
-#    CXXFLAGS=-march=k8 -m3dnow -mmmx -msse2 -msse3 -ftree-vectorize  -O2 -I$(ROOTDIR)/include -DOSGCAL_LIBRARY 
+#OPTF=-march=k8 -m3dnow -mmmx -msse2 -msse3 -ftree-vectorize -O2
 #   -march=k8      -- 1.5->1.35
 #   -march=k8 -ftree-vectorize -- 1.35 -> 1.15
 #   -ftree-vectorize -- slower 1.5s->1.7s (no improvements w/o march)
 #   -msse2 -msse3    -- slower - back to 1.35
 #   -m3dnow -mmmx    -- no difference
-#    -ffast-math     -- no difference + unstable FPS
+#   -ffast-math     -- no difference + unstable FPS
 
 INC     += -I/usr/local/OpenSceneGraph/include -I/usr/local/include
 
