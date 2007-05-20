@@ -548,7 +548,11 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
     , shaderFlags( 0 )
 {
     float glossiness = 50;
-    float opacity = 1.0;
+    float opacity = 1.0; //m->getDiffuseColor().alpha / 255.0;
+    // We can't set opacity to diffuse color's alpha because of some
+    // test models (cally, paladin, skeleton) have alpha components
+    // equal to zero (this is incorrect, but backward compatibility
+    // is more important).
 
     // -- Scan maps (parameters) --
     for ( int i = 0; i < m->getMapCount(); i++ )
