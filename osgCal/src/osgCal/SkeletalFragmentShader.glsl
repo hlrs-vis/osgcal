@@ -26,6 +26,7 @@ uniform float face;
 
 void main()
 {
+    // -- Calculate normal --
 //    face = gl_FrontFacing ? 1.0 : -1.0;
     // two-sided lighting
     // ATI doesn't know about gl_FrontFacing ???
@@ -44,7 +45,8 @@ void main()
 #else        
     vec3 normal = face*normalize(transformedNormal);
 #endif
-   
+
+    // -- Calculate decal (texture) color --
 // #if RGBA == 1
 //     #define vec3 vec4 <- this is slower than decalColor4...
 //     #define rgb  rgba <-
@@ -58,45 +60,58 @@ void main()
     vec3 decalColor = texture2D(decalMap, texUV).rgb;
   #endif
 #endif
-    vec3 ambient = gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb;
+
+    // -- Global Ambient --
     vec3 globalAmbient = gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb;
-    // there is no performance gain when ambient and diffuse are made uniform, it seems that
-    // driver itself determine that these values are constant and doesn't need to recalculate
-    // for each pixel
 
-    vec3 color = ambient + globalAmbient;
+    vec3 color = globalAmbient;
 
-    vec3 lightDir = gl_LightSource[0].position.xyz;
-    float NdotL = max(0.0, dot( normal, lightDir ) );
-//    if ( NdotL > 0.0 ) // slower than use max(0,...) by 11% (maybe else branch is slow?)
-    {
-        vec3 diffuse = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
-        color += NdotL * diffuse;
+    // -- Lights ambient --
+    vec3 ambient0 = gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb;
+    color += ambient0;
+
+//     vec3 ambient1 = gl_FrontMaterial.ambient.rgb * gl_LightSource[1].ambient.rgb;
+//     color += ambient1;
+
+    // -- Lights diffuse --
+    vec3 lightDir0 = gl_LightSource[0].position.xyz;
+    float NdotL0 = max(0.0, dot( normal, lightDir0 ) );
+    vec3 diffuse0 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
+    color += NdotL0 * diffuse0;
+
+//     vec3 lightDir1 = gl_LightSource[1].position.xyz;
+//     float NdotL1 = max(0.0, dot( normal, lightDir1 ) );
+//     vec3 diffuse1 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[1].diffuse.rgb;
+//     color += NdotL1 * diffuse1;
+
+    // -- Apply decal --
 #if TEXTURING == 1
-        color *= decalColor;
+    color *= decalColor;
 #endif
 
+    // -- Specular --
 #if SHINING == 1
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
-        //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector
-        float NdotHV = dot( normal, gl_LightSource[0].halfVector.xyz );
-        // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
-        if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
+    //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector - very slow
+    float NdotHV0 = dot( normal, gl_LightSource[0].halfVector.xyz );
+    // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
+    if ( NdotHV0 > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
-        {
-            vec3 specular = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb * 
-				pow( NdotHV, gl_FrontMaterial.shininess );
-            color += specular;
-        }
-#endif
+    {
+        vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb * 
+            pow( NdotHV0, gl_FrontMaterial.shininess );
+        color += specular0;
     }
-// #if TEXTURING == 1
-//     else
+
+//     float NdotHV1 = dot( normal, gl_LightSource[1].halfVector.xyz );
+//     if ( NdotHV1 > 0.0 )
 //     {
-//         color *= decalColor;
+//         vec3 specular1 = gl_FrontMaterial.specular.rgb * gl_LightSource[1].specular.rgb * 
+//             pow( NdotHV1, gl_FrontMaterial.shininess );
+//         color += specular1;
 //     }
-// #endif
+#endif // SHINING
 
 #if OPACITY
     float opacity = gl_FrontMaterial.diffuse.a;
