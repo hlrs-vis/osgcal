@@ -75,9 +75,6 @@ namespace osgCal
     {
         public:
 
-            int vertexCount;
-            int faceCount;
-
             osg::ref_ptr< VertexBuffer >        vertexBuffer;
             osg::ref_ptr< WeightBuffer >        weightBuffer;
             osg::ref_ptr< MatrixIndexBuffer >   matrixIndexBuffer;
@@ -90,39 +87,31 @@ namespace osgCal
             // since we handle more than 65536/3 faces
 
             VBOs( int maxVertices = OSGCAL_MAX_VERTEX_PER_MODEL,
-                  int maxFaces = OSGCAL_MAX_VERTEX_PER_MODEL * 3
-                )
-                : vertexCount( maxVertices )
-                , faceCount( maxFaces )
-                , vertexBuffer( new VertexBuffer( maxVertices ) )
-                , weightBuffer( new WeightBuffer( maxVertices ) )
-                , matrixIndexBuffer( new MatrixIndexBuffer( maxVertices ) )
-                , normalBuffer( new NormalBuffer( maxVertices ) )
-                , tangentBuffer( new TangentBuffer( maxVertices ) )
-                , binormalBuffer( new BinormalBuffer( maxVertices ) )
-                , texCoordBuffer( new TexCoordBuffer( maxVertices ) )
-                , indexBuffer( new IndexBuffer( maxFaces*3 ) )
-            {}
+                  int maxFaces = OSGCAL_MAX_VERTEX_PER_MODEL * 3 );
 
-            virtual ~VBOs() {}
+            virtual ~VBOs();
 
-            void setVertexCount( int vc )
-            {
-                vertexCount = vc;
-                vertexBuffer->resize( vc );
-                weightBuffer->resize( vc );
-                matrixIndexBuffer->resize( vc );
-                normalBuffer->resize( vc );
-                tangentBuffer->resize( vc );
-                binormalBuffer->resize( vc );
-                texCoordBuffer->resize( vc );
-            }
+            int getVertexCount() const;
+            int getFaceCount() const;
 
-            void setFaceCount( int fc )
-            {
-                faceCount = fc;
-                indexBuffer->resize( fc*3 );
-            }
+            /**
+             * Sets vertex count and resize all vertex buffers.
+             * @warning Buffers are resized so you must update your
+             * references (if any) to buffers data.
+             */
+            void setVertexCount( int vc );
+
+            /**
+             * Sets face count and resize index buffer.
+             * @warning Index buffer is resized so you must update your
+             * references (if any) to buffer's data.
+             */
+            void setFaceCount( int fc );
+
+        private:
+            
+            int vertexCount;
+            int faceCount;
     };
 
     OSGCAL_EXPORT std::string VBOsCacheFileName( const std::string& cfgFileName );

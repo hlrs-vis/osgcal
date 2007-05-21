@@ -18,6 +18,8 @@
 #include <sys/stat.h>
 #include <stdexcept>
 
+#include <osg/io_utils>
+
 #include <osgDB/FileNameUtils>
 
 #include <osgCal/IOUtils>
@@ -113,6 +115,66 @@ HWModelCacheFileName( const std::string& cfgFileName )
 
 // -- VBOs data type & I/O --
 
+VBOs::VBOs( int maxVertices,
+            int maxFaces )
+    : vertexBuffer( new VertexBuffer( maxVertices ) )
+    , weightBuffer( new WeightBuffer( maxVertices ) )
+    , matrixIndexBuffer( new MatrixIndexBuffer( maxVertices ) )
+    , normalBuffer( new NormalBuffer( maxVertices ) )
+    , tangentBuffer( new TangentBuffer( maxVertices ) )
+    , binormalBuffer( new BinormalBuffer( maxVertices ) )
+    , texCoordBuffer( new TexCoordBuffer( maxVertices ) )
+    , indexBuffer( new IndexBuffer( maxFaces*3 ) )
+    , vertexCount( maxVertices )
+    , faceCount( maxFaces )
+{}
+
+VBOs::~VBOs()
+{}
+
+int
+VBOs::getVertexCount() const
+{
+    return vertexCount;
+}
+
+int
+VBOs::getFaceCount() const
+{
+    return faceCount;
+}
+
+template < typename T >
+void
+resize( osg::ref_ptr< T >& v,
+        int                size )
+{
+    v = new T( v->begin(), v->begin() + size );
+    // STL vector doesn't cut memory on resize
+    // so we manually recreate one of necessary size
+}
+
+void
+VBOs::setVertexCount( int vc )
+{
+    vertexCount = vc;
+    resize( vertexBuffer, vc );
+    resize( weightBuffer, vc );
+    resize( matrixIndexBuffer, vc );
+    resize( normalBuffer, vc );
+    resize( tangentBuffer, vc );
+    resize( binormalBuffer, vc );
+    resize( texCoordBuffer, vc );
+}
+
+void
+VBOs::setFaceCount( int fc )
+{
+    faceCount = fc;
+    resize( indexBuffer, fc*3 );
+}
+
+
 #if defined(_MSC_VER)
     typedef int int32_t;
 #endif
@@ -174,8 +236,8 @@ saveVBOs( VBOs* vbos,
         throw std::runtime_error( "Can't create " + fn );
     }
 
-    int32_t vertexCount = vbos->vertexCount;
-    int32_t faceCount   = vbos->faceCount;
+    int32_t vertexCount = vbos->getVertexCount();
+    int32_t faceCount   = vbos->getFaceCount();
 
 #define WRITE_( _buf, _size )                                                       \
     if ( fwrite( _buf, _size, 1, f ) != 1 )                                         \
@@ -211,7 +273,7 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
 {
     std::auto_ptr< VBOs > vbos( new VBOs() );
 
-    float* floatMatrixIndexBuffer = new float[vbos->vertexCount*4];
+    float* floatMatrixIndexBuffer = new float[vbos->getVertexCount()*4];
 
     calHardwareModel->setVertexBuffer((char*)vbos->vertexBuffer->getDataPointer(),
                                       3*sizeof(float));
@@ -264,17 +326,20 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
     // memory, why these "Out of memory" errors?
     //
 
+    indexBuffer = (GLuint*)vbos->indexBuffer->getDataPointer();
+    // reinitialize index buffer after resize
+    
     GLfloat* texCoordBuffer = (GLfloat*) vbos->texCoordBuffer->getDataPointer();
     GLshort* matrixIndexBuffer = (GLshort*) vbos->matrixIndexBuffer->getDataPointer();
 
-    for ( int i = 0; i < vbos->vertexCount*4; i++ )
+    for ( int i = 0; i < vbos->getVertexCount()*4; i++ )
     {
         matrixIndexBuffer[i] = static_cast< GLshort >( floatMatrixIndexBuffer[i] );
     }
 
     delete[] floatMatrixIndexBuffer;
 
-    //std::cout << "Total vertex count : " << vbos->vertexCount << std::endl;
+    //std::cout << "Total vertex count : " << vbos->getVertexCount() << std::endl;
     //std::cout << "Total face count   : " << vbos->faceCount << std::endl;
    
     // Generate tangents for whole model.
@@ -282,8 +347,8 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
     // we will make all VBOs cached in separate file, so this calculation
     // will be necessary only one time
     {
-        CalVector* tan1 = new CalVector[vbos->vertexCount];
-        CalVector* tan2 = new CalVector[vbos->vertexCount];
+        CalVector* tan1 = new CalVector[vbos->getVertexCount()];
+        CalVector* tan2 = new CalVector[vbos->getVertexCount()];
 
         GLfloat* vertexBuffer = (GLfloat*) vbos->vertexBuffer->getDataPointer();
         GLfloat* tangentBuffer = (GLfloat*) vbos->tangentBuffer->getDataPointer();
@@ -355,7 +420,7 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
             }
         }
     
-        for (long a = 0; a < vbos->vertexCount; a++)
+        for (long a = 0; a < vbos->getVertexCount(); a++)
         {
             CalVector tangent;
             CalVector binormal;
@@ -398,14 +463,14 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
 
     // invert UVs for OpenGL (textures are inverted otherwise - for example, see abdulla/klinok)
     for ( float* tcy = texCoordBuffer + 1;
-          tcy < texCoordBuffer + 2*vbos->vertexCount;
+          tcy < texCoordBuffer + 2*vbos->getVertexCount();
           tcy += 2 )
     {
         *tcy = 1.0f - *tcy;
     }
 
     // prepare tangents and binormals
-//     for ( int i = 0; i < vbos->vertexCount; i++ )
+//     for ( int i = 0; i < vbos->getVertexCount(); i++ )
 //     {
 // //        tmpTangentSpace[i].tangent.x = -tmpTangentSpace[i].tangent.x;
 //         // no flip tangent - looks like anisotropic lights
