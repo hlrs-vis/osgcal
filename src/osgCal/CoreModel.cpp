@@ -583,8 +583,61 @@ MaterialDesc::MaterialDesc( CalCoreMaterial* m,
     specularColor.a() = opacity;
 }
 
+#define lt( a, b, t ) (a < b ? true : ( b < a ? false : t ))
+// // a < b || (!( b < a ) && t )
+    
+bool
+osgCal::operator < ( const MaterialDesc& md1,
+                     const MaterialDesc& md2 )
+{
+    bool r = lt( md1.ambientColor,
+                 md2.ambientColor,
+                 lt( md1.diffuseColor,
+                     md2.diffuseColor,
+                     lt( md1.specularColor,
+                         md2.specularColor,
+                         lt( md1.shininess,
+                             md2.shininess, false ))));
+    return r;
+}
+
+// -- SwStateDesc --
+
+bool
+osgCal::operator < ( const SwStateDesc& d1,
+                     const SwStateDesc& d2 )
+{
+    bool r = lt( d1.material,
+                 d2.material,
+                 lt( d1.diffuseMap,
+                     d2.diffuseMap,
+                     lt( d1.sides,
+                         d2.sides, false )));
+    return r;
+}
 
 // -- HwStateDesc --
+
+bool
+osgCal::operator < ( const HwStateDesc& d1,
+                     const HwStateDesc& d2 )
+{
+    bool r = lt( static_cast< SwStateDesc >( d1 ),
+                 static_cast< SwStateDesc >( d2 ),
+                 lt( d1.normalsMap,
+                     d2.normalsMap,
+                     lt( d1.bumpMap,
+                         d2.bumpMap,
+                         lt( d1.normalsMapAmount,
+                             d2.normalsMapAmount,
+                             lt( d1.bumpMapAmount,
+                                 d2.bumpMapAmount,
+                                 lt( d1.shaderFlags,
+                                     d2.shaderFlags, false ))))));
+    return r;
+}
+
+#undef lt
 
 float
 stringToFloat( const std::string& s )
@@ -688,7 +741,36 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
 }
 
 
+// -- Caches --
+
+template < typename Key, typename Value, typename Class >
+Value*
+getOrCreate( std::map< Key, osg::ref_ptr< Value > >& map,
+             const Key&                              key,
+             Class*                                  obj,
+             Value*                        ( Class::*create )( const Key& ) )
+{
+    typename std::map< Key, osg::ref_ptr< Value > >::const_iterator i = map.find( key );
+    if ( i != map.end() )
+    {
+        return i->second.get();
+    }
+    else
+    {
+        Value* v = (obj ->* create)( key ); // damn c++!
+        map[ key ] = v;
+        return v;
+    }
+}
+                 
+
 // -- Materials cache --
+
+osg::Material*
+MaterialsCache::get( const MaterialDesc& md )
+{
+    return getOrCreate( cache, md, this, &MaterialsCache::createMaterial );
+}
 
 osg::Material*
 MaterialsCache::createMaterial( const MaterialDesc& desc )
@@ -707,6 +789,12 @@ MaterialsCache::createMaterial( const MaterialDesc& desc )
 
 
 // -- Textures cache --
+
+osg::Texture2D*
+TexturesCache::get( const TextureDesc& td )
+{
+    return getOrCreate( cache, td, this, &TexturesCache::createTexture );
+}
 
 osg::Texture2D*
 TexturesCache::createTexture( const TextureDesc& fileName )
@@ -781,6 +869,18 @@ setupTransparentStateSet( osg::StateSet* stateSet )
                                     osg::StateAttribute::PROTECTED );
 }
 
+SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
+                                          TexturesCache* tc )
+    : materialsCache( mc ? mc : new MaterialsCache() )
+    , texturesCache( tc ? tc : new TexturesCache() )
+{}
+            
+osg::StateSet*
+SwMeshStateSetCache::get( const SwStateDesc& swsd )
+{
+    return getOrCreate( cache, swsd, this,
+                        &SwMeshStateSetCache::createSwMeshStateSet );
+}
 osg::StateSet*
 SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
 {
@@ -869,6 +969,19 @@ newIntUniform( osg::Uniform::Type type,
     u->set( value );
 
     return u;
+}
+
+HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
+                                          TexturesCache* tc )
+    : swMeshStateSetCache( swssc ? swssc : new SwMeshStateSetCache() )
+    , texturesCache( tc ? tc : new TexturesCache() )
+{}
+            
+osg::StateSet*
+HwMeshStateSetCache::get( const HwStateDesc& swsd )
+{
+    return getOrCreate( cache, swsd, this,
+                        &HwMeshStateSetCache::createHwMeshStateSet );
 }
 
 osg::StateSet*
