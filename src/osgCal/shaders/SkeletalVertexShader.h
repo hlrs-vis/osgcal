@@ -31,11 +31,7 @@ shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "varying vec3 lightVec;\n";
-if ( SHINING ) {
-shaderText += "varying vec3 halfVec;//blinn\n";
-}
-shaderText += "//varying mat3 eyeBasis; // in tangent space\n";
+shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 }
 shaderText += "\n";
 if ( SHINING ) {
@@ -46,11 +42,6 @@ shaderText += "void main()\n";
 shaderText += "{\n";
 if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
 shaderText += "    texUV = texCoord; // export texCoord to fragment shader\n";
-}
-shaderText += "\n";
-if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    vec3 transformedNormal; // its not used in fragment shader\n";
-shaderText += "                            // so define it locally\n";
 }
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
@@ -73,7 +64,6 @@ shaderText += "    totalTranslation += weight.w * translationVectors[int(index.w
 } // BONES_COUNT >= 2
 shaderText += "\n";
 shaderText += "    vec3 transformedPosition = totalRotation * position + totalTranslation;\n";
-shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * normal);\n";
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
 if ( FOG && !SHINING ) {
 shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
@@ -86,25 +76,27 @@ shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * totalRotation * tangent,\n";
-shaderText += "                              gl_NormalMatrix * totalRotation * binormal,\n";
-shaderText += "                              transformedNormal );\n";
+shaderText += "    mat3 tangentBasis =\n";
+shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, normal );\n";
 shaderText += "\n";
-shaderText += "//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,\n";
-shaderText += "//                      vec3(0,1,0) * tangentBasis,\n";
-shaderText += "//                      vec3(0,0,1) * tangentBasis );\n";
+shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
+shaderText += "//     eyeBasis = mat3( vec3(1.0, 0.0, 0.0) * tangentBasis,\n";
+shaderText += "//                      vec3(0.0, 1.0, 0.0) * tangentBasis,\n";
+shaderText += "//                      vec3(0.0, 0.0, 1.0) * tangentBasis );\n";
+shaderText += "//     ^ this is simply matrix transposition\n";
 shaderText += "\n";
-shaderText += "    lightVec = gl_LightSource[0].position.xyz * tangentBasis;\n";
  if ( SHINING ) {
-shaderText += "    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
+} else { // NORMAL_MAPPING == 1
+shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * normal);\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } else { // no bones
 shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
-shaderText += "    transformedNormal = gl_NormalMatrix * normal;\n";
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(position, 1.0);\n";
 if ( FOG && !SHINING ) {
 shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;\n";
@@ -117,19 +109,24 @@ shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    mat3 tangentBasis = mat3( gl_NormalMatrix * tangent,\n";
-shaderText += "                              gl_NormalMatrix * binormal,\n";
-shaderText += "                              transformedNormal );\n";
+shaderText += "//     mat3 tangentBasis =\n";
+shaderText += "//         gl_NormalMatrix * mat3( tangent, binormal, normal );\n";
+shaderText += "//  ^ why this give us incorrect results?\n";
+shaderText += "    mat4 tangentBasis =\n";
+shaderText += "        gl_ModelViewMatrix * mat4( vec4( tangent, 0.0 ),\n";
+shaderText += "                                   vec4( binormal, 0.0 ),\n";
+shaderText += "                                   vec4( normal, 0.0 ),\n";
+shaderText += "                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
 shaderText += "\n";
-shaderText += "//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,\n";
-shaderText += "//                      vec3(0,1,0) * tangentBasis,\n";
-shaderText += "//                      vec3(0,0,1) * tangentBasis );\n";
+shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
-shaderText += "    lightVec = gl_LightSource[0].position.xyz * tangentBasis;\n";
  if ( SHINING ) {
-shaderText += "    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
+} else { // NORMAL_MAPPING == 1
+shaderText += "    transformedNormal = gl_NormalMatrix * normal;\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1

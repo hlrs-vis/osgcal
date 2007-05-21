@@ -7,16 +7,11 @@ shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "uniform sampler2D normalMap;\n";
 shaderText += "\n";
-shaderText += "//varying mat3 eyeBasis; // in tangent space\n";
-shaderText += "\n";
-shaderText += "varying vec3 lightVec;\n";
-if ( SHINING ) {
-shaderText += "varying vec3 halfVec;//blinn\n";
-}
+shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 }
 shaderText += "\n";
 if ( SHINING ) {
-shaderText += "//varying vec3 eyeVec;\n";
+shaderText += "//varying vec3 eyeVec;//phong\n";
 }
 shaderText += "\n";
 if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
@@ -41,15 +36,13 @@ if ( NORMAL_MAPPING == 1 ) {
 shaderText += "    vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);\n";
 shaderText += "    vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));\n";
 shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));\n";
-shaderText += "    //  normal = normalize( normal * eyeBasis );\n";
-shaderText += "    // when normal is transformed to eye space we get somewhat\n";
-shaderText += "    // different lighting difference is small, but exists.\n";
-shaderText += "    // and (at least for single light) it's slower\n";
-shaderText += "    float NdotL = max(0.0, dot( normal, normalize(lightVec) ));\n";
+shaderText += "    normal = normalize( normal * eyeBasis );\n";
+shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
+shaderText += "//                                        normalize( eyeBasis[1] ),\n";
+shaderText += "//                                        normalize( eyeBasis[2] ) ) );\n";
+shaderText += "    // ^ not much difference\n";
 } else {        
 shaderText += "    vec3 normal = face*normalize(transformedNormal);\n";
-shaderText += "    vec3 lightDir = vec3(gl_LightSource[0].position);\n";
-shaderText += "    float NdotL = max(0.0, dot( normal, lightDir ));\n";
 }
 shaderText += "   \n";
 // if ( RGBA == 1 ) {
@@ -73,6 +66,8 @@ shaderText += "    // for each pixel\n";
 shaderText += "\n";
 shaderText += "    vec3 color = ambient + globalAmbient;\n";
 shaderText += "\n";
+shaderText += "    vec3 lightDir = gl_LightSource[0].position.xyz;\n";
+shaderText += "    float NdotL = max(0.0, dot( normal, lightDir ) );\n";
 shaderText += "//    if ( NdotL > 0.0 ) // slower than use max(0,...) by 11% (maybe else branch is slow?)\n";
 shaderText += "    {\n";
 shaderText += "        vec3 diffuse = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;\n";
@@ -82,19 +77,11 @@ shaderText += "        color *= decalColor;\n";
 }
 shaderText += "\n";
 if ( SHINING == 1 ) {
-if ( NORMAL_MAPPING == 1 ) {
-shaderText += "//         vec3 R = reflect( -normalize(lightVec), normal );\n";
-shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) ); // phong R*E\n";
-shaderText += "        //vec3 H = normalize(lightVec) + normalize(-eyeVec); // per-pixel half vector\n";
-shaderText += "        // ^ H is even slower than phong\n";
-shaderText += "        float NdotHV = dot( normal, normalize(/*H*/halfVec) ); // blinn  N*H\n";
-} else {
 shaderText += "//         vec3 R = reflect( -lightDir, normal );\n";
 shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) );\n";
 shaderText += "        //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector\n";
 shaderText += "        float NdotHV = dot( normal, gl_LightSource[0].halfVector.xyz );\n";
 shaderText += "        // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? \n";
-}
 shaderText += "        if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
 shaderText += "        // I don't see difference if we remove this if\n";
 shaderText += "        {\n";
@@ -104,10 +91,12 @@ shaderText += "            color += specular;\n";
 shaderText += "        }\n";
 }
 shaderText += "    }\n";
-shaderText += "//    else\n";
-shaderText += "//    {\n";
-shaderText += "//        color *= decalColor;\n";
-shaderText += "//    }\n";
+// if ( TEXTURING == 1 ) {
+shaderText += "//     else\n";
+shaderText += "//     {\n";
+shaderText += "//         color *= decalColor;\n";
+shaderText += "//     }\n";
+// }
 shaderText += "\n";
 if ( OPACITY ) {
 shaderText += "    float opacity = gl_FrontMaterial.diffuse.a;\n";

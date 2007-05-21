@@ -31,11 +31,7 @@ varying vec3 transformedNormal;
 #endif
 
 #if NORMAL_MAPPING == 1
-varying vec3 lightVec;
-#if SHINING
-varying vec3 halfVec;//blinn
-#endif
-//varying mat3 eyeBasis; // in tangent space
+varying mat3 eyeBasis; // in tangent space
 #endif
 
 #if SHINING
@@ -46,11 +42,6 @@ void main()
 {
 #if TEXTURING == 1 || NORMAL_MAPPING == 1
     texUV = texCoord; // export texCoord to fragment shader
-#endif
-
-#if NORMAL_MAPPING == 1
-    vec3 transformedNormal; // its not used in fragment shader
-                            // so define it locally
 #endif
 
 #if BONES_COUNT >= 1
@@ -73,7 +64,6 @@ void main()
 #endif // BONES_COUNT >= 2
 
     vec3 transformedPosition = totalRotation * position + totalTranslation;
-    transformedNormal = gl_NormalMatrix * (totalRotation * normal);
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
 #if FOG && !SHINING
     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -86,25 +76,27 @@ void main()
 #endif // no fog
 
 #if NORMAL_MAPPING == 1
-    mat3 tangentBasis = mat3( gl_NormalMatrix * totalRotation * tangent,
-                              gl_NormalMatrix * totalRotation * binormal,
-                              transformedNormal );
+    mat3 tangentBasis =
+        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, normal );
 
-//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,
-//                      vec3(0,1,0) * tangentBasis,
-//                      vec3(0,0,1) * tangentBasis );
+    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
+//     eyeBasis = mat3( vec3(1.0, 0.0, 0.0) * tangentBasis,
+//                      vec3(0.0, 1.0, 0.0) * tangentBasis,
+//                      vec3(0.0, 0.0, 1.0) * tangentBasis );
+//     ^ this is simply matrix transposition
 
-    lightVec = gl_LightSource[0].position.xyz * tangentBasis;
  #if SHINING
-    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;
     //eyeVec *= tangentBasis;
  #endif // no shining
+#else // NORMAL_MAPPING == 1
+    transformedNormal = gl_NormalMatrix * (totalRotation * normal);
 #endif // NORMAL_MAPPING == 1
 
 #else // no bones
 
     // dont touch anything when no bones influence mesh
-    transformedNormal = gl_NormalMatrix * normal;
     gl_Position = gl_ModelViewProjectionMatrix * vec4(position, 1.0);
 #if FOG && !SHINING
     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;
@@ -117,19 +109,24 @@ void main()
 #endif // no fog
 
 #if NORMAL_MAPPING == 1
-    mat3 tangentBasis = mat3( gl_NormalMatrix * tangent,
-                              gl_NormalMatrix * binormal,
-                              transformedNormal );
+//     mat3 tangentBasis =
+//         gl_NormalMatrix * mat3( tangent, binormal, normal );
+//  ^ why this give us incorrect results?
+    mat4 tangentBasis =
+        gl_ModelViewMatrix * mat4( vec4( tangent, 0.0 ),
+                                   vec4( binormal, 0.0 ),
+                                   vec4( normal, 0.0 ),
+                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );
 
-//     eyeBasis = mat3( vec3(1,0,0) * tangentBasis,
-//                      vec3(0,1,0) * tangentBasis,
-//                      vec3(0,0,1) * tangentBasis );
+    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
-    lightVec = gl_LightSource[0].position.xyz * tangentBasis;
  #if SHINING
-    halfVec = gl_LightSource[0].halfVector.xyz * tangentBasis;
     //eyeVec *= tangentBasis;
  #endif // no shining
+#else // NORMAL_MAPPING == 1
+    transformedNormal = gl_NormalMatrix * normal;
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
