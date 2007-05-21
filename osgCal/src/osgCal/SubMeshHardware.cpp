@@ -50,7 +50,6 @@ SubMeshHardware::SubMeshHardware( Model*     _model,
         // transparent meshes (only single first pass remembered).
         // So currently we do not use display lists for static
         // hardware meshes (but it works for software ones).
-        setStateSet( mesh->staticHardwareStateSet.get() );
     }
     else
     {
@@ -58,9 +57,13 @@ SubMeshHardware::SubMeshHardware( Model*     _model,
         setSupportsDisplayList( false );
         // when set to true and animating huge fps falloff due to
         // continuous display list rebuilding
-        setStateSet( mesh->hardwareStateSet.get() );
     }
     setUseVertexBufferObjects( false ); // false is default
+
+    setStateSet( mesh->staticHardwareStateSet.get() );
+    // Initially we use static (not skinning) state set. It will
+    // changed to skinning (in update() method when some animation
+    // starts. 
 
     create();
 
@@ -132,10 +135,13 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     {
         BIND( MATRIX_INDEX );
         state.setVertexAttribPointer( program->getAttribLocation( "index" ),
-//                                  4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
-//                                  4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
-//                                  4 , GL_FLOAT, false, 0,0); // dvorets - 53fps
+//                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
+//                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
+//                                      4 , GL_FLOAT, false, 0,0); // dvorets - 53fps        
                                       4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
+        // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
+        // but conversion from float to int would be to expensive
+        // when updating vertices on CPU.
     }
 
     if ( program->getAttribLocation( "binormal" ) > 0 )
@@ -362,6 +368,30 @@ operator == ( const osg::Matrix3& m1,
 }
 }
 
+inline
+float
+square( float x )
+{
+    return x*x;
+}
+
+float
+rtDistance( const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v1,
+            const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v2,
+            int count )
+{
+    float r = 0;
+    for ( int i = 0; i < count; i++ )
+    {
+        for ( int j = 0; j < 9; j++ )
+        {
+            r += square( v1[i].first[j] - v2[i].first[j] );
+        }
+        r += ( v1[i].second - v2[i].second ).length2();
+    }
+    return r;
+}
+
 void
 SubMeshHardware::update()
 {   
@@ -429,26 +459,23 @@ SubMeshHardware::update()
             rotationTranslationMatrices.push_back( std::make_pair( r, v ) );
 
             if ( 
-                 rotation[0] != 1 || rotation[3] != 0 || rotation[6] != 0 ||
-                 rotation[1] != 0 || rotation[4] != 1 || rotation[7] != 0 ||
-                 rotation[2] != 0 || rotation[5] != 0 || rotation[8] != 1 ||
-                 translation[0] != 0 || translation[1] != 0 || translation[2] != 0
+//                  rotation[0] != 1 || rotation[3] != 0 || rotation[6] != 0 ||
+//                  rotation[1] != 0 || rotation[4] != 1 || rotation[7] != 0 ||
+//                  rotation[2] != 0 || rotation[5] != 0 || rotation[8] != 1 ||
+//                  translation[0] != 0 || translation[1] != 0 || translation[2] != 0
 
                  // cal3d reports nonzero translations for non-animated models
-                 // and non zero quaternions.
-                 // So we can check for deformations using some epsilon value.
-                 // Two problems:
+                 // and non zero quaternions (seems like some FP round-off error). 
+                 // So we must check for deformations using some epsilon value.
+                 // Problem:
                  //   * It is cal3d that must return correct values, no epsilons
-                 //   * When model starts animate there is a delay to compile skinning
-                 //     shaders
-                 // So, the epsilon check is commented until at least 2nd problem
-                 // solved.
+                 // But nevertheless we use this to reduce CPU load.
                  
-//                  v.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
-//                  ||
-//                  osg::Vec3( rotationBoneSpace.x,
-//                             rotationBoneSpace.y,
-//                             rotationBoneSpace.z ).length() > 1e-6 // usually 1e-7 .. 1e-8
+                 v.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
+                 ||
+                 osg::Vec3( rotationBoneSpace.x,
+                            rotationBoneSpace.y,
+                            rotationBoneSpace.z ).length() > 1e-6 // usually 1e-7 .. 1e-8
                 )
             {
                 deformed = true;
@@ -478,6 +505,7 @@ SubMeshHardware::update()
                         osg::Vec3( 0, 0, 0 ) );
 
     // -- Check for deformation state and select state set type --
+//    std::cout << "deformed = " << deformed << std::endl;
     if ( deformed )
     {
         setStateSet( mesh->hardwareStateSet.get() );
@@ -490,9 +518,18 @@ SubMeshHardware::update()
         // in vertex shader
     }
 
-    // -- Check changes --
-    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
+    // -- Check changes --    
+    previousRotationTranslationMatrices.resize( 31 );
+//     std::cout << "distance = "
+//               << rtDistance( rotationTranslationMatrices,
+//                              previousRotationTranslationMatrices )
+//               << std::endl;
+//    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
+    if ( rtDistance( rotationTranslationMatrices,
+                     previousRotationTranslationMatrices,
+                     hardwareModel->getBoneCount() ) < 1e-7 ) // usually 1e-8..1e-10
     {
+//        std::cout << "didn't changed" << std::endl;
         return; // no changes
     }
     else

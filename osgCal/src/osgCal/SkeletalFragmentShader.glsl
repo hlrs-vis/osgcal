@@ -7,16 +7,11 @@ uniform sampler2D decalMap;
 #if NORMAL_MAPPING == 1
 uniform sampler2D normalMap;
 
-//varying mat3 eyeBasis; // in tangent space
-
-varying vec3 lightVec;
-#if SHINING
-varying vec3 halfVec;//blinn
-#endif
+varying mat3 eyeBasis; // in tangent space
 #endif
 
 #if SHINING
-//varying vec3 eyeVec;
+//varying vec3 eyeVec;//phong
 #endif
 
 #if TEXTURING == 1 || NORMAL_MAPPING == 1
@@ -41,15 +36,13 @@ void main()
     vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);
     vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));
-    //  normal = normalize( normal * eyeBasis );
-    // when normal is transformed to eye space we get somewhat
-    // different lighting difference is small, but exists.
-    // and (at least for single light) it's slower
-    float NdotL = max(0.0, dot( normal, normalize(lightVec) ));
+    normal = normalize( normal * eyeBasis );
+//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
+//                                        normalize( eyeBasis[1] ),
+//                                        normalize( eyeBasis[2] ) ) );
+    // ^ not much difference
 #else        
     vec3 normal = face*normalize(transformedNormal);
-    vec3 lightDir = vec3(gl_LightSource[0].position);
-    float NdotL = max(0.0, dot( normal, lightDir ));
 #endif
    
 // #if RGBA == 1
@@ -73,6 +66,8 @@ void main()
 
     vec3 color = ambient + globalAmbient;
 
+    vec3 lightDir = gl_LightSource[0].position.xyz;
+    float NdotL = max(0.0, dot( normal, lightDir ) );
 //    if ( NdotL > 0.0 ) // slower than use max(0,...) by 11% (maybe else branch is slow?)
     {
         vec3 diffuse = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
@@ -82,19 +77,11 @@ void main()
 #endif
 
 #if SHINING == 1
-#if NORMAL_MAPPING == 1
-//         vec3 R = reflect( -normalize(lightVec), normal );
-//         float NdotHV = dot( R, normalize(-eyeVec) ); // phong R*E
-        //vec3 H = normalize(lightVec) + normalize(-eyeVec); // per-pixel half vector
-        // ^ H is even slower than phong
-        float NdotHV = dot( normal, normalize(/*H*/halfVec) ); // blinn  N*H
-#else
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
         //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector
         float NdotHV = dot( normal, gl_LightSource[0].halfVector.xyz );
         // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
-#endif
         if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
         {
@@ -104,10 +91,12 @@ void main()
         }
 #endif
     }
-//    else
-//    {
-//        color *= decalColor;
-//    }
+// #if TEXTURING == 1
+//     else
+//     {
+//         color *= decalColor;
+//     }
+// #endif
 
 #if OPACITY
     float opacity = gl_FrontMaterial.diffuse.a;

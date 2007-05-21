@@ -178,7 +178,17 @@ class SkeletalShadersSet : public osg::Referenced
         {           
             flags &= ~SHADER_FLAG_RGBA & ~SHADER_FLAG_OPACITY;
                    // remove irrelevant flags that can lead to
-                   // duplicate shaders in map  
+                   // duplicate shaders in map
+//             if ( flags &
+//                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
+//                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
+//             {
+//                 flags &= ~SHADER_FLAG_BONES(0)
+//                     & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
+//                     & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
+//                 flags |= SHADER_FLAG_BONES(4);
+//             }
+//           BTW, not so much difference between always 4 bone and per-bones count shaders
 
             ShadersMap::const_iterator smi = vertexShaders.find( flags );
 

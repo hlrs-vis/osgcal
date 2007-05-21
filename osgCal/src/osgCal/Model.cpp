@@ -153,7 +153,20 @@ Model::load( CoreModel* cm,
     {
         meshTyper->ref();
     }
-    
+
+    // -- Setup shader compilation Geode --
+    osg::Geode* shaderGeode = new osg::Geode;
+    std::map< osg::StateSet*, bool > usedStateSets;
+
+    addChild( shaderGeode );
+    // Since we switch static/skinning shaders in SubMesh::update we
+    // need some method to compile shaders before they first used
+    // (i.e. before actual animation starts).
+    // So we use Geode with empty drawables for used state sets,
+    // and GLObjectsVisitor automaticall compiles all shaders
+    // when osgViewer initialized. 
+
+    // -- Process meshes --
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
         const CoreModel::Mesh& mesh = coreModel->getMeshes()[i];
@@ -169,6 +182,25 @@ Model::load( CoreModel* cm,
         {
             case MT_HARDWARE:
                 g = new SubMeshHardware( this, i, mesh.rigid );
+
+                // -- Add shader state sets for compilation --
+                if ( usedStateSets.find( mesh.staticHardwareStateSet.get() )
+                     == usedStateSets.end() )
+                {
+                    osg::Drawable* d = new osg::Geometry;
+                    d->setStateSet( mesh.staticHardwareStateSet.get() );
+                    usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
+                    shaderGeode->addDrawable( d );
+                }
+
+                if ( usedStateSets.find( mesh.hardwareStateSet.get() )
+                     == usedStateSets.end() )
+                {
+                    osg::Drawable* d = new osg::Geometry;
+                    d->setStateSet( mesh.hardwareStateSet.get() );
+                    usedStateSets[ mesh.hardwareStateSet.get() ] = true;
+                    shaderGeode->addDrawable( d );
+                }
                 break;
 
             case MT_SOFTWARE:
