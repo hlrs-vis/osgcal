@@ -570,21 +570,37 @@ main( int argc,
     lightModel->setAmbientIntensity( osg::Vec4(0.1,0.1,0.1,1) );
     root->getOrCreateStateSet()->setAttributeAndModes( lightModel, osg::StateAttribute::ON );
 
-    osg::Light* light = new osg::Light();
-    light->setLightNum( 0 );
-    light->setAmbient( osg::Vec4( 0, 0, 0, 1 ) );
-    light->setDiffuse( osg::Vec4( 0.8, 0.8, 0.8, 1 ) );
-    light->setSpecular( osg::Vec4( 1, 1, 1, 0 ) );
+    // -- light #0 --
+    osg::Light* light0 = new osg::Light();
+    light0->setLightNum( 0 );
+    light0->setAmbient( osg::Vec4( 0, 0, 0, 1 ) );
+    light0->setDiffuse( osg::Vec4( 0.8, 0.8, 0.8, 1 ) );
+    light0->setSpecular( osg::Vec4( 1, 1, 1, 0 ) );
     // as in SceneView, except direction circa as in 3DSMax
-    light->setPosition( normalize(osg::Vec4( 0.15, 0.4, 1, 0 )) ); // w=0 - Directional
-    light->setDirection( osg::Vec3( 0, 0, 0 ) );  // Direction = (0,0,0) - Omni light
+    light0->setPosition( normalize(osg::Vec4( 0.15, 0.4, 1, 0 )) ); // w=0 - Directional
+    light0->setDirection( osg::Vec3( 0, 0, 0 ) );  // Direction = (0,0,0) - Omni light
 
-    osg::LightSource* lightSource = new osg::LightSource();
-    lightSource->setLight( light );
-    lightSource->setReferenceFrame( osg::LightSource::ABSOLUTE_RF );
-    lightSource->addChild( root );
+    osg::LightSource* lightSource0 = new osg::LightSource();
+    lightSource0->setLight( light0 );
+    lightSource0->setReferenceFrame( osg::LightSource::ABSOLUTE_RF );
+    lightSource0->addChild( root );
 
-    viewer.setSceneData(/*root*/lightSource);
+//     // -- light #1 --
+//     osg::Light* light1 = new osg::Light();
+//     light1->setLightNum( 1 );
+//     light1->setAmbient( osg::Vec4( 0, 0, 0, 1 ) );
+//     light1->setDiffuse( osg::Vec4( 0.4, 0.4, 0.4, 1 ) );
+//     light1->setSpecular( osg::Vec4( 1, 1, 1, 0 ) );
+//     // as in SceneView, except direction circa as in 3DSMax
+//     light1->setPosition( normalize(osg::Vec4( -0.15, -0.4, -1, 0 )) ); // w=0 - Directional
+//     light1->setDirection( osg::Vec3( 0, 0, 0 ) );  // Direction = (0,0,0) - Omni light
+
+//     osg::LightSource* lightSource1 = new osg::LightSource();
+//     lightSource1->setLight( light1 );
+//     lightSource1->setReferenceFrame( osg::LightSource::ABSOLUTE_RF );
+//     lightSource1->addChild( lightSource0 );
+
+    viewer.setSceneData(/*root*/lightSource0);
 //    root->getOrCreateStateSet()->setMode( GL_LIGHTING,osg::StateAttribute::ON );
 //    root->getOrCreateStateSet()->setAttributeAndModes( light, osg::StateAttribute::ON );
 
