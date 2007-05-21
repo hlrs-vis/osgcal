@@ -192,86 +192,88 @@ SubMeshSoftware::update()
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();
     
-    const GLuint* beginIndex = &coreModel->getIndexBuffer()->front() + mesh->getIndexInVbo();
-    const GLuint* endIndex   = beginIndex + mesh->getIndexesCount();
-
     VertexBuffer&               vb  = *model->getVertexBuffer();
     NormalBuffer&               nb  = *model->getNormalBuffer();
-    Model::UpdateFlagBuffer&    ufb = *model->getUpdateFlagBuffer();
     const VertexBuffer&         svb = *coreModel->getVertexBuffer();
     const NormalBuffer&         snb = *coreModel->getNormalBuffer();
     const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
     const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
 
-#define ITERATE( _f )                                               \
-    for ( const GLuint* idx = beginIndex; idx < endIndex; ++idx )   \
-    {                                                               \
-        if ( ufb[ *idx ] )                                          \
-        {                                                           \
-            continue; /* skip already processed vertices */         \
-        }                                                           \
-        else                                                        \
-        {                                                           \
-            ufb[ *idx ] = GL_TRUE;                                  \
-        }                                                           \
-                                                                    \
-        osg::Vec3f&        v  = vb [ *idx ];                        \
-        osg::Vec3f&        n  = nb [ *idx ];                        \
-        const osg::Vec3f&  sv = svb[ *idx ]; /* source vector */    \
-        const osg::Vec3f&  sn = snb[ *idx ]; /* source normal */    \
-        const osg::Vec4f&  w  = wb [ *idx ]; /* weights */          \
-        const osg::Vec4s&  mi = mib[ *idx ]; /* bone indexes */     \
-                                                                    \
-        _f;                                                         \
-                                                                    \
-        boundingBox.expandBy( v );                                  \
+    int baseIndex = mesh->hardwareMesh->baseVertexIndex;
+    int vertexCount = mesh->hardwareMesh->vertexCount;
+    
+    osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
+    osg::Vec3f*        n  = &nb.front()  + baseIndex; /* dest normal */   
+    const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
+    const osg::Vec3f*  sn = &snb.front() + baseIndex; /* source normal */   
+    const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
+    const osg::Vec4s*  mi = &mib.front() + baseIndex; /* bone indexes */		
+
+    osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
+    
+#define ITERATE( _f )                           \
+    while ( v < vEnd )                          \
+    {                                           \
+        _f;                                     \
+                                                \
+        boundingBox.expandBy( *v );             \
+        ++v;                                    \
+        ++n;                                    \
+        ++sv;                                   \
+        ++sn;                                   \
+        ++w;                                    \
+        ++mi;                                   \
     }
 
-#define PROCESS_X( _process_y )                                                 \
-    if ( w.x() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.x()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.x()].second;    \
-        v = (mul3(rm, sv) + tv) * w.x();                                        \
-        n = (mul3(rm, sn)) * w.x();                                             \
-                                                                                \
-        _process_y;                                                             \
-    }                                                                           \
-    else                                                                        \
-    {                                                                           \
-        v = sv;                                                                 \
+    // 'if's get ~15% speedup here
+    
+#define PROCESS_X( _process_y )                                         \
+    if ( mi->x() != 30 )                                                \
+        /* we have no zero weight vertices they all bound to 30th bone */ \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->x()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->x()].second; \
+        *v = (mul3(rm, *sv) + tv) * w->x();                             \
+        *n = (mul3(rm, *sn)) * w->x();                                  \
+                                                                        \
+        _process_y;                                                     \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        *v = *sv;                                                       \
+        *n = *sn;                                                       \
+    }                                                                   
+                                                                        
+#define PROCESS_Y( _process_z )                                         \
+    if ( w->y() )                                                   \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->y()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->y()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->y();                            \
+        *n += (mul3(rm, *sn)) * w->y();                                 \
+                                                                        \
+        _process_z;                                                     \
+    }                                                                   
+
+#define PROCESS_Z( _process_w )                                         \
+    if ( w->z() )                                                       \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->z()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->z()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->z();                            \
+        *n += (mul3(rm, *sn)) * w->z();                                 \
+                                                                        \
+        _process_w;                                                     \
     }
 
-#define PROCESS_Y( _process_z )                                                 \
-    if ( w.y() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.y()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.y()].second;    \
-        v += (mul3(rm, sv) + tv) * w.y();                                       \
-        n += (mul3(rm, sn)) * w.y();                                            \
-                                                                                \
-        _process_z;                                                             \
-    }                                                                           \
-
-#define PROCESS_Z( _process_w )                                                 \
-    if ( w.z() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.z()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.z()].second;    \
-        v += (mul3(rm, sv) + tv) * w.z();                                       \
-        n += (mul3(rm, sn)) * w.z();                                            \
-                                                                                \
-        _process_w;                                                             \
-    }                                                                           \
-
-#define PROCESS_W()                                                             \
-    if ( w.w() )                                                                \
-    {                                                                           \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.w()].first;     \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.w()].second;    \
-        v += (mul3(rm, sv) + tv) * w.w();                                       \
-        n += (mul3(rm, sn)) * w.w();                                            \
-    }                                                                           \
+#define PROCESS_W()                                                     \
+    if ( w->w() )                                                       \
+    {                                                                   \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->w()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->w()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->w();                            \
+        *n += (mul3(rm, *sn)) * w->w();                                 \
+    }
 
 #define STOP
 
