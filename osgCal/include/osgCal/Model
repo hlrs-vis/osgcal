@@ -120,10 +120,6 @@ namespace osgCal {
              */
             NormalBuffer* getNormalBuffer() { return normalBuffer.get(); }
 
-            typedef osg::ByteArray UpdateFlagBuffer;
-
-            UpdateFlagBuffer* getUpdateFlagBuffer() { return updateFlagBuffer.get(); }
-
             /**
              * Blend animation cycle to the specified weight
              * in specified time.
@@ -165,8 +161,6 @@ namespace osgCal {
              * Used only in software mode.
              */
             osg::ref_ptr< NormalBuffer >        normalBuffer;
-
-            osg::ref_ptr< UpdateFlagBuffer >    updateFlagBuffer;
     };
 
 }; // namespace osgCal

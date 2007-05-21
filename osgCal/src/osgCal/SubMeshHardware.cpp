@@ -503,92 +503,86 @@ SubMeshHardware::update()
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();
     
-    const GLuint* beginIndex = &coreModel->getIndexBuffer()->front() + mesh->getIndexInVbo();
-    const GLuint* endIndex   = beginIndex + mesh->getIndexesCount();
-
     VertexBuffer&               vb  = *model->getVertexBuffer();
-    Model::UpdateFlagBuffer&    ufb = *model->getUpdateFlagBuffer();
     const VertexBuffer&         svb = *coreModel->getVertexBuffer();
     const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
     const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
    
-#define ITERATE( _f )                                               \
-    for ( const GLuint* idx = beginIndex; idx < endIndex; ++idx )	\
-    {                                                               \
-        if ( ufb[ *idx ] )                                          \
-        {                                                           \
-            continue; /* skip already processed vertices */         \
-        }                                                           \
-        else                                                        \
-        {                                                           \
-            ufb[ *idx ] = GL_TRUE;                                  \
-        }                                                           \
-                                                                    \
-        osg::Vec3f&        v  = vb [ *idx ];                        \
-        const osg::Vec3f&  sv = svb[ *idx ]; /* source vector */	\
-        const osg::Vec4f&  w  = wb [ *idx ]; /* weights */          \
-        const osg::Vec4s&  mi = mib[ *idx ]; /* bone indexes */		\
-                                                                    \
-        _f;                                                         \
-                                                                    \
-        boundingBox.expandBy( v );                                  \
+    int baseIndex = mesh->hardwareMesh->baseVertexIndex;
+    int vertexCount = mesh->hardwareMesh->vertexCount;
+    
+    osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
+    const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
+    const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
+    const osg::Vec4s*  mi = &mib.front() + baseIndex; /* bone indexes */		
+
+    osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
+    
+#define ITERATE( _f )                           \
+    while ( v < vEnd )                          \
+    {                                           \
+        _f;                                     \
+                                                \
+        boundingBox.expandBy( *v );             \
+        ++v;                                    \
+        ++sv;                                   \
+        ++w;                                    \
+        ++mi;                                   \
     }
 
 #define PROCESS_X( _process_y )                                         \
-    /*if ( w.x() )*/                                                    \
+    /*if ( mi->x() != 30 )*/                                            \
+        /* we have no zero weight vertices they all bound to 30th bone */ \
     {                                                                   \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.x()].first; \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.x()].second; \
-        v = (mul3(rm, sv) + tv) * w.x();                                \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->x()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->x()].second; \
+        *v = (mul3(rm, *sv) + tv) * w->x();                             \
                                                                         \
         _process_y;                                                     \
-    }                                                                   \
-//     else                                                             
-//     {                                                                
-//         v = sv;                                                      
+    }                                                                   
+//     else
+//     {
+//         *v = *sv;
 //     }
 
     // Strange, but multiplying each matrix on source vector works
     // faster than accumulating matrix and multiply at the end (as in
     // shader)
+    // TODO: ^ retest it with non-indexed update
     //
-    // And more strange, removing of  branches gives 15% speedup.
+    // And more strange, removing of  branches gives 5-10% speedup.
     // Seems that instruction prediction is really bad thing.
-    //
-    // More strange -- after removing branches compilation with
-    // -ftree-vectorize doesn't give any considerable speedup
-    // (only 2-3%).
     //
     // And it seems that memory access (even for accumulating matix)
     // is really expensive (commenting of branches in accumulating code
     // doesn't change speed at all)
 
 #define PROCESS_Y( _process_z )                                         \
-    /*if ( w.y() )*/                                                    \
+    /*if ( w->y() )*/                                                   \
     {                                                                   \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.y()].first; \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.y()].second; \
-        v += (mul3(rm, sv) + tv) * w.y();                               \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->y()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->y()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->y();                             \
                                                                         \
         _process_z;                                                     \
     }
 
 #define PROCESS_Z( _process_w )                                         \
-    /*if ( w.z() )*/                                                    \
+    /*if ( w->z() )*/                                                   \
     {                                                                   \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.z()].first; \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.z()].second; \
-        v += (mul3(rm, sv) + tv) * w.z();                               \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->z()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->z()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->z();                               \
                                                                         \
         _process_w;                                                     \
     }
 
 #define PROCESS_W()                                                     \
-    /*if ( w.w() )*/                                                    \
+    /*if ( w->w() )*/                                                   \
     {                                                                   \
-        const osg::Matrix3& rm = rotationTranslationMatrices[mi.w()].first; \
-        const osg::Vec3f&   tv = rotationTranslationMatrices[mi.w()].second; \
-        v += (mul3(rm, sv) + tv) * w.w();                               \
+        const osg::Matrix3& rm = rotationTranslationMatrices[mi->w()].first; \
+        const osg::Vec3f&   tv = rotationTranslationMatrices[mi->w()].second; \
+        *v += (mul3(rm, *sv) + tv) * w->w();                               \
     }
 
 #define STOP

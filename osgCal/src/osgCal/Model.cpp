@@ -139,7 +139,6 @@ Model::load( CoreModel* cm,
     coreModel = cm;
 
     vertexBuffer = (VertexBuffer*) cm->getVertexBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
-    updateFlagBuffer = new UpdateFlagBuffer( vertexBuffer->size() );
 
     calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
@@ -220,10 +219,6 @@ Model::load( CoreModel* cm,
 void
 Model::update() 
 {
-    memset( (void*)updateFlagBuffer->getDataPointer(),
-            0,
-            updateFlagBuffer->getTotalDataSize() );
-
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
