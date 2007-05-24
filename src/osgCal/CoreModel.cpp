@@ -661,6 +661,15 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
     , bumpMapAmount( 0 )
     , shaderFlags( 0 )
 {
+//     m->getVectorMap().clear();
+//     CalCoreMaterial::Color white = { 255, 255, 255, 255 };
+//     m->setAmbientColor( white );
+//     m->setDiffuseColor( white );
+//     m->setSpecularColor( white );
+//     m->setShininess( 0 );
+    // ^ not much is changed w/o different states, so state changes
+    // are not bottleneck
+    
     float glossiness = 50;
     float opacity = 1.0; //m->getDiffuseColor().alpha / 255.0;
     // We can't set opacity to diffuse color's alpha because of some

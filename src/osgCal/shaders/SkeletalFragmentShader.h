@@ -143,4 +143,5 @@ shaderText += "    fog = clamp( fog, 0.0, 1.0 );\n";
 shaderText += "    \n";
 shaderText += "    gl_FragColor = mix( gl_Fog.color, gl_FragColor, fog );\n";
 } // FOG
+shaderText += "//    gl_FragDepth = gl_FragCoord.z;\n";
 shaderText += "}\n";

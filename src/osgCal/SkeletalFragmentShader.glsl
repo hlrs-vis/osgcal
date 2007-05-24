@@ -143,4 +143,5 @@ void main()
     
     gl_FragColor = mix( gl_Fog.color, gl_FragColor, fog );
 #endif // FOG
+//    gl_FragDepth = gl_FragCoord.z;
 }
