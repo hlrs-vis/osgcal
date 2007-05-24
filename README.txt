@@ -5,12 +5,12 @@
         /___/
 *===========================*
 
-osgCal is an adapter to use cal3d (http://cal3d.sourceforge.net) inside an
-OSG (http://www.openscenegraph.org) tree.
+osgCal is an adapter to use cal3d (http://home.gna.org/cal3d/) inside an
+OSG (http://www.openscenegraph.com/) tree.
 
 Requirements:
 
-* Cal3D (version 0.10.0, higher versions are not currently tested)
+* Cal3D (version 0.10.0 or higher)
 * OSG   (version 1.9.1 or higher)
 
 Features:
@@ -51,14 +51,18 @@ After installation you get:
     osgCalViewer cal3d.cfg   - view model
     osgCalViewer <...>.cmf   - view one mesh from model
     osgCalViewer <...>.caf   - view specified animation
+    osgCalViewer --help      - for additional command line parameters
+
+  In the viewer itself you can switch animations using '1', '2', etc. keys.
+  Also you can press 'h' key to see other available key combinations.
 
 * osgCalPreparer[.exe] -- vertex buffers cache preparer. Can be used
-  on hi-poly models to speed up subsequent loading times.
+  on hi-poly models to speedup subsequent loading times.
   When running:
 
     osgCalPreparer cal3d.cfg
 
   it creates two cache files (`cal3d.cfg.vbos.cache' and
   `cal3d.cfg.hwmodel.cache') which later used when loading model.
-  (remark: caching only tested with cal3d 0.10.0)
+  (remark: caching only tested with cal3d 0.10.0 & 0.11.0)
 
