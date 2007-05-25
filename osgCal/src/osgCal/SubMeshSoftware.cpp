@@ -51,7 +51,8 @@ SubMeshSoftware::SubMeshSoftware( Model*     _model,
     create();
 }
 
-SubMeshSoftware::SubMeshSoftware(const SubMeshSoftware& submesh, const osg::CopyOp& copyop)
+SubMeshSoftware::SubMeshSoftware( const SubMeshSoftware&, const osg::CopyOp& )
+    : Geometry() // to eliminate warning
 {
     throw std::runtime_error( "SubMeshSoftware copying is not supported" );
 }

@@ -364,7 +364,7 @@ endif
 
     LIBS            = -lstdc++
 #    DEF             += -W -Wall -fPIC -pipe -Woverloaded-virtual
-    DEF             += -W -Wall -fPIC -pipe
+    DEF             += -W -Wall -Wextra -fPIC -pipe
     OPTF            = -O2 
     DBGF            = -g -gstabs+ -DOSG_COMPILE_UNIT_TESTS 
     SYSARCH           := $(shell arch)
@@ -629,7 +629,7 @@ ifeq ($(OS),MINGW)
 # -fomit-frame-pointer -march=pentium3 -msse -mmmx -mfpmath=sse
   DEPARG            = -M
   INC               += 
-  DEF               += -DWIN32 -Wall
+  DEF               += -DWIN32 -Wall -Wextra
 # -W
   OPTF              = -O2
   DBGF              = -g -DOSG_COMPILE_UNIT_TESTS
@@ -641,7 +641,7 @@ ifeq ($(OS),MINGW)
   ARCH              = 
   ARCHINST          =
   ARCHARGS          = 
-  LINKARGS          = -W -Wall
+  LINKARGS          = -W -Wall -Wextra
   DYNAMICLIBRARYLIB =
   OSG_LIBS          = -losgGA -losgDB -losgUtil -losg 
   GL_LIBS           = -lglu32 -lopengl32
