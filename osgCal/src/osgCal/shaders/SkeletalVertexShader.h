@@ -22,10 +22,6 @@ shaderText += "attribute vec3 tangent;\n";
 shaderText += "attribute vec3 binormal;\n";
 }
 shaderText += "\n";
-if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
-shaderText += "varying vec2 texUV;\n";
-}
-shaderText += "\n";
 if (!( NORMAL_MAPPING )) {
 shaderText += "varying vec3 transformedNormal;\n";
 }
@@ -41,7 +37,7 @@ shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
 if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
-shaderText += "    texUV = texCoord; // export texCoord to fragment shader\n";
+shaderText += "    gl_TexCoord[0].st = texCoord; // export texCoord to fragment shader\n";
 }
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {

@@ -22,10 +22,6 @@ attribute vec3 tangent;
 attribute vec3 binormal;
 #endif
 
-#if TEXTURING == 1 || NORMAL_MAPPING == 1
-varying vec2 texUV;
-#endif
-
 #ifndef NORMAL_MAPPING
 varying vec3 transformedNormal;
 #endif
@@ -41,7 +37,7 @@ varying mat3 eyeBasis; // in tangent space
 void main()
 {
 #if TEXTURING == 1 || NORMAL_MAPPING == 1
-    texUV = texCoord; // export texCoord to fragment shader
+    gl_TexCoord[0].st = texCoord; // export texCoord to fragment shader
 #endif
 
 #if BONES_COUNT >= 1

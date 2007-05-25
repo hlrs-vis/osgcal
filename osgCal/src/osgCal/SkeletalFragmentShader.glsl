@@ -14,10 +14,6 @@ varying mat3 eyeBasis; // in tangent space
 //varying vec3 eyeVec;//phong
 #endif
 
-#if TEXTURING == 1 || NORMAL_MAPPING == 1
-varying vec2 texUV;
-#endif
-
 #ifndef NORMAL_MAPPING
 varying vec3 transformedNormal;
 #endif
@@ -34,9 +30,9 @@ void main()
     // and shader will run in software
     // GeForce < 6.x also doesn't know about this.
 #if NORMAL_MAPPING == 1
-    vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);
+    vec2 ag = 2.0*(texture2D(normalMap, gl_TexCoord[0].st).ag - 0.5);
     vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));
-//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));
+//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
     normal = normalize( normal * eyeBasis );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),
@@ -54,10 +50,10 @@ void main()
     
 #if TEXTURING == 1
   #if RGBA == 1
-    vec4 decalColor4 = texture2D(decalMap, texUV).rgba;
+    vec4 decalColor4 = texture2D(decalMap, gl_TexCoord[0].st).rgba;
     vec3 decalColor = decalColor4.rgb;
   #else
-    vec3 decalColor = texture2D(decalMap, texUV).rgb;
+    vec3 decalColor = texture2D(decalMap, gl_TexCoord[0].st).rgb;
   #endif
 #endif
 
