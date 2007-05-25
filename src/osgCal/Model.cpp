@@ -111,8 +111,8 @@ Model::Model()
 //     std::cout << "Model::Model()" << std::endl;
 }
 
-Model::Model( const Model&       model,
-              const osg::CopyOp& copyop )
+Model::Model( const Model&, const osg::CopyOp& )
+    : Group() // to eliminate warning
 {
     throw std::runtime_error( "Model copying is not supported" );
 }

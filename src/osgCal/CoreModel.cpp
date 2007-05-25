@@ -289,6 +289,7 @@ CoreModel::CoreModel()
 }
 
 CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
+    : Object() // to eliminate warning
 {
     throw std::runtime_error( "CoreModel copying is not supported" );
 }
