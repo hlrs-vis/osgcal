@@ -14,10 +14,6 @@ if ( SHINING ) {
 shaderText += "//varying vec3 eyeVec;//phong\n";
 }
 shaderText += "\n";
-if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
-shaderText += "varying vec2 texUV;\n";
-}
-shaderText += "\n";
 if (!( NORMAL_MAPPING )) {
 shaderText += "varying vec3 transformedNormal;\n";
 }
@@ -34,9 +30,9 @@ shaderText += "    // it says that it unsupported language element\n";
 shaderText += "    // and shader will run in software\n";
 shaderText += "    // GeForce < 6.x also doesn't know about this.\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    vec2 ag = 2.0*(texture2D(normalMap, texUV).ag - 0.5);\n";
+shaderText += "    vec2 ag = 2.0*(texture2D(normalMap, gl_TexCoord[0].st).ag - 0.5);\n";
 shaderText += "    vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));\n";
-shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, texUV).rgb - 0.5));\n";
+shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));\n";
 shaderText += "    normal = normalize( normal * eyeBasis );\n";
 shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
 shaderText += "//                                        normalize( eyeBasis[1] ),\n";
@@ -54,10 +50,10 @@ shaderText += "    // -- Calculate decal (texture) color --\n";
 shaderText += "    \n";
 if ( TEXTURING == 1 ) {
   if ( RGBA == 1 ) {
-shaderText += "    vec4 decalColor4 = texture2D(decalMap, texUV).rgba;\n";
+shaderText += "    vec4 decalColor4 = texture2D(decalMap, gl_TexCoord[0].st).rgba;\n";
 shaderText += "    vec3 decalColor = decalColor4.rgb;\n";
   } else {
-shaderText += "    vec3 decalColor = texture2D(decalMap, texUV).rgb;\n";
+shaderText += "    vec3 decalColor = texture2D(decalMap, gl_TexCoord[0].st).rgb;\n";
   }
 }
 shaderText += "\n";
