@@ -1,11 +1,10 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
-shaderText += "attribute vec3 position;\n";
 shaderText += "attribute vec3 normal;\n";
-shaderText += "\n";
-if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
-shaderText += "attribute vec2 texCoord; \n";
-}
+shaderText += "#define gl_Normal normal\n";
+shaderText += "// TODO: there is a strange bug in OSG -- it crashes when the first\n";
+shaderText += "// compiled shader have no generic attributes (if it is the second\n";
+shaderText += "// shader all works OK), so we made `normal' a generic attribute.\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
 shaderText += "attribute vec4 weight;\n";
@@ -37,7 +36,7 @@ shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
 if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
-shaderText += "    gl_TexCoord[0].st = texCoord; // export texCoord to fragment shader\n";
+shaderText += "    gl_TexCoord[0].st = gl_MultiTexCoord0.st; // export texCoord to fragment shader\n";
 }
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
@@ -59,7 +58,7 @@ shaderText += "    totalTranslation += weight.w * translationVectors[int(index.w
 } // BONES_COUNT >= 3
 } // BONES_COUNT >= 2
 shaderText += "\n";
-shaderText += "    vec3 transformedPosition = totalRotation * position + totalTranslation;\n";
+shaderText += "    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;\n";
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
 if ( FOG && !SHINING ) {
 shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
@@ -73,7 +72,7 @@ shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "    mat3 tangentBasis =\n";
-shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, normal );\n";
+shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );\n";
 shaderText += "\n";
 shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
 shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
@@ -87,31 +86,31 @@ shaderText += "\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * normal);\n";
+shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } else { // no bones
 shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
-shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(position, 1.0);\n";
+shaderText += "    gl_Position = ftransform();\n";
 if ( FOG && !SHINING ) {
-shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;\n";
+shaderText += "    //vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 } else if ( SHINING ) {
-shaderText += "    //eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;\n";
+shaderText += "    //eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 } 
 if ( FOG ) {
-shaderText += "    vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;\n";
+shaderText += "    vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "//     mat3 tangentBasis =\n";
-shaderText += "//         gl_NormalMatrix * mat3( tangent, binormal, normal );\n";
+shaderText += "//         gl_NormalMatrix * mat3( tangent, binormal, gl_Normal );\n";
 shaderText += "//  ^ why this give us incorrect results?\n";
 shaderText += "    mat4 tangentBasis =\n";
 shaderText += "        gl_ModelViewMatrix * mat4( vec4( tangent, 0.0 ),\n";
 shaderText += "                                   vec4( binormal, 0.0 ),\n";
-shaderText += "                                   vec4( normal, 0.0 ),\n";
+shaderText += "                                   vec4( gl_Normal, 0.0 ),\n";
 shaderText += "                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
 shaderText += "\n";
 shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
@@ -122,7 +121,7 @@ shaderText += "\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * normal;\n";
+shaderText += "    transformedNormal = gl_NormalMatrix * gl_Normal;\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1
@@ -138,4 +137,43 @@ shaderText += "    // clamping in vertex shader is not correct (especially for l
 shaderText += "    //gl_FogCoord - when glFogCoord() used for per-vertex fog coord,\n";
 shaderText += "    //i.e. volumetric fog\n";
   } // no fog
+shaderText += "\n";
+shaderText += "    // -- Gouraud shading (as in fixed function) --\n";
+shaderText += "    // for correct work we need software state set (w/o blending\n";
+shaderText += "    // normals map) + we need to disable fragment shader (to use fixed\n";
+shaderText += "    // function) + we need to remove NORMAL_MAPPING shader flag (for\n";
+shaderText += "    // performance). We then get the same picture as for `--sw'\n";
+shaderText += "    // mode. But on hi-poly models it work slightly slower than `--sw'\n";
+shaderText += "    // (I think the cause is FFP<=>PPP switch + more optimized FFP\n";
+shaderText += "    // implementation).\n";
+// if ( NORMAL_MAPPING == 1 ) {
+//   if ( BONES_COUNT == 0 ) {
+shaderText += "//     vec3 transformedNormal = gl_NormalMatrix * gl_Normal;\n";
+//   } else {
+shaderText += "//     vec3 transformedNormal = gl_NormalMatrix * totalRotation * gl_Normal;\n";
+//   }
+// } // NORMAL_MAPPING == 1
+shaderText += "//     vec3 globalAmbient = gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb;\n";
+shaderText += "\n";
+shaderText += "//     vec3 color = globalAmbient;\n";
+shaderText += "\n";
+shaderText += "//     // -- Lights ambient --\n";
+shaderText += "//     vec3 ambient0 = gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb;\n";
+shaderText += "//     color += ambient0;\n";
+shaderText += "\n";
+shaderText += "//     // -- Lights diffuse --\n";
+shaderText += "//     vec3 lightDir0 = gl_LightSource[0].position.xyz;\n";
+shaderText += "//     float NdotL0 = max(0.0, dot( transformedNormal, lightDir0 ) );\n";
+shaderText += "//     vec3 diffuse0 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;\n";
+shaderText += "//     color += NdotL0 * diffuse0;\n";
+shaderText += "\n";
+shaderText += "//     // -- Specular --\n";
+// if ( SHINING == 1 ) {
+shaderText += "//     float NdotHV0 = max( 0.0, dot( transformedNormal, gl_LightSource[0].halfVector.xyz ) );\n";
+shaderText += "//     vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb * \n";
+shaderText += "//         pow( NdotHV0, gl_FrontMaterial.shininess );\n";
+shaderText += "//     color += specular0;\n";
+// }
+shaderText += "    \n";
+shaderText += "//     gl_FrontColor = vec4( color, 1.0 );\n";
 shaderText += "}\n";

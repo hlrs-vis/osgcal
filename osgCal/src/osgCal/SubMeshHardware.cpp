@@ -124,13 +124,6 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
                                       4 , GL_FLOAT, false, 0,0);
     }
 
-    if ( program->getAttribLocation( "normal" ) > 0 )
-    {
-        BIND( NORMAL );
-        state.setVertexAttribPointer( program->getAttribLocation( "normal" ),
-                                      3 , GL_FLOAT, false, 0,0);
-    }
-
     if ( program->getAttribLocation( "index" ) > 0 )
     {
         BIND( MATRIX_INDEX );
@@ -142,6 +135,14 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
         // but conversion from float to int would be to expensive
         // when updating vertices on CPU.
+    }
+
+    if ( program->getAttribLocation( "normal" ) > 0 )
+    {
+        BIND( NORMAL );
+//        state.setNormalPointer( GL_FLOAT, 0, 0 );
+        state.setVertexAttribPointer( program->getAttribLocation( "normal" ),
+                                      3 , GL_FLOAT, false, 0,0);
     }
 
     if ( program->getAttribLocation( "binormal" ) > 0 )
@@ -158,16 +159,15 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
                                       3 , GL_FLOAT, false, 0,0);
     }
 
-    if ( program->getAttribLocation( "texCoord" ) > 0 )
+    if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
+         || mesh->hwStateDesc.bumpMap != "" )
     {
         BIND( TEX_COORD );
-        state.setVertexAttribPointer( program->getAttribLocation( "texCoord" ),
-                                      2 , GL_FLOAT, false, 0,0);
+        state.setTexCoordPointer( 0, 2, GL_FLOAT, 0, 0 );
     }
 
     BIND( VERTEX );
-    state.setVertexAttribPointer( program->getAttribLocation( "position" ),
-                                  3 , GL_FLOAT, false, 0,0);
+    state.setVertexPointer( 3, GL_FLOAT, 0, 0);
 
     // -- Calculate and bind rotation/translation uniforms --
     const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
