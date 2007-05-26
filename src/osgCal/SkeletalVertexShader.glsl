@@ -1,11 +1,10 @@
 // -*-c++-*-
 
-attribute vec3 position;
 attribute vec3 normal;
-
-#if TEXTURING == 1 || NORMAL_MAPPING == 1
-attribute vec2 texCoord; 
-#endif
+#define gl_Normal normal
+// TODO: there is a strange bug in OSG -- it crashes when the first
+// compiled shader have no generic attributes (if it is the second
+// shader all works OK), so we made `normal' a generic attribute.
 
 #if BONES_COUNT >= 1
 attribute vec4 weight;
@@ -37,7 +36,7 @@ varying mat3 eyeBasis; // in tangent space
 void main()
 {
 #if TEXTURING == 1 || NORMAL_MAPPING == 1
-    gl_TexCoord[0].st = texCoord; // export texCoord to fragment shader
+    gl_TexCoord[0].st = gl_MultiTexCoord0.st; // export texCoord to fragment shader
 #endif
 
 #if BONES_COUNT >= 1
@@ -59,7 +58,7 @@ void main()
 #endif // BONES_COUNT >= 3
 #endif // BONES_COUNT >= 2
 
-    vec3 transformedPosition = totalRotation * position + totalTranslation;
+    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
 #if FOG && !SHINING
     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -73,7 +72,7 @@ void main()
 
 #if NORMAL_MAPPING == 1
     mat3 tangentBasis =
-        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, normal );
+        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );
 
     eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
                      tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
@@ -87,31 +86,31 @@ void main()
     //eyeVec *= tangentBasis;
  #endif // no shining
 #else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * (totalRotation * normal);
+    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);
 #endif // NORMAL_MAPPING == 1
 
 #else // no bones
 
     // dont touch anything when no bones influence mesh
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(position, 1.0);
+    gl_Position = ftransform();
 #if FOG && !SHINING
-    //vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;
+    //vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #elseif SHINING
-    //eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;
+    //eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #endif 
 #if FOG
-    vec3 eyeVec = (gl_ModelViewMatrix * vec4(position, 1.0)).xyz;
+    vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
     gl_FogFragCoord = length( eyeVec );
 #endif // no fog
 
 #if NORMAL_MAPPING == 1
 //     mat3 tangentBasis =
-//         gl_NormalMatrix * mat3( tangent, binormal, normal );
+//         gl_NormalMatrix * mat3( tangent, binormal, gl_Normal );
 //  ^ why this give us incorrect results?
     mat4 tangentBasis =
         gl_ModelViewMatrix * mat4( vec4( tangent, 0.0 ),
                                    vec4( binormal, 0.0 ),
-                                   vec4( normal, 0.0 ),
+                                   vec4( gl_Normal, 0.0 ),
                                    vec4( 0.0, 0.0, 0.0, 1.0 ) );
 
     eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
@@ -122,7 +121,7 @@ void main()
     //eyeVec *= tangentBasis;
  #endif // no shining
 #else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * normal;
+    transformedNormal = gl_NormalMatrix * gl_Normal;
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
@@ -138,4 +137,43 @@ void main()
     //gl_FogCoord - when glFogCoord() used for per-vertex fog coord,
     //i.e. volumetric fog
   #endif // no fog
+
+    // -- Gouraud shading (as in fixed function) --
+    // for correct work we need software state set (w/o blending
+    // normals map) + we need to disable fragment shader (to use fixed
+    // function) + we need to remove NORMAL_MAPPING shader flag (for
+    // performance). We then get the same picture as for `--sw'
+    // mode. But on hi-poly models it work slightly slower than `--sw'
+    // (I think the cause is FFP<=>PP switch + more optimized FFP
+    // implementation).
+// #if NORMAL_MAPPING == 1
+//   #if BONES_COUNT == 0
+//     vec3 transformedNormal = gl_NormalMatrix * gl_Normal;
+//   #else
+//     vec3 transformedNormal = gl_NormalMatrix * totalRotation * gl_Normal;
+//   #endif
+// #endif // NORMAL_MAPPING == 1
+//     vec3 globalAmbient = gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb;
+
+//     vec3 color = globalAmbient;
+
+//     // -- Lights ambient --
+//     vec3 ambient0 = gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb;
+//     color += ambient0;
+
+//     // -- Lights diffuse --
+//     vec3 lightDir0 = gl_LightSource[0].position.xyz;
+//     float NdotL0 = max(0.0, dot( transformedNormal, lightDir0 ) );
+//     vec3 diffuse0 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
+//     color += NdotL0 * diffuse0;
+
+//     // -- Specular --
+// #if SHINING == 1
+//     float NdotHV0 = max( 0.0, dot( transformedNormal, gl_LightSource[0].halfVector.xyz ) );
+//     vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb * 
+//         pow( NdotHV0, gl_FrontMaterial.shininess );
+//     color += specular0;
+// #endif
+    
+//     gl_FrontColor = vec4( color, 1.0 );
 }

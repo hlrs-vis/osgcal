@@ -160,7 +160,7 @@ class SkeletalShadersSet : public osg::Referenced
                 p->addShader( getVertexShader( flags ) );
                 p->addShader( getFragmentShader( flags ) );
 
-                p->addBindAttribLocation( "position", 0 );
+                //p->addBindAttribLocation( "position", 0 );
                 // Attribute location binding is needed for ATI.
                 // ATI will draw nothing until one of the attributes
                 // will bound to zero location (BTW, this behaviour
