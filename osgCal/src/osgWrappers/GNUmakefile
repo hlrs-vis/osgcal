@@ -15,3 +15,11 @@ clean:
 
 wrapper:
 	cd ../../wrapper && make && cd ../src/osgWrappers
+
+# ../../wrapper/Makefile : 
+# all:
+# #ifeq ($(OS),MINGW)
+# 	cd ../doc/doxygen && doxygen && cd ../../wrapper
+# #	genwrapper/genwrapper.exe -c ./genwrapper/genwrapper.orig -d ../ | doxygen -
+# 	genwrapper/genwrapper.exe -c ./genwrapper/genwrapper.orig ../doc/doxygen ../
+# #endif
