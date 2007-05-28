@@ -21,11 +21,6 @@
 
 #include <osgCal/SubMeshHardware>
 
-#include <GL/glu.h> // Ovidiu Sabou (for compiling using Visual C++):
-                    // The glu header must be included after the osg
-                    // headers (which in turn include windows.h
-                    // first).
-
 using namespace osgCal;
 
 
