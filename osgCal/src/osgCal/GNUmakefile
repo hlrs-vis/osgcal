@@ -22,11 +22,11 @@ LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
 include $(TOPDIR)/Make/makerules 
 
 CoreModel.cpp: \
-		shaders/SkeletalVertexShader.h \
-		shaders/SkeletalFragmentShader.h
+	shaders/SkeletalVertexShader.h \
+	shaders/SkeletalFragmentShader.h
 
 shaders/SkeletalVertexShader.h: SkeletalVertexShader.glsl
-		dos2unix <../SkeletalVertexShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShader.h
+	sed -e s/\\r// <../SkeletalVertexShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShader.h
 
 shaders/SkeletalFragmentShader.h: SkeletalFragmentShader.glsl
-		dos2unix <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
+	sed -e s/\\r// <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
