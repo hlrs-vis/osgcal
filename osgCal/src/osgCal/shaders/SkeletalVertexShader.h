@@ -1,11 +1,5 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
-shaderText += "attribute vec3 normal;\n";
-shaderText += "#define gl_Normal normal\n";
-shaderText += "// TODO: there is a strange bug in OSG -- it crashes when the first\n";
-shaderText += "// compiled shader have no generic attributes (if it is the second\n";
-shaderText += "// shader all works OK), so we made `normal' a generic attribute.\n";
-shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
 shaderText += "attribute vec4 weight;\n";
 shaderText += "attribute vec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec\n";
