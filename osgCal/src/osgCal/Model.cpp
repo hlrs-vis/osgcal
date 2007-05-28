@@ -217,6 +217,8 @@ Model::load( CoreModel* cm,
                 throw std::runtime_error( "Model::load - unknown mesh type" );
         }
 
+        g->setName( mesh.name ); // for debug only, TODO: subject to remove
+        
         g->setDataVariance( osg::Object::DYNAMIC );
         // ^ No drawing during updates. Otherwise there will be a
         // crash in multithreaded osgViewer modes
