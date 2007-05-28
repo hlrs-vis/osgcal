@@ -26,7 +26,15 @@ CoreModel.cpp: \
 	shaders/SkeletalFragmentShader.h
 
 shaders/SkeletalVertexShader.h: SkeletalVertexShader.glsl
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalVertexShader.glsl >../shaders/SkeletalVertexShader.h
+else
 	sed -e s/\\r// <../SkeletalVertexShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShader.h
+endif
 
 shaders/SkeletalFragmentShader.h: SkeletalFragmentShader.glsl
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalFragmentShader.glsl >../shaders/SkeletalFragmentShader.h
+else
 	sed -e s/\\r// <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
+endif
