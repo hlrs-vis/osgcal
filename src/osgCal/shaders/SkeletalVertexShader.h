@@ -144,7 +144,7 @@ shaderText += "    // normals map) + we need to disable fragment shader (to use 
 shaderText += "    // function) + we need to remove NORMAL_MAPPING shader flag (for\n";
 shaderText += "    // performance). We then get the same picture as for `--sw'\n";
 shaderText += "    // mode. But on hi-poly models it work slightly slower than `--sw'\n";
-shaderText += "    // (I think the cause is FFP<=>PPP switch + more optimized FFP\n";
+shaderText += "    // (I think the cause is FFP<=>PP switch + more optimized FFP\n";
 shaderText += "    // implementation).\n";
 // if ( NORMAL_MAPPING == 1 ) {
 //   if ( BONES_COUNT == 0 ) {
