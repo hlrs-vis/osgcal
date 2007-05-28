@@ -102,8 +102,6 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
             getStateSet()->
             getAttribute( osg::StateAttribute::PROGRAM ) )->
             getPCP( state.getContextID() );
-        //mesh->animatingShadergetPCP( state.getContextID() );
-        //coreModel->getSkeletalProgram()->getPCP( state.getContextID() );
 
 #define BIND(_type)                                                     \
     coreModel->getVbo(CoreModel::BI_##_type)->compileBuffer( state );   \
@@ -132,13 +130,8 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         // when updating vertices on CPU.
     }
 
-    if ( program->getAttribLocation( "normal" ) > 0 )
-    {
-        BIND( NORMAL );
-//        state.setNormalPointer( GL_FLOAT, 0, 0 );
-        state.setVertexAttribPointer( program->getAttribLocation( "normal" ),
-                                      3 , GL_FLOAT, false, 0,0);
-    }
+    BIND( NORMAL );
+    state.setNormalPointer( GL_FLOAT, 0, 0 );
 
     if ( program->getAttribLocation( "binormal" ) > 0 )
     {
@@ -172,7 +165,7 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     {
         rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices[0]" );
         // Why the hell on ATI it has uniforms for each
-        // elements? (nVidia has only one uniform for whole array)
+        // elements? (nVidia has only one uniform for the whole array)
     }
     
     GLint translationVectorsAttrib = program->getUniformLocation( "translationVectors" );
@@ -294,22 +287,20 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     
     //glError();
 
-    state.disableVertexAttribPointer(program->getAttribLocation( "position" ));
+    state.disableVertexPointer();
+    state.disableTexCoordPointer( 0 );
+    state.disableNormalPointer();
     if ( program->getAttribLocation( "weight" ) > 0 )
         state.disableVertexAttribPointer(program->getAttribLocation( "weight" ));
-    if ( program->getAttribLocation( "normal" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "normal" ));
     if ( program->getAttribLocation( "index" ) > 0 )
         state.disableVertexAttribPointer(program->getAttribLocation( "index" ));
-    if ( program->getAttribLocation( "texCoord" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "texCoord" ));
     if ( program->getAttribLocation( "binormal" ) > 0 )
         state.disableVertexAttribPointer(program->getAttribLocation( "binormal" ));
     if ( program->getAttribLocation( "tangent" ) > 0 )
         state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
 
-    UNBIND( TEX_COORD ); // extensions->glBindBuffer(GL_ARRAY_BUFFER_ARB,0);
-    UNBIND( INDEX ); // extensions->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
+    UNBIND( TEX_COORD );
+    UNBIND( INDEX );
 
     //std::cout << "SubMeshHardware::drawImplementation: end" << std::endl;
 }

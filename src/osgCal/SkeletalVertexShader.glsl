@@ -1,11 +1,5 @@
 // -*-c++-*-
 
-attribute vec3 normal;
-#define gl_Normal normal
-// TODO: there is a strange bug in OSG -- it crashes when the first
-// compiled shader have no generic attributes (if it is the second
-// shader all works OK), so we made `normal' a generic attribute.
-
 #if BONES_COUNT >= 1
 attribute vec4 weight;
 attribute vec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec
