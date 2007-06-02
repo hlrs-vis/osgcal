@@ -424,7 +424,9 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
         // -- Calculate maxBonesInfluence & rigidness --
         GLfloat* vertexBuffer = (GLfloat*) bos->vertexBuffer->getDataPointer();
-        GLshort* matrixIndexBuffer = (GLshort*) bos->matrixIndexBuffer->getDataPointer();
+        MatrixIndexBuffer::value_type::value_type*
+            matrixIndexBuffer = (MatrixIndexBuffer::value_type::value_type*)
+            bos->matrixIndexBuffer->getDataPointer();
         GLfloat* weightBuffer = (GLfloat*) bos->weightBuffer->getDataPointer();
         GLuint*  indexBuffer = (GLuint*) bos->indexBuffer->getDataPointer();
 
@@ -506,10 +508,10 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
         while ( mi < bos->matrixIndexBuffer->end() )
         {
-            if ( w->x() <= 0.0 ) // no influences at all
+            if ( (*w)[0] <= 0.0 ) // no influences at all
             {
-                w->x() = 1.0;
-                mi->x() = 30;
+                (*w)[0] = 1.0;
+                (*mi)[0] = 30;
                 // last+1 bone in shader is always identity matrix.
                 // we need this hack for meshes where some vertexes
                 // are rigged and some are not (so we create

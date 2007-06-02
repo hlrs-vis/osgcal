@@ -207,7 +207,20 @@ Model::load( CoreModel* cm,
                 if ( normalBuffer.get() == 0 )
                 {
                     // create local normals buffer only if necessary.
-                    normalBuffer = (NormalBuffer*) cm->getNormalBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
+#ifdef OSG_CAL_BYTE_BUFFERS
+                    const NormalBuffer* src = cm->getNormalBuffer();
+                    normalBuffer = new SwNormalBuffer( src->size() );
+
+                    for ( size_t i = 0; i < src->size(); i++ )
+                    {
+                        (*normalBuffer)[i].x() = (*src)[i].x() / 127.0;
+                        (*normalBuffer)[i].y() = (*src)[i].y() / 127.0;
+                        (*normalBuffer)[i].z() = (*src)[i].z() / 127.0;
+                    }
+#else
+                    normalBuffer = (NormalBuffer*) cm->getNormalBuffer()->
+                        clone( osg::CopyOp::DEEP_COPY_ALL );
+#endif
                 }
                 
                 g = new SubMeshSoftware( this, i, mesh.rigid );

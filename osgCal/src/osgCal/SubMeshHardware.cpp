@@ -110,6 +110,14 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 #define UNBIND(_type)                                                   \
     coreModel->getVbo(CoreModel::BI_##_type)->unbindBuffer( state.getContextID() )
 
+#ifdef OSG_CAL_BYTE_BUFFERS
+    #define NORMAL_TYPE         GL_BYTE
+    #define MATRIX_INDEX_TYPE   GL_UNSIGNED_BYTE
+#else
+    #define NORMAL_TYPE         GL_FLOAT
+    #define MATRIX_INDEX_TYPE   GL_SHORT
+#endif
+
     if ( program->getAttribLocation( "weight" ) > 0 )
     {
         BIND( WEIGHT );
@@ -124,27 +132,28 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 //                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
 //                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
 //                                      4 , GL_FLOAT, false, 0,0); // dvorets - 53fps        
-                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
+//                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
+                                        4 , MATRIX_INDEX_TYPE, false, 0,0);         
         // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
         // but conversion from float to int would be to expensive
         // when updating vertices on CPU.
     }
-
+    
     BIND( NORMAL );
-    state.setNormalPointer( GL_FLOAT, 0, 0 );
+    state.setNormalPointer( NORMAL_TYPE, 0, 0 );
 
     if ( program->getAttribLocation( "binormal" ) > 0 )
     {
         BIND( BINORMAL );
         state.setVertexAttribPointer( program->getAttribLocation( "binormal" ),
-                                      3 , GL_FLOAT, false, 0,0);
+                                      3 , NORMAL_TYPE, false, 0,0);
     }
 
     if ( program->getAttribLocation( "tangent" ) > 0 )
     {
         BIND( TANGENT );
         state.setVertexAttribPointer( program->getAttribLocation( "tangent" ),
-                                      3 , GL_FLOAT, false, 0,0);
+                                      3 , NORMAL_TYPE, false, 0,0);
     }
 
     if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
@@ -537,8 +546,8 @@ SubMeshHardware::update()
     osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
     const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
     const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
-    const osg::Vec4s*  mi = &mib.front() + baseIndex; /* bone indexes */		
-
+    const MatrixIndexBuffer::value_type*
+                       mi = &mib.front() + baseIndex; /* bone indexes */
     osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
     
 #define ITERATE( _f )                           \
@@ -553,6 +562,11 @@ SubMeshHardware::update()
         ++mi;                                   \
     }
 
+    #define x() r()
+    #define y() g()
+    #define z() b()
+    #define w() a()
+    
 #define PROCESS_X( _process_y )                                         \
     /*if ( mi->x() != 30 )*/                                            \
         /* we have no zero weight vertices they all bound to 30th bone */ \

@@ -198,10 +198,10 @@ loadVBOs( const std::string& fn ) throw (std::runtime_error)
         throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn );\
     }
 
-#define READ( _buf, _size )                                                         \
-    if ( fread( (void*)_buf->getDataPointer(), _size, 1, f ) != 1 )                 \
-    {                                                                               \
-        throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn );\
+#define READ( _buf )                                                    \
+    if ( fread( (void*)_buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
+    {                                                                   \
+        throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn ); \
     }
 
     READ_( &vertexCount, 4 );
@@ -209,14 +209,14 @@ loadVBOs( const std::string& fn ) throw (std::runtime_error)
 
     std::auto_ptr< VBOs > vbos( new VBOs( vertexCount, faceCount ) );
 
-    READ( vbos->vertexBuffer, 3*4*vertexCount );
-    READ( vbos->weightBuffer, 4*4*vertexCount );
-    READ( vbos->matrixIndexBuffer, 4*2*vertexCount );
-    READ( vbos->normalBuffer, 3*4*vertexCount );
-    READ( vbos->tangentBuffer, 3*4*vertexCount );
-    READ( vbos->binormalBuffer, 3*4*vertexCount );
-    READ( vbos->texCoordBuffer, 2*4*vertexCount );
-    READ( vbos->indexBuffer, 3*4*faceCount );
+    READ( vbos->vertexBuffer );
+    READ( vbos->weightBuffer );
+    READ( vbos->matrixIndexBuffer );
+    READ( vbos->normalBuffer );
+    READ( vbos->tangentBuffer );
+    READ( vbos->binormalBuffer );
+    READ( vbos->texCoordBuffer );
+    READ( vbos->indexBuffer );
 
 //#undef READ
     
@@ -245,23 +245,23 @@ saveVBOs( VBOs* vbos,
         throw std::runtime_error( "Can't write "#_buf + std::string(" to ") + fn ); \
     }
 
-#define WRITE( _buf, _size )                                                        \
-    if ( fwrite( _buf->getDataPointer(), _size, 1, f ) != 1 )                       \
-    {                                                                               \
+#define WRITE( _buf )                                                   \
+    if ( fwrite( _buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
+    {                                                                   \
         throw std::runtime_error( "Can't write "#_buf + std::string(" to ") + fn ); \
     }
 
     WRITE_( &vertexCount, 4 );
     WRITE_( &faceCount, 4 );
 
-    WRITE( vbos->vertexBuffer, 3*4*vertexCount );
-    WRITE( vbos->weightBuffer, 4*4*vertexCount );
-    WRITE( vbos->matrixIndexBuffer, 4*2*vertexCount );
-    WRITE( vbos->normalBuffer, 3*4*vertexCount );
-    WRITE( vbos->tangentBuffer, 3*4*vertexCount );
-    WRITE( vbos->binormalBuffer, 3*4*vertexCount );
-    WRITE( vbos->texCoordBuffer, 2*4*vertexCount );
-    WRITE( vbos->indexBuffer, 3*4*faceCount );
+    WRITE( vbos->vertexBuffer );
+    WRITE( vbos->weightBuffer );
+    WRITE( vbos->matrixIndexBuffer );
+    WRITE( vbos->normalBuffer );
+    WRITE( vbos->tangentBuffer );
+    WRITE( vbos->binormalBuffer );
+    WRITE( vbos->texCoordBuffer );
+    WRITE( vbos->indexBuffer );
 
 //#undef WRITE
     
@@ -272,13 +272,18 @@ VBOs*
 loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
 {
     std::auto_ptr< VBOs > vbos( new VBOs() );
-
     float* floatMatrixIndexBuffer = new float[vbos->getVertexCount()*4];
 
     calHardwareModel->setVertexBuffer((char*)vbos->vertexBuffer->getDataPointer(),
                                       3*sizeof(float));
+#ifdef OSG_CAL_BYTE_BUFFERS
+    float* floatNormalBuffer = new float[vbos->getVertexCount()*3];
+    calHardwareModel->setNormalBuffer((char*)floatNormalBuffer,
+                                      3*sizeof(float));
+#else
     calHardwareModel->setNormalBuffer((char*)vbos->normalBuffer->getDataPointer(),
                                       3*sizeof(float));
+#endif
     calHardwareModel->setWeightBuffer((char*)vbos->weightBuffer->getDataPointer(),
                                       4*sizeof(float));
     calHardwareModel->setMatrixIndexBuffer((char*)floatMatrixIndexBuffer,
@@ -330,11 +335,17 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
     // reinitialize index buffer after resize
     
     GLfloat* texCoordBuffer = (GLfloat*) vbos->texCoordBuffer->getDataPointer();
-    GLshort* matrixIndexBuffer = (GLshort*) vbos->matrixIndexBuffer->getDataPointer();
+
+#ifdef OSG_CAL_BYTE_BUFFERS
+    typedef GLubyte MatrixIndex;
+#else
+    typedef GLshort MatrixIndex;
+#endif
+    MatrixIndex* matrixIndexBuffer = (MatrixIndex*) vbos->matrixIndexBuffer->getDataPointer();
 
     for ( int i = 0; i < vbos->getVertexCount()*4; i++ )
     {
-        matrixIndexBuffer[i] = static_cast< GLshort >( floatMatrixIndexBuffer[i] );
+        matrixIndexBuffer[i] = static_cast< MatrixIndex >( floatMatrixIndexBuffer[i] );
     }
 
     delete[] floatMatrixIndexBuffer;
@@ -351,9 +362,15 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
         CalVector* tan2 = new CalVector[vbos->getVertexCount()];
 
         GLfloat* vertexBuffer = (GLfloat*) vbos->vertexBuffer->getDataPointer();
+#ifdef OSG_CAL_BYTE_BUFFERS
+        GLfloat* tangentBuffer = new GLfloat[ vbos->getVertexCount()*3 ];
+        GLfloat* normalBuffer = floatNormalBuffer;
+        GLfloat* binormalBuffer = new GLfloat[ vbos->getVertexCount()*3 ];;
+#else
         GLfloat* tangentBuffer = (GLfloat*) vbos->tangentBuffer->getDataPointer();
         GLfloat* normalBuffer = (GLfloat*) vbos->normalBuffer->getDataPointer();
         GLfloat* binormalBuffer = (GLfloat*) vbos->binormalBuffer->getDataPointer();
+#endif
 
         for ( int face = 0; face < calHardwareModel->getTotalFaceCount(); face++ )
         {
@@ -446,7 +463,8 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
                 binormal.normalize();
             }
 
-//            std::cout << tangent.x << '\t' << tangent.y << '\t' << tangent.z << '\t' << std::endl;
+//             std::cout << "t = " << tangent.x  << '\t' << tangent.y  << '\t' << tangent.z << '\n' ;
+//             std::cout << "b = " << binormal.x << '\t' << binormal.y << '\t' << binormal.z << '\n';;
 
             tangentBuffer[a*3+0] = tangent.x; 
             tangentBuffer[a*3+1] = tangent.y;
@@ -459,7 +477,33 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
     
         delete[] tan1;
         delete[] tan2;
+
+#ifdef OSG_CAL_BYTE_BUFFERS
+        GLbyte* tangents = (GLbyte*) vbos->tangentBuffer->getDataPointer();
+        GLbyte* binormals = (GLbyte*) vbos->binormalBuffer->getDataPointer();
+
+        for ( int i = 0; i < vbos->getVertexCount()*3; i++ )
+        {
+            tangents[i]  = static_cast< GLbyte >( tangentBuffer[i]*127.0 );
+            binormals[i] = static_cast< GLbyte >( binormalBuffer[i]*127.0 );
+            //std::cout << (int)tangents[i] << '\n';
+        }
+
+        delete[] tangentBuffer;
+        delete[] binormalBuffer;
+#endif
     }
+
+#ifdef OSG_CAL_BYTE_BUFFERS
+    GLbyte* normals = (GLbyte*) vbos->normalBuffer->getDataPointer();
+
+    for ( int i = 0; i < vbos->getVertexCount()*3; i++ )
+    {
+        normals[i]  = static_cast< GLbyte >( floatNormalBuffer[i]*127.0 );
+    }
+
+    delete[] floatNormalBuffer;
+#endif
 
     // invert UVs for OpenGL (textures are inverted otherwise - for example, see abdulla/klinok)
     for ( float* tcy = texCoordBuffer + 1;

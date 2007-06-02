@@ -110,12 +110,36 @@ operator == ( const osg::Matrix3& m1,
 static
 inline
 osg::Vec3f
+convert( const osg::Vec3f& v )
+{
+    return v;
+}
+
+static
+inline
+osg::Vec3f
+convert( const osg::Vec3b& v )
+{
+    return osg::Vec3f( v.x() / 127.0, v.y() / 127.0, v.z() / 127.0 );
+}
+
+static
+inline
+osg::Vec3f
 mul3( const osg::Matrix3& m,
       const osg::Vec3f& v )
 {
     return osg::Vec3f( m(0,0)*v.x() + m(1,0)*v.y() + m(2,0)*v.z(),
                        m(0,1)*v.x() + m(1,1)*v.y() + m(2,1)*v.z(),
                        m(0,2)*v.x() + m(1,2)*v.y() + m(2,2)*v.z() );
+}
+
+inline
+osg::Vec3f
+mul3( const osg::Matrix3& m,
+      const osg::Vec3b& v )
+{
+    return mul3( m, convert( v ) );
 }
 
 void
@@ -194,7 +218,7 @@ SubMeshSoftware::update()
     boundingBox = osg::BoundingBox();
     
     VertexBuffer&               vb  = *model->getVertexBuffer();
-    NormalBuffer&               nb  = *model->getNormalBuffer();
+    Model::SwNormalBuffer&      nb  = *model->getNormalBuffer();
     const VertexBuffer&         svb = *coreModel->getVertexBuffer();
     const NormalBuffer&         snb = *coreModel->getNormalBuffer();
     const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
@@ -206,9 +230,11 @@ SubMeshSoftware::update()
     osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
     osg::Vec3f*        n  = &nb.front()  + baseIndex; /* dest normal */   
     const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
-    const osg::Vec3f*  sn = &snb.front() + baseIndex; /* source normal */   
+    const NormalBuffer::value_type*
+                       sn = &snb.front() + baseIndex; /* source normal */   
     const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
-    const osg::Vec4s*  mi = &mib.front() + baseIndex; /* bone indexes */		
+    const MatrixIndexBuffer::value_type*
+                       mi = &mib.front() + baseIndex; /* bone indexes */		
 
     osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
     
@@ -226,6 +252,11 @@ SubMeshSoftware::update()
         ++mi;                                   \
     }
 
+    #define x() r()
+    #define y() g()
+    #define z() b()
+    #define w() a()
+
     // 'if's get ~15% speedup here
     
 #define PROCESS_X( _process_y )                                         \
@@ -242,7 +273,7 @@ SubMeshSoftware::update()
     else                                                                \
     {                                                                   \
         *v = *sv;                                                       \
-        *n = *sn;                                                       \
+        *n = convert( *sn );                                            \
     }                                                                   
                                                                         
 #define PROCESS_Y( _process_z )                                         \
