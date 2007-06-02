@@ -260,7 +260,7 @@ namespace osgCal
 
                     Mesh()
                         : coreMesh( 0 )
-                        , coreSubMesh( 0 )
+                          //, coreSubMesh( 0 )
                         , maxBonesInfluence( 0 )
                         , rigid( false )
                         , hardwareMeshId( -1 )
@@ -271,7 +271,7 @@ namespace osgCal
                     HwStateDesc                   hwStateDesc;
 
                     CalCoreMesh*                  coreMesh;
-                    CalCoreSubmesh*               coreSubMesh;
+                    //CalCoreSubmesh*               coreSubMesh;
 
                     int                           maxBonesInfluence;
 

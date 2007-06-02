@@ -412,7 +412,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         m.hardwareMeshId = hardwareMeshId;
         m.hardwareMesh   = &calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
         m.coreMesh       = calCoreModel->getCoreMesh( m.hardwareMesh->meshId );
-        m.coreSubMesh    = m.coreMesh->getCoreSubmesh( m.hardwareMesh->submeshId );
+        //m.coreSubMesh    = m.coreMesh->getCoreSubmesh( m.hardwareMesh->submeshId );
         m.name           = m.coreMesh->getName();
 
         if ( m.hardwareMesh->faceCount == 0 )
