@@ -710,6 +710,9 @@ loadCoreModel( const std::string& cfgFileName,
             }
             else if ( !strcmp( buffer, "mesh" ) )
             {
+//                 CalCoreMesh* ccm = new CalCoreMesh();
+//                 ccm->addCoreSubmesh( new CalCoreSubmesh() );
+//                 int meshId = calCoreModel->addCoreMesh( ccm );
                 int meshId = calCoreModel->loadCoreMesh( fullpath );
                 if( meshId < 0 )
                 {
