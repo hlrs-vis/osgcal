@@ -34,6 +34,7 @@ shaderText += "    vec2 ag = 2.0*(texture2D(normalMap, gl_TexCoord[0].st).ag - 0
 shaderText += "    vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));\n";
 shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));\n";
 shaderText += "    normal = normalize( normal * eyeBasis );\n";
+shaderText += "///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );\n";
 shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
 shaderText += "//                                        normalize( eyeBasis[1] ),\n";
 shaderText += "//                                        normalize( eyeBasis[2] ) ) );\n";

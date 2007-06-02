@@ -778,3 +778,4 @@ endif
 
 VPATH=..
 
+#DEF += -DOSG_CAL_BYTE_BUFFERS=1

@@ -34,6 +34,7 @@ void main()
     vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
     normal = normalize( normal * eyeBasis );
+///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),
 //                                        normalize( eyeBasis[2] ) ) );

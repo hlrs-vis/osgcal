@@ -64,13 +64,21 @@ namespace osgCal
 
     typedef osg::Vec3Array      VertexBuffer;
     typedef osg::Vec4Array      WeightBuffer;
-    typedef osg::Vec4sArray     MatrixIndexBuffer;
-    typedef osg::Vec3Array      NormalBuffer;
-    typedef osg::Vec3Array      TangentBuffer;
-    typedef osg::Vec3Array      BinormalBuffer;
     typedef osg::Vec2Array      TexCoordBuffer;
     typedef osg::UIntArray      IndexBuffer;
 
+#ifdef OSG_CAL_BYTE_BUFFERS
+    typedef osg::Vec3bArray     NormalBuffer;
+    typedef osg::Vec3bArray     TangentBuffer;
+    typedef osg::Vec3bArray     BinormalBuffer;
+    typedef osg::Vec4ubArray    MatrixIndexBuffer;
+#else
+    typedef osg::Vec3Array      NormalBuffer;
+    typedef osg::Vec3Array      TangentBuffer;
+    typedef osg::Vec3Array      BinormalBuffer;
+    typedef osg::Vec4sArray     MatrixIndexBuffer;
+#endif
+    
     struct OSGCAL_EXPORT VBOs
     {
         public:

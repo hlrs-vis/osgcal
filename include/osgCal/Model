@@ -114,11 +114,18 @@ namespace osgCal {
             CalModel*  getCalModel() { return calModel; }
             CoreModel* getCoreModel() { return coreModel.get(); }
             VertexBuffer* getVertexBuffer() { return vertexBuffer.get(); }           
+
+#ifdef OSG_CAL_BYTE_BUFFERS
+            typedef osg::Vec3Array SwNormalBuffer;
+#else
+            typedef NormalBuffer   SwNormalBuffer;
+#endif
+
             /**
              * Return local model's normals buffer. It exists only
              * when there are some software meshes. Otherwise it's NULL.
              */
-            NormalBuffer* getNormalBuffer() { return normalBuffer.get(); }
+            SwNormalBuffer* getNormalBuffer() { return normalBuffer.get(); }
 
             /**
              * Blend animation cycle to the specified weight
@@ -160,7 +167,7 @@ namespace osgCal {
              * Local model's normals buffer.
              * Used only in software mode.
              */
-            osg::ref_ptr< NormalBuffer >        normalBuffer;
+            osg::ref_ptr< SwNormalBuffer >        normalBuffer;
     };
 
 }; // namespace osgCal
