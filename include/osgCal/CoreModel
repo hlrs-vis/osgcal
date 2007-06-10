@@ -232,6 +232,12 @@ namespace osgCal
              */
             void load( const std::string& cfgFileName ) throw (std::runtime_error);
 
+            /**
+             * Same as load, but doesn't throw exceptions on error.
+             */
+            bool loadNoThrow( const std::string& cfgFileName,
+                              std::string&       errorText ) throw ();
+
             CalCoreModel*       getCalCoreModel() const     { return calCoreModel; }
             CalHardwareModel*   getCalHardwareModel() const { return calHardwareModel; }
 
