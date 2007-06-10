@@ -363,7 +363,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
     // -- Preparing hardware model --
     calHardwareModel = 0;
-    VBOs* bos = 0;
+    std::auto_ptr< VBOs > bos;
 
     try // try load cached vbos
     {
@@ -376,7 +376,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         // We don't check file dates, since after `svn up' they can be
         // in any order. So, yes, if cache file doesn't correspond to
         // model we can SIGSEGV.
-        bos = loadVBOs( VBOsCacheFileName( cfgFileName ) );
+        bos = std::auto_ptr< VBOs >( loadVBOs( VBOsCacheFileName( cfgFileName ) ) );
         //std::cout << "loaded from cache" << std::endl;
         //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
         //std::cout << "faceCount = "   << bos->faceCount << std::endl;
@@ -390,10 +390,9 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
     }
     catch ( std::runtime_error& e )
     {
-        delete bos;
         delete calHardwareModel;
         calHardwareModel = new CalHardwareModel(calCoreModel);
-        bos = loadVBOs( calHardwareModel );
+        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel ) );
         //saveVBOs( bos, dir + "/vbos.cache" );
         //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
         // ^ it's not loading task, cache preparation is export task
@@ -556,9 +555,22 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
                                                    bos->texCoordBuffer.get() );
     vbos[ BI_INDEX ] = new VertexBufferObject( GL_ELEMENT_ARRAY_BUFFER_ARB,
                                                bos->indexBuffer.get() );
+}
 
-    // -- Cleanup --
-    delete bos;
+bool
+CoreModel::loadNoThrow( const std::string& cfgFileName,
+                        std::string&       errorText ) throw ()
+{
+    try
+    {
+        load( cfgFileName );
+        return true;
+    }
+    catch ( std::runtime_error& e )
+    {
+        errorText = e.what();
+        return false;
+    }
 }
 
 
