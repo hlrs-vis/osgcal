@@ -73,6 +73,7 @@ void main()
     // -- Lights diffuse --
     vec3 lightDir0 = gl_LightSource[0].position.xyz;
     float NdotL0 = max(0.0, dot( normal, lightDir0 ) );
+//    NdotL0 = 0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs
     vec3 diffuse0 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
     color += NdotL0 * diffuse0;
 
@@ -96,8 +97,10 @@ void main()
     if ( NdotHV0 > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb * 
-            pow( NdotHV0, gl_FrontMaterial.shininess );
+        float specularPower0 = pow( NdotHV0, gl_FrontMaterial.shininess );
+//        specularPower0 = specularPower0 > 0.8 ? 1.0 : 0.0; // cartoon, too discreete
+        vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb *
+            specularPower0;
         color += specular0;
     }
 
