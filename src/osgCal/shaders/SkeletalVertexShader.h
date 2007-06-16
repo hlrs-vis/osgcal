@@ -1,14 +1,14 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
-// shaderText += "#define vec4  half4\n";
-// shaderText += "#define vec3  half3\n";
-// shaderText += "#define mat3  half3x3\n";
-// shaderText += "#define float half\n";
-shaderText += "//\n";
-shaderText += "// Using of half data types reduce draw time of test model by 8-9%\n";
-shaderText += "// but works only in static shader. On skinning shader GLSL compiler\n";
-shaderText += "// fails with an exception (and with many warnings related to using\n";
-shaderText += "// of half data types).\n";
+shaderText += "# ifndef __GLSL_CG_DATA_TYPES // the space after '#' is necessary to\n";
+shaderText += "                              // differentiate `sed' defines from GLSL one's\n";
+shaderText += "  // remove half float types on non-nVidia videocards\n";
+shaderText += "  # define half    float\n";
+shaderText += "  # define half2   vec2\n";
+shaderText += "  # define half3   vec3\n";
+shaderText += "  # define half4   vec4\n";
+shaderText += "  # define half3x3 mat3\n";
+shaderText += "# endif\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
 shaderText += "attribute vec4 weight;\n";
@@ -26,11 +26,11 @@ shaderText += "attribute vec3 binormal;\n";
 }
 shaderText += "\n";
 if (!( NORMAL_MAPPING )) {
-shaderText += "varying vec3 transformedNormal;\n";
+shaderText += "varying half3 transformedNormal;\n";
 }
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "varying mat3 eyeBasis; // in tangent space\n";
+shaderText += "varying half3x3 eyeBasis; // in tangent space\n";
 }
 shaderText += "\n";
 if ( SHINING ) {
@@ -78,9 +78,9 @@ if ( NORMAL_MAPPING == 1 ) {
 shaderText += "    mat3 tangentBasis =\n";
 shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );\n";
 shaderText += "\n";
-shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
-shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
-shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
+shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "//     eyeBasis = mat3( vec3(1.0, 0.0, 0.0) * tangentBasis,\n";
 shaderText += "//                      vec3(0.0, 1.0, 0.0) * tangentBasis,\n";
 shaderText += "//                      vec3(0.0, 0.0, 1.0) * tangentBasis );\n";
@@ -90,7 +90,7 @@ shaderText += "\n";
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
+shaderText += "    transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } else { // no bones
@@ -117,15 +117,15 @@ shaderText += "                                   vec4( binormal, 0.0 ),\n";
 shaderText += "                                   vec4( gl_Normal, 0.0 ),\n";
 shaderText += "                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
 shaderText += "\n";
-shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
-shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
-shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
+shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
  if ( SHINING ) {
 shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * gl_Normal;\n";
+shaderText += "    transformedNormal = half3(gl_NormalMatrix * gl_Normal);\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1
