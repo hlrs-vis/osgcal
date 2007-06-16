@@ -1,14 +1,14 @@
 // -*-c++-*-
 
-// #define vec4  half4
-// #define vec3  half3
-// #define mat3  half3x3
-// #define float half
-//
-// Using of half data types reduce draw time of test model by 8-9%
-// but works only in static shader. On skinning shader GLSL compiler
-// fails with an exception (and with many warnings related to using
-// of half data types).
+# ifndef __GLSL_CG_DATA_TYPES // the space after '#' is necessary to
+                              // differentiate `sed' defines from GLSL one's
+  // remove half float types on non-nVidia videocards
+  # define half    float
+  # define half2   vec2
+  # define half3   vec3
+  # define half4   vec4
+  # define half3x3 mat3
+# endif
 
 #if BONES_COUNT >= 1
 attribute vec4 weight;
@@ -26,11 +26,11 @@ attribute vec3 binormal;
 #endif
 
 #ifndef NORMAL_MAPPING
-varying vec3 transformedNormal;
+varying half3 transformedNormal;
 #endif
 
 #if NORMAL_MAPPING == 1
-varying mat3 eyeBasis; // in tangent space
+varying half3x3 eyeBasis; // in tangent space
 #endif
 
 #if SHINING
@@ -78,9 +78,9 @@ void main()
     mat3 tangentBasis =
         gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );
 
-    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
+    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 //     eyeBasis = mat3( vec3(1.0, 0.0, 0.0) * tangentBasis,
 //                      vec3(0.0, 1.0, 0.0) * tangentBasis,
 //                      vec3(0.0, 0.0, 1.0) * tangentBasis );
@@ -90,7 +90,7 @@ void main()
     //eyeVec *= tangentBasis;
  #endif // no shining
 #else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);
+    transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));
 #endif // NORMAL_MAPPING == 1
 
 #else // no bones
@@ -117,15 +117,15 @@ void main()
                                    vec4( gl_Normal, 0.0 ),
                                    vec4( 0.0, 0.0, 0.0, 1.0 ) );
 
-    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
+    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
  #if SHINING
     //eyeVec *= tangentBasis;
  #endif // no shining
 #else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * gl_Normal;
+    transformedNormal = half3(gl_NormalMatrix * gl_Normal);
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1

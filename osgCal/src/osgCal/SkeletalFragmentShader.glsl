@@ -1,9 +1,14 @@
 // -*-c++-*-
 
-// #define vec4  half4
-// #define vec3  half3
-// #define mat3  half3x3
-// #define float half
+# ifndef __GLSL_CG_DATA_TYPES // the space after '#' is necessary to
+                              // differentiate `sed' defines from GLSL one's
+  // remove half float types on non-nVidia videocards
+  # define half    float
+  # define half2   vec2
+  # define half3   vec3
+  # define half4   vec4
+  # define half3x3 mat3
+# endif
 
 #if TEXTURING == 1
 uniform sampler2D decalMap;
@@ -12,7 +17,7 @@ uniform sampler2D decalMap;
 #if NORMAL_MAPPING == 1
 uniform sampler2D normalMap;
 
-varying mat3 eyeBasis; // in tangent space
+varying half3x3 eyeBasis; // in tangent space
 #endif
 
 #if SHINING
@@ -20,10 +25,10 @@ varying mat3 eyeBasis; // in tangent space
 #endif
 
 #ifndef NORMAL_MAPPING
-varying vec3 transformedNormal;
+varying half3 transformedNormal;
 #endif
 
-uniform float face;
+uniform half face;
 
 void main()
 {
@@ -35,8 +40,8 @@ void main()
     // and shader will run in software
     // GeForce < 6.x also doesn't know about this.
 #if NORMAL_MAPPING == 1
-    vec2 ag = 2.0*(texture2D(normalMap, gl_TexCoord[0].st).ag - 0.5);
-    vec3 normal = face*vec3(ag, sqrt(1.0 - dot( ag, ag )));
+    half2 ag = half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));
+    half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
     normal = normalize( normal * eyeBasis );
 ///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );
@@ -45,7 +50,7 @@ void main()
 //                                        normalize( eyeBasis[2] ) ) );
     // ^ not much difference
 #else        
-    vec3 normal = face*normalize(transformedNormal);
+    half3 normal = face*normalize(transformedNormal);
 #endif
 
     // -- Calculate decal (texture) color --
@@ -56,30 +61,30 @@ void main()
     
 #if TEXTURING == 1
   #if RGBA == 1
-    vec4 decalColor4 = texture2D(decalMap, gl_TexCoord[0].st).rgba;
-    vec3 decalColor = decalColor4.rgb;
+    half4 decalColor4 = half4(texture2D(decalMap, gl_TexCoord[0].st).rgba);
+    half3 decalColor = decalColor4.rgb;
   #else
-    vec3 decalColor = texture2D(decalMap, gl_TexCoord[0].st).rgb;
+    half3 decalColor = half3(texture2D(decalMap, gl_TexCoord[0].st).rgb);
   #endif
 #endif
 
     // -- Global Ambient --
-    vec3 globalAmbient = gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb;
+    half3 globalAmbient = half3(gl_FrontMaterial.ambient.rgb * gl_LightModel.ambient.rgb);
 
-    vec3 color = globalAmbient;
+    half3 color = half3(globalAmbient);
 
     // -- Lights ambient --
-    vec3 ambient0 = gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb;
+    half3 ambient0 = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[0].ambient.rgb);
     color += ambient0;
 
 //     vec3 ambient1 = gl_FrontMaterial.ambient.rgb * gl_LightSource[1].ambient.rgb;
 //     color += ambient1;
 
     // -- Lights diffuse --
-    vec3 lightDir0 = gl_LightSource[0].position.xyz;
-    float NdotL0 = max(0.0, dot( normal, lightDir0 ) );
+    half3 lightDir0 = half3(gl_LightSource[0].position.xyz);
+    half  NdotL0 = max( half(0.0), dot( normal, lightDir0 ) );
 //    NdotL0 = 0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs
-    vec3 diffuse0 = gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb;
+    half3 diffuse0 = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb);
     color += NdotL0 * diffuse0;
 
 //     vec3 lightDir1 = gl_LightSource[1].position.xyz;
@@ -97,14 +102,14 @@ void main()
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
     //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector - very slow
-    float NdotHV0 = dot( normal, gl_LightSource[0].halfVector.xyz );
+    half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );
     // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
-    if ( NdotHV0 > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
+    if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        float specularPower0 = pow( NdotHV0, gl_FrontMaterial.shininess );
+        half specularPower0 = pow( NdotHV0, half(gl_FrontMaterial.shininess) );
 //        specularPower0 = specularPower0 > 0.8 ? 1.0 : 0.0; // cartoon, too discreete
-        vec3 specular0 = gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb *
+        half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *
             specularPower0;
         color += specular0;
     }
@@ -119,15 +124,15 @@ void main()
 #endif // SHINING
 
 #if OPACITY
-    float opacity = gl_FrontMaterial.diffuse.a;
+    half opacity = half(gl_FrontMaterial.diffuse.a);
   #if RGBA == 1
-    gl_FragColor = /*vec4(color.rgb, opacity*color.a);/*/vec4(color, opacity*decalColor4.a);
+    gl_FragColor = vec4(color, opacity*decalColor4.a);
   #else
     gl_FragColor = vec4(color, opacity);
   #endif
 #else
   #if RGBA == 1
-    gl_FragColor = /*color;/*/vec4(color, decalColor4.a);
+    gl_FragColor = vec4(color, decalColor4.a);
   #else
     gl_FragColor = vec4(color, 1.0);
   #endif

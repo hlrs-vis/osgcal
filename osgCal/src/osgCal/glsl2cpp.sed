@@ -1,4 +1,5 @@
 /#/!s/.*/shaderText += "\0\\n";/;
+s/ *# .*/shaderText += "\0\\n";/;
 s/#version .*/shaderText += "\0\\n";/;
 s/#define .*/shaderText += "\0\\n";/;
 s/#ifndef \(.*\)/if (!( \1 )) {/;
