@@ -1,5 +1,15 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
+// shaderText += "#define vec4  half4\n";
+// shaderText += "#define vec3  half3\n";
+// shaderText += "#define mat3  half3x3\n";
+// shaderText += "#define float half\n";
+shaderText += "//\n";
+shaderText += "// Using of half data types reduce draw time of test model by 8-9%\n";
+shaderText += "// but works only in static shader. On skinning shader GLSL compiler\n";
+shaderText += "// fails with an exception (and with many warnings related to using\n";
+shaderText += "// of half data types).\n";
+shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
 shaderText += "attribute vec4 weight;\n";
 shaderText += "attribute vec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec\n";

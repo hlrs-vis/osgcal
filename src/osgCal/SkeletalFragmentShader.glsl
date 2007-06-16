@@ -1,5 +1,10 @@
 // -*-c++-*-
 
+// #define vec4  half4
+// #define vec3  half3
+// #define mat3  half3x3
+// #define float half
+
 #if TEXTURING == 1
 uniform sampler2D decalMap;
 #endif
