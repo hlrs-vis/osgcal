@@ -1,5 +1,10 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
+// shaderText += "#define vec4  half4\n";
+// shaderText += "#define vec3  half3\n";
+// shaderText += "#define mat3  half3x3\n";
+// shaderText += "#define float half\n";
+shaderText += "\n";
 if ( TEXTURING == 1 ) {
 shaderText += "uniform sampler2D decalMap;\n";
 }

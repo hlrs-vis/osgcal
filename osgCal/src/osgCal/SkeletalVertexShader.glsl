@@ -1,5 +1,15 @@
 // -*-c++-*-
 
+// #define vec4  half4
+// #define vec3  half3
+// #define mat3  half3x3
+// #define float half
+//
+// Using of half data types reduce draw time of test model by 8-9%
+// but works only in static shader. On skinning shader GLSL compiler
+// fails with an exception (and with many warnings related to using
+// of half data types).
+
 #if BONES_COUNT >= 1
 attribute vec4 weight;
 attribute vec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec
