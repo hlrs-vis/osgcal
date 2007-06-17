@@ -40,7 +40,7 @@ shaderText += "    // it says that it unsupported language element\n";
 shaderText += "    // and shader will run in software\n";
 shaderText += "    // GeForce < 6.x also doesn't know about this.\n";
 if ( NORMAL_MAPPING == 1 ) {
-shaderText += "    half2 ag = half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
+shaderText += "    half2 ag = half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));   \n";
 shaderText += "    half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
 shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));\n";
 shaderText += "    normal = normalize( normal * eyeBasis );\n";
@@ -83,7 +83,8 @@ shaderText += "\n";
 shaderText += "    // -- Lights diffuse --\n";
 shaderText += "    half3 lightDir0 = half3(gl_LightSource[0].position.xyz);\n";
 shaderText += "    half  NdotL0 = max( half(0.0), dot( normal, lightDir0 ) );\n";
-shaderText += "//    NdotL0 = 0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs\n";
+shaderText += "    //NdotL0 = NdotL0 > half(0.4) ? half(0.8) : half(0.5);\n";
+shaderText += "       //0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs\n";
 shaderText += "    half3 diffuse0 = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb);\n";
 shaderText += "    color += NdotL0 * diffuse0;\n";
 shaderText += "\n";
@@ -137,6 +138,16 @@ shaderText += "    gl_FragColor = vec4(color, decalColor4.a);\n";
 shaderText += "    gl_FragColor = vec4(color, 1.0);\n";
   }
 }
+shaderText += "\n";
+// if ( NORMAL_MAPPING == 1 ) {
+shaderText += "//     vec2 curvature = 1.0 - vec2(\n";
+shaderText += "//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.5/1024.0, 0.0)).ag,\n";
+shaderText += "//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.5/1024.0, 0.0)).ag),\n";
+shaderText += "//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.0, 0.5/1024.0)).ag,\n";
+shaderText += "//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.0, 0.5/1024.0)).ag));\n";
+shaderText += "//     float mix_curvature = sqrt(dot( curvature, curvature ));\n";
+shaderText += "//     gl_FragColor = mix( vec4(0.0), gl_FragColor, mix_curvature );\n";
+// }   
 shaderText += "\n";
 if ( FOG ) {
 shaderText += "//     float fog = (gl_Fog.end - gl_FogFragCoord) * gl_Fog.scale;\n";
