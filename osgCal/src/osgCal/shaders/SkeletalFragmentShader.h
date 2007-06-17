@@ -127,33 +127,54 @@ shaderText += "\n";
 if ( OPACITY ) {
 shaderText += "    half opacity = half(gl_FrontMaterial.diffuse.a);\n";
   if ( RGBA == 1 ) {
-shaderText += "    gl_FragColor = vec4(color, opacity*decalColor4.a);\n";
+shaderText += "    half4 fragColor = half4(color, opacity*decalColor4.a);\n";
   } else {
-shaderText += "    gl_FragColor = vec4(color, opacity);\n";
+shaderText += "    half4 fragColor = half4(color, opacity);\n";
   }
 } else {
   if ( RGBA == 1 ) {
-shaderText += "    gl_FragColor = vec4(color, decalColor4.a);\n";
+shaderText += "    half4 fragColor = half4(color, decalColor4.a);\n";
   } else {
-shaderText += "    gl_FragColor = vec4(color, 1.0);\n";
+shaderText += "    half4 fragColor = half4(color, 1.0);\n";
   }
 }
 shaderText += "\n";
 // if ( NORMAL_MAPPING == 1 ) {
-shaderText += "//     vec2 curvature = 1.0 - vec2(\n";
-shaderText += "//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.5/1024.0, 0.0)).ag,\n";
-shaderText += "//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.5/1024.0, 0.0)).ag),\n";
-shaderText += "//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.0, 0.5/1024.0)).ag,\n";
-shaderText += "//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.0, 0.5/1024.0)).ag));\n";
-shaderText += "//     float mix_curvature = sqrt(dot( curvature, curvature ));\n";
-shaderText += "//     gl_FragColor = mix( vec4(0.0), gl_FragColor, mix_curvature );\n";
-// }   
+shaderText += "//     // stupid test curvature shading\n";
+//shaderText += " # define PIXEL( _dx, _dy ) half2(texture2D(normalMap, gl_TexCoord[0].st + vec2(_dx/1024.0, _dy/1024.0)).ag)\n";
+//shaderText += " # define NORMAL2( _a ) half2((_a), sqrt(half(1.0) - dot( (_a), (_a) )))\n";
+//shaderText += " # define NORMAL3( _a ) half3((_a), sqrt(half(1.0) - dot( (_a), (_a) )))\n";
+shaderText += "\n";
+shaderText += "//     const half4 convex_color  = half4(1.0);//half4(1.0, 0.0, 0.0, 0.0);\n";
+shaderText += "//     const half4 concave_color = half4(0.0);//half4(0.0, 1.0, 0.0, 0.0);\n";
+shaderText += "\n";
+shaderText += "//     half2 x0ym1 = NORMAL2( PIXEL( 0.0, -1.0 ).y );\n";
+shaderText += "//     half2 x0yp1 = NORMAL2( PIXEL( 0.0,  1.0 ).y );\n";
+shaderText += "//     half y_curvature = cross( half3(x0ym1, 0.0), // <- mp instead of pm because normal map is flipped\n";
+shaderText += "//                               half3(x0yp1, 0.0) ).z/half(2.0); \n";
+shaderText += "//     fragColor = mix( y_curvature > half(0.0) ? convex_color : concave_color,\n";
+shaderText += "//                      fragColor, half(1.0) - abs(y_curvature) );\n";
+shaderText += "\n";
+shaderText += "//     half2 xm1y0 = NORMAL2( PIXEL( -1.0, 0.0 ).x );\n";
+shaderText += "//     half2 xp1y0 = NORMAL2( PIXEL(  1.0, 0.0 ).x );\n";
+shaderText += "//     half x_curvature = cross( half3(xp1y0, 0.0),\n";
+shaderText += "//                               half3(xm1y0, 0.0) ).z/half(2.0); \n";
+shaderText += "//     fragColor = mix( x_curvature > half(0.0) ? convex_color : concave_color,\n";
+shaderText += "//                      fragColor, half(1.0) - abs(x_curvature) );\n";
+shaderText += "\n";
+shaderText += "// //     half3 xm1ym1 = NORMAL3( PIXEL( -1.0, -1.0 ) );\n";
+shaderText += "// //     half3 xp1yp1 = NORMAL3( PIXEL(  1.0,  1.0 ) );\n";
+shaderText += "// //     // ^ incorrect, we need normals projected to diagonal\n";
+shaderText += "// //     half d1_curvature = dot( cross( xm1ym1, xp1yp1 ), half3( -1.0, 1.0, 0.0 ) );\n";
+shaderText += "// //     fragColor = mix( d1_curvature > half(0.0) ? convex_color : concave_color,\n";
+shaderText += "// //                      fragColor, half(1.0) - abs(d1_curvature) );\n";
+// }
 shaderText += "\n";
 if ( FOG ) {
 shaderText += "//     float fog = (gl_Fog.end - gl_FogFragCoord) * gl_Fog.scale;\n";
 shaderText += "//     // GL_FOG_MODE = GL_LINEAR\n";
 shaderText += "\n";
-shaderText += "    float fog = exp(-gl_Fog.density * gl_FogFragCoord);\n";
+shaderText += "    half fog = half(exp(-gl_Fog.density * gl_FogFragCoord));\n";
 shaderText += "    // GL_FOG_MODE = GL_EXP\n";
 shaderText += "\n";
 shaderText += "//     float fog = exp(-gl_Fog.density * gl_Fog.density *\n";
@@ -162,7 +183,9 @@ shaderText += "//     // GL_FOG_MODE = GL_EXP2\n";
 shaderText += "\n";
 shaderText += "    fog = clamp( fog, 0.0, 1.0 );\n";
 shaderText += "    \n";
-shaderText += "    gl_FragColor = mix( gl_Fog.color, gl_FragColor, fog );\n";
+shaderText += "    fragColor = mix( half4(gl_Fog.color), fragColor, fog );\n";
 } // FOG
 shaderText += "//    gl_FragDepth = gl_FragCoord.z;\n";
+shaderText += "\n";
+shaderText += "    gl_FragColor = vec4(fragColor);\n";
 shaderText += "}\n";
