@@ -127,33 +127,54 @@ void main()
 #if OPACITY
     half opacity = half(gl_FrontMaterial.diffuse.a);
   #if RGBA == 1
-    gl_FragColor = vec4(color, opacity*decalColor4.a);
+    half4 fragColor = half4(color, opacity*decalColor4.a);
   #else
-    gl_FragColor = vec4(color, opacity);
+    half4 fragColor = half4(color, opacity);
   #endif
 #else
   #if RGBA == 1
-    gl_FragColor = vec4(color, decalColor4.a);
+    half4 fragColor = half4(color, decalColor4.a);
   #else
-    gl_FragColor = vec4(color, 1.0);
+    half4 fragColor = half4(color, 1.0);
   #endif
 #endif
 
 // #if NORMAL_MAPPING == 1
-//     vec2 curvature = 1.0 - vec2(
-//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.5/1024.0, 0.0)).ag,
-//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.5/1024.0, 0.0)).ag),
-//         dot(texture2D(normalMap, gl_TexCoord[0].st + vec2(0.0, 0.5/1024.0)).ag,
-//             texture2D(normalMap, gl_TexCoord[0].st - vec2(0.0, 0.5/1024.0)).ag));
-//     float mix_curvature = sqrt(dot( curvature, curvature ));
-//     gl_FragColor = mix( vec4(0.0), gl_FragColor, mix_curvature );
-// #endif   
+//     // stupid test curvature shading
+// # define PIXEL( _dx, _dy ) half2(texture2D(normalMap, gl_TexCoord[0].st + vec2(_dx/1024.0, _dy/1024.0)).ag)
+// # define NORMAL2( _a ) half2((_a), sqrt(half(1.0) - dot( (_a), (_a) )))
+// # define NORMAL3( _a ) half3((_a), sqrt(half(1.0) - dot( (_a), (_a) )))
+
+//     const half4 convex_color  = half4(1.0);//half4(1.0, 0.0, 0.0, 0.0);
+//     const half4 concave_color = half4(0.0);//half4(0.0, 1.0, 0.0, 0.0);
+
+//     half2 x0ym1 = NORMAL2( PIXEL( 0.0, -1.0 ).y );
+//     half2 x0yp1 = NORMAL2( PIXEL( 0.0,  1.0 ).y );
+//     half y_curvature = cross( half3(x0ym1, 0.0), // <- mp instead of pm because normal map is flipped
+//                               half3(x0yp1, 0.0) ).z/half(2.0); 
+//     fragColor = mix( y_curvature > half(0.0) ? convex_color : concave_color,
+//                      fragColor, half(1.0) - abs(y_curvature) );
+
+//     half2 xm1y0 = NORMAL2( PIXEL( -1.0, 0.0 ).x );
+//     half2 xp1y0 = NORMAL2( PIXEL(  1.0, 0.0 ).x );
+//     half x_curvature = cross( half3(xp1y0, 0.0),
+//                               half3(xm1y0, 0.0) ).z/half(2.0); 
+//     fragColor = mix( x_curvature > half(0.0) ? convex_color : concave_color,
+//                      fragColor, half(1.0) - abs(x_curvature) );
+
+// //     half3 xm1ym1 = NORMAL3( PIXEL( -1.0, -1.0 ) );
+// //     half3 xp1yp1 = NORMAL3( PIXEL(  1.0,  1.0 ) );
+// //     // ^ incorrect, we need normals projected to diagonal
+// //     half d1_curvature = dot( cross( xm1ym1, xp1yp1 ), half3( -1.0, 1.0, 0.0 ) );
+// //     fragColor = mix( d1_curvature > half(0.0) ? convex_color : concave_color,
+// //                      fragColor, half(1.0) - abs(d1_curvature) );
+// #endif
 
 #if FOG
 //     float fog = (gl_Fog.end - gl_FogFragCoord) * gl_Fog.scale;
 //     // GL_FOG_MODE = GL_LINEAR
 
-    float fog = exp(-gl_Fog.density * gl_FogFragCoord);
+    half fog = half(exp(-gl_Fog.density * gl_FogFragCoord));
     // GL_FOG_MODE = GL_EXP
 
 //     float fog = exp(-gl_Fog.density * gl_Fog.density *
@@ -162,7 +183,9 @@ void main()
 
     fog = clamp( fog, 0.0, 1.0 );
     
-    gl_FragColor = mix( gl_Fog.color, gl_FragColor, fog );
+    fragColor = mix( half4(gl_Fog.color), fragColor, fog );
 #endif // FOG
 //    gl_FragDepth = gl_FragCoord.z;
+
+    gl_FragColor = vec4(fragColor);
 }
