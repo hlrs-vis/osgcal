@@ -1,3 +1,9 @@
+Wed Aug 22 2007 Vladimir Shabanov # 0.3.0
+	* Ported to OSG 2.0.0 and Cal3d 0.11.0 (not backward compatible
+	  with 0.10.0 due to some changes in animation mixer?)
+	* Bug fixes
+	* Some experiments in shaders
+
 Fri May 4 2007 Vladimir Shabanov # 0.3.0 preliminary
 	* Ported to OSG 1.9.1
 	* Added GLSL skinning
@@ -5,7 +11,7 @@ Fri May 4 2007 Vladimir Shabanov # 0.3.0 preliminary
 	  materials
 	* Improved mesh deformation calculation
 	* Many small optimizations
-	
+
 Wed Jun 1 2005 Ruben Lopez
 	* Ported to OSG 0.9.9
 	* Modified documentation and created Doxyfile
@@ -16,12 +22,12 @@ Wed Mar 16 2005 Ruben Lopez & Jose A. Iglesias # 0.1.5
 	* Fixed the problem with flip textures
 	* Fixed initial time values for the animations
 	* Fixed problem with the new empty constructor of Model class
-	* New method to load animations and associate one name to save 
+	* New method to load animations and associate one name to save
           and recover them later.
-        * New code for read/write animations with its name associated.  
+        * New code for read/write animations with its name associated.
 	* Fixed the problem of locate textures in the correct path, now
           the .osg model can find them.
-          
+
 Sun Nov 02 Ruben Lopez
 	* Now the loader can find cal3d files with paths relative to the
 	  .osg file.

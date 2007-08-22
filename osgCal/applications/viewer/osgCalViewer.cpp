@@ -22,8 +22,7 @@
 #include <osg/Texture2D>
 
 #include <osgViewer/Viewer>
-#include <osgViewer/StatsHandler>
-#include <osgViewer/HelpHandler>
+#include <osgViewer/ViewerEventHandlers>
 
 #include <osgGA/TrackballManipulator>
 #include <osgGA/FlightManipulator>

@@ -10,8 +10,8 @@ OSG (http://www.openscenegraph.com/) tree.
 
 Requirements:
 
-* Cal3D (version 0.10.0 or higher)
-* OSG   (version 1.9.1 or higher)
+* Cal3D (version 0.11.0 or higher)
+* OSG   (version 2.0.0 or higher)
 
 Features:
 
@@ -64,5 +64,3 @@ After installation you get:
 
   it creates two cache files (`cal3d.cfg.vbos.cache' and
   `cal3d.cfg.hwmodel.cache') which later used when loading model.
-  (remark: caching only tested with cal3d 0.10.0 & 0.11.0)
-
