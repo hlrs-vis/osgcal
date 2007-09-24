@@ -77,6 +77,11 @@ void main()
 #if NORMAL_MAPPING == 1
     mat3 tangentBasis =
         gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );
+//     tangentBasis = mat3( normalize( tangentBasis[0] ),
+//                          normalize( tangentBasis[1] ),
+//                          normalize( tangentBasis[2] ) );
+    // ^ needed only for non-uniform scaling, but not work, since
+    // basis is no more orthogonal
 
     eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
                         tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
@@ -91,6 +96,8 @@ void main()
  #endif // no shining
 #else // NORMAL_MAPPING == 1
     transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));
+    //transformedNormal = normalize( transformedNormal );
+    //^for non-uniform scaling, but normal mapped meshes doesn't work anyway
 #endif // NORMAL_MAPPING == 1
 
 #else // no bones
@@ -117,6 +124,13 @@ void main()
                                    vec4( gl_Normal, 0.0 ),
                                    vec4( 0.0, 0.0, 0.0, 1.0 ) );
 
+//     tangentBasis = mat4( normalize( tangentBasis[0] ),
+//                          normalize( tangentBasis[1] ),
+//                          normalize( tangentBasis[2] ),
+//                          vec4( 0.0, 0.0, 0.0, 1.0 ) );
+    // ^ needed only for non-uniform scaling, but not work, since
+    // basis is no more orthogonal
+
     eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
                         tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
                         tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
@@ -126,6 +140,8 @@ void main()
  #endif // no shining
 #else // NORMAL_MAPPING == 1
     transformedNormal = half3(gl_NormalMatrix * gl_Normal);
+    //transformedNormal = normalize( transformedNormal );
+    //^for non-uniform scaling, but normal mapped meshes doesn't work anyway
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
