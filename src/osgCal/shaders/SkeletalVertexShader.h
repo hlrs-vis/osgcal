@@ -77,6 +77,11 @@ shaderText += "\n";
 if ( NORMAL_MAPPING == 1 ) {
 shaderText += "    mat3 tangentBasis =\n";
 shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );\n";
+shaderText += "//     tangentBasis = mat3( normalize( tangentBasis[0] ),\n";
+shaderText += "//                          normalize( tangentBasis[1] ),\n";
+shaderText += "//                          normalize( tangentBasis[2] ) );\n";
+shaderText += "    // ^ needed only for non-uniform scaling, but not work, since\n";
+shaderText += "    // basis is no more orthogonal\n";
 shaderText += "\n";
 shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
 shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
@@ -91,6 +96,8 @@ shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
 shaderText += "    transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));\n";
+shaderText += "    //transformedNormal = normalize( transformedNormal );\n";
+shaderText += "    //^for non-uniform scaling, but normal mapped meshes doesn't work anyway\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } else { // no bones
@@ -117,6 +124,13 @@ shaderText += "                                   vec4( binormal, 0.0 ),\n";
 shaderText += "                                   vec4( gl_Normal, 0.0 ),\n";
 shaderText += "                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
 shaderText += "\n";
+shaderText += "//     tangentBasis = mat4( normalize( tangentBasis[0] ),\n";
+shaderText += "//                          normalize( tangentBasis[1] ),\n";
+shaderText += "//                          normalize( tangentBasis[2] ),\n";
+shaderText += "//                          vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
+shaderText += "    // ^ needed only for non-uniform scaling, but not work, since\n";
+shaderText += "    // basis is no more orthogonal\n";
+shaderText += "\n";
 shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
 shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
 shaderText += "                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
@@ -126,6 +140,8 @@ shaderText += "    //eyeVec *= tangentBasis;\n";
  } // no shining
 } else { // NORMAL_MAPPING == 1
 shaderText += "    transformedNormal = half3(gl_NormalMatrix * gl_Normal);\n";
+shaderText += "    //transformedNormal = normalize( transformedNormal );\n";
+shaderText += "    //^for non-uniform scaling, but normal mapped meshes doesn't work anyway\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1

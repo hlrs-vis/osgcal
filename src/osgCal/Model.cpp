@@ -231,11 +231,18 @@ Model::load( CoreModel* cm,
         }
 
         g->setName( mesh.name ); // for debug only, TODO: subject to remove
-        
-        g->setDataVariance( osg::Object::DYNAMIC );
-        // ^ No drawing during updates. Otherwise there will be a
-        // crash in multithreaded osgViewer modes
-        // (first reported by Jan Ciger)
+
+        if ( !coreModel->getAnimationNames().empty() ) // dynamic only when we have animations
+        {
+            g->setDataVariance( osg::Object::DYNAMIC );
+            // ^ No drawing during updates. Otherwise there will be a
+            // crash in multithreaded osgViewer modes
+            // (first reported by Jan Ciger)
+        }
+        else
+        {            
+            g->setDataVariance( osg::Object::STATIC );
+        }
 
         meshes[ mesh.name ] = g;
         osg::Geode* geode = new osg::Geode;
@@ -251,8 +258,15 @@ Model::load( CoreModel* cm,
             // per-vertex transformations
             osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-            mt->setDataVariance( osg::Object::DYNAMIC );
-            // ^ not sure, is this necessary?
+            if ( !coreModel->getAnimationNames().empty() ) // dynamic only when we have animations
+            {
+                mt->setDataVariance( osg::Object::DYNAMIC );
+                // ^ not sure, is this necessary?
+            }
+            else
+            {                
+                mt->setDataVariance( osg::Object::STATIC );
+            }
             
             mt->setMatrix( osg::Matrix::identity() );
             mt->addChild( geode );
