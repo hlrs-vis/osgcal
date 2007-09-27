@@ -166,6 +166,9 @@ Model::load( CoreModel* cm,
     // and GLObjectsVisitor automaticall compiles all shaders
     // when osgViewer initialized. 
 
+    // we use matrix transforms for rigid meshes, one transform per bone
+    std::map< int, osg::MatrixTransform* > rigidTransforms;
+
     // -- Process meshes --
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
@@ -232,7 +235,9 @@ Model::load( CoreModel* cm,
 
         g->setName( mesh.name ); // for debug only, TODO: subject to remove
 
-        if ( !coreModel->getAnimationNames().empty() ) // dynamic only when we have animations
+        if ( !coreModel->getAnimationNames().empty()
+             && mesh.rigid ) // dynamic only when we have animations
+                             // and mesh is deformable
         {
             g->setDataVariance( osg::Object::DYNAMIC );
             // ^ No drawing during updates. Otherwise there will be a
@@ -250,27 +255,49 @@ Model::load( CoreModel* cm,
 
         if ( !mesh.rigid )
         {
-            addChild( geode );        
+            addChild( geode );
+        }
+        else if ( mesh.rigidBoneId == -1 )
+        {
+            addChild( geode ); // we also add rigid unrigged meshes at
+                               // top since no transform is necessary
         }
         else
         {
             // for rigid meshes we use bone transform w/o
             // per-vertex transformations
-            osg::MatrixTransform* mt = new osg::MatrixTransform;
+            std::map< int, osg::MatrixTransform* >::iterator
+                boneMT = rigidTransforms.find( mesh.rigidBoneId );
 
-            if ( !coreModel->getAnimationNames().empty() ) // dynamic only when we have animations
+            osg::MatrixTransform* mt = 0;
+                
+            if ( boneMT != rigidTransforms.end() )
             {
-                mt->setDataVariance( osg::Object::DYNAMIC );
-                // ^ not sure, is this necessary?
+                // use ready bone matrix transform
+                mt = boneMT->second;
             }
             else
-            {                
-                mt->setDataVariance( osg::Object::STATIC );
-            }
+            {
+                // create new matrix transform for bone
+                mt = new osg::MatrixTransform;
+
+                if ( !coreModel->getAnimationNames().empty() )
+                {
+                    // dynamic only when we have animations
+                    mt->setDataVariance( osg::Object::DYNAMIC );
+                }
+                else
+                {                
+                    mt->setDataVariance( osg::Object::STATIC );
+                }
             
-            mt->setMatrix( osg::Matrix::identity() );
+                mt->setMatrix( osg::Matrix::identity() );
+
+                addChild( mt );
+                rigidTransforms[ mesh.rigidBoneId ] = mt;
+            }
+
             mt->addChild( geode );
-            addChild( mt );
         }
     }
 
