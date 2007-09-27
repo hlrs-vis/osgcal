@@ -269,6 +269,7 @@ namespace osgCal
                           //, coreSubMesh( 0 )
                         , maxBonesInfluence( 0 )
                         , rigid( false )
+                        , rigidBoneId( -1 )
                         , hardwareMeshId( -1 )
                         , hardwareMesh( 0 )
                     {}
@@ -288,6 +289,10 @@ namespace osgCal
                      * or when no one vertex is rigged at all.
                      */
                     bool                          rigid;
+                    /**
+                     * Rigid mesh bone id, or -1 when mesh is not rigged at all.
+                     */
+                    int                           rigidBoneId;
                     
                     int                           hardwareMeshId;
                     /// corresponding hardware mesh, may be NULL ()

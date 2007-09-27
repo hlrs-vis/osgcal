@@ -418,7 +418,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         {
             continue; // rare case, first reported by Ovidiu Sabou
                       // it not caused any bug on my machine,
-                      // but Ovidiu had osgCalViewer cras
+                      // but Ovidiu had osgCalViewer crash
         }
 
         // -- Calculate maxBonesInfluence & rigidness --
@@ -466,11 +466,22 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 //                       << weightBuffer[ *begin * 4 + 3 ] << std::endl;
         }
 
+        if ( m.rigid )
+        {
+            if ( calHardwareModel->getBoneCount() != 1 )
+            {
+                throw std::runtime_error( "must be one bone in this mesh" );
+            }
+
+            m.rigidBoneId = m.hardwareMesh->m_vectorBonesIndices[ 0 ];
+        }
+
         if ( m.maxBonesInfluence == 0 ) // unrigged mesh
         {
             m.rigid = true; // mesh is rigid when all its vertices are
                             // rigged to one bone with weight = 1.0,
                             // or when no one vertex is rigged at all
+            m.rigidBoneId = -1; // no bone
         }
 
         // -- Setup state sets --
