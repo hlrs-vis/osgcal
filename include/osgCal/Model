@@ -149,6 +149,8 @@ namespace osgCal {
 
             Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
+            void updateNode( osg::Node* node );
+
             osg::ref_ptr< CoreModel >   coreModel;
             CalModel*                   calModel;
 
@@ -168,14 +170,10 @@ namespace osgCal {
             osg::ref_ptr< SwNormalBuffer >        normalBuffer;
 
             /**
-             * For precompilation of shaders we use geode with empty
-             * drawables but different shaders. After shader
-             * compilation this geode is no more necessary (also it
-             * slows down culling traversal). This flag is set in
-             * update() method after geode is removed, to not remove
-             * it more.
+             * Shader geode is used for precompilation of used
+             * shaders, we save it here to not process in updateNode().
              */
-            bool shaderGeodeRemoved;
+            osg::ref_ptr< osg::Geode > shaderGeode;
     };
 
 }; // namespace osgCal
