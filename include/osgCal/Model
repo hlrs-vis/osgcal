@@ -106,10 +106,8 @@ namespace osgCal {
 
             /**
              * Update meshes.
-             * Software meshes only since hw meshes are calculated on video board
-             * each frame.
              */
-            void update();
+            void update( double deltaTime );
 
             CalModel*  getCalModel() { return calModel; }
             CoreModel* getCoreModel() { return coreModel.get(); }
@@ -168,6 +166,16 @@ namespace osgCal {
              * Used only in software mode.
              */
             osg::ref_ptr< SwNormalBuffer >        normalBuffer;
+
+            /**
+             * For precompilation of shaders we use geode with empty
+             * drawables but different shaders. After shader
+             * compilation this geode is no more necessary (also it
+             * slows down culling traversal). This flag is set in
+             * update() method after geode is removed, to not remove
+             * it more.
+             */
+            bool shaderGeodeRemoved;
     };
 
 }; // namespace osgCal

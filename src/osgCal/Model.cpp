@@ -58,12 +58,12 @@ class CalUpdateCallback: public osg::NodeCallback
                 previous = timer.tick();
             }
             
-            float deltaTime = 0;
+            double deltaTime = 0;
 
             if (!nv->getFrameStamp())
             {
                 osg::Timer_t current = timer.tick();
-                deltaTime = (float)timer.delta_s(previous, current);
+                deltaTime = timer.delta_s(previous, current);
                 previous = current;
             }
             else
@@ -74,26 +74,13 @@ class CalUpdateCallback: public osg::NodeCallback
             }
 
             //std::cout << "CalUpdateCallback: " << deltaTime << std::endl;
-
-            CalModel* calModel = model->getCalModel();
-            CalMixer* calMixer = (CalMixer*)calModel->getAbstractMixer();
-
-            if ( //calMixer->getAnimationVector().size() == <total animations count>
-                 calMixer->getAnimationActionList().size() != 0 ||
-                 calMixer->getAnimationCycle().size() != 0 )
+            if ( deltaTime > 0.0 )
             {
-                // we update only when we animate something
-                calMixer->updateAnimation(deltaTime); 
-                calMixer->updateSkeleton();
-
-                model->update();
-                // Model::update is 5-10 times slower than updateAnimation + updateSkeleton
-                // for idle animations.
+                model->update( deltaTime );
             }
-
             //std::cout << "CalUpdateCallback: ok" << std::endl;
 
-            traverse(node, nv);
+//            traverse(node, nv); //<- is it needed?
 //            node->dirtyBound(); <- is it necessary?
         }
 
@@ -159,11 +146,12 @@ Model::load( CoreModel* cm,
     std::map< osg::StateSet*, bool > usedStateSets;
 
     addChild( shaderGeode );
+    shaderGeodeRemoved = false;
     // Since we switch static/skinning shaders in SubMesh::update we
     // need some method to compile shaders before they first used
     // (i.e. before actual animation starts).
     // So we use Geode with empty drawables for used state sets,
-    // and GLObjectsVisitor automaticall compiles all shaders
+    // and GLObjectsVisitor automatically compiles all shaders
     // when osgViewer initialized. 
 
     // we use matrix transforms for rigid meshes, one transform per bone
@@ -236,8 +224,8 @@ Model::load( CoreModel* cm,
         g->setName( mesh.name ); // for debug only, TODO: subject to remove
 
         if ( !coreModel->getAnimationNames().empty()
-             && mesh.rigid ) // dynamic only when we have animations
-                             // and mesh is deformable
+             && !mesh.rigid ) // dynamic only when we have animations
+                              // and mesh is deformable
         {
             g->setDataVariance( osg::Object::DYNAMIC );
             // ^ No drawing during updates. Otherwise there will be a
@@ -305,8 +293,33 @@ Model::load( CoreModel* cm,
 }
 
 void
-Model::update() 
+Model::update( double deltaTime ) 
 {
+    if ( shaderGeodeRemoved == false )
+    {
+//        removeChild( 0, 1 ); // not needed more
+        // TODO: we need to remove it only after all shaders compiled
+        shaderGeodeRemoved = true;
+    }
+
+    CalMixer* calMixer = (CalMixer*)calModel->getAbstractMixer();
+
+    if ( //calMixer->getAnimationVector().size() == <total animations count>
+        calMixer->getAnimationActionList().size() != 0 ||
+        calMixer->getAnimationCycle().size() != 0 )
+    {
+        // we update only when we animate something
+        calMixer->updateAnimation(deltaTime); 
+        calMixer->updateSkeleton();
+
+        // Model::update is 5-10 times slower than updateAnimation + updateSkeleton
+        // for idle animations.
+    }
+    else
+    {
+        return; // no animations, nothing to update
+    }
+
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
