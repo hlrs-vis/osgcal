@@ -80,7 +80,7 @@ class CalUpdateCallback: public osg::NodeCallback
             }
             //std::cout << "CalUpdateCallback: ok" << std::endl;
 
-//            traverse(node, nv); //<- is it needed?
+            traverse(node, nv); // may be needed for user nodes
 //            node->dirtyBound(); <- is it necessary?
         }
 
@@ -90,6 +90,47 @@ class CalUpdateCallback: public osg::NodeCallback
         osg::Timer_t previous;
         double prevTime;
 
+};
+
+/**
+ * For precompilation of shaders we use geode with empty
+ * drawables but different shaders. It's unnecessary to draw it so we
+ * make this CullCallback to cull this geode.
+ */
+class ShaderGeodeCullCallback: public osg::NodeCallback 
+{
+    public:
+
+        ShaderGeodeCullCallback()
+            : firstFrame( true )
+        {}
+
+        virtual void operator()( osg::Node*        node,
+                                 osg::NodeVisitor* nv )
+        {
+            if ( firstFrame )
+            {
+                firstFrame = false;
+                traverse(node, nv); // traverse to compile shaders
+                // but is it necessary? GLObjectsVisitor ignores CullCallback
+            }
+            else
+            {
+                osg::Geode* g = static_cast< osg::Geode* >( node );
+
+                g->removeDrawables( 0, g->getNumDrawables() );
+                // TODO: why its not culled simply by not calling traverse()?
+                // TODO: it would be good to remove geode at all
+                //
+                // The best case is somehow always cull shader geode,
+                // but leave it for shader compilation by
+                // GLObjectsVisitor
+                // (also need to look, is osgViewer calls
+                // GLObjectsVisitor, or it only draws all our empty drawables?)
+            }
+        }
+
+        bool firstFrame;
 };
 
 Model::Model()
@@ -142,22 +183,27 @@ Model::load( CoreModel* cm,
     }
 
     // -- Setup shader compilation Geode --
-    osg::Geode* shaderGeode = new osg::Geode;
+    bool hasAnimations = !coreModel->getAnimationNames().empty();
     std::map< osg::StateSet*, bool > usedStateSets;
+    if ( hasAnimations )
+    {
+        shaderGeode = new osg::Geode;
 
-    addChild( shaderGeode );
-    shaderGeodeRemoved = false;
-    // Since we switch static/skinning shaders in SubMesh::update we
-    // need some method to compile shaders before they first used
-    // (i.e. before actual animation starts).
-    // So we use Geode with empty drawables for used state sets,
-    // and GLObjectsVisitor automatically compiles all shaders
-    // when osgViewer initialized. 
+        shaderGeode->setCullCallback( new ShaderGeodeCullCallback() );
+        // Since we switch static/skinning shaders in SubMesh::update we
+        // need some method to compile shaders before they first used
+        // (i.e. before actual animation starts).
+        // So we use Geode with empty drawables for used state sets,
+        // and GLObjectsVisitor automatically compiles all shaders
+        // when osgViewer initialized. 
+    }
 
     // we use matrix transforms for rigid meshes, one transform per bone
     std::map< int, osg::MatrixTransform* > rigidTransforms;
 
     // -- Process meshes --
+    osg::ref_ptr< osg::Geode > geode( new osg::Geode );
+    
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
         const CoreModel::Mesh& mesh = coreModel->getMeshes()[i];
@@ -175,22 +221,27 @@ Model::load( CoreModel* cm,
                 g = new SubMeshHardware( this, i, mesh.rigid );
 
                 // -- Add shader state sets for compilation --
-                if ( usedStateSets.find( mesh.staticHardwareStateSet.get() )
-                     == usedStateSets.end() )
+                if ( hasAnimations )
                 {
-                    osg::Drawable* d = new osg::Geometry;
-                    d->setStateSet( mesh.staticHardwareStateSet.get() );
-                    usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
-                    shaderGeode->addDrawable( d );
-                }
+                    // no need to add state sets for non-animating
+                    // models, since their state sets are not changed
+                    if ( usedStateSets.find( mesh.staticHardwareStateSet.get() )
+                         == usedStateSets.end() )
+                    {
+                        osg::Drawable* d = new osg::Geometry;
+                        d->setStateSet( mesh.staticHardwareStateSet.get() );
+                        usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
+                        shaderGeode->addDrawable( d );
+                    }
 
-                if ( usedStateSets.find( mesh.hardwareStateSet.get() )
-                     == usedStateSets.end() )
-                {
-                    osg::Drawable* d = new osg::Geometry;
-                    d->setStateSet( mesh.hardwareStateSet.get() );
-                    usedStateSets[ mesh.hardwareStateSet.get() ] = true;
-                    shaderGeode->addDrawable( d );
+                    if ( usedStateSets.find( mesh.hardwareStateSet.get() )
+                         == usedStateSets.end() )
+                    {
+                        osg::Drawable* d = new osg::Geometry;
+                        d->setStateSet( mesh.hardwareStateSet.get() );
+                        usedStateSets[ mesh.hardwareStateSet.get() ] = true;
+                        shaderGeode->addDrawable( d );
+                    }
                 }
                 break;
 
@@ -223,9 +274,9 @@ Model::load( CoreModel* cm,
 
         g->setName( mesh.name ); // for debug only, TODO: subject to remove
 
-        if ( !coreModel->getAnimationNames().empty()
-             && !mesh.rigid ) // dynamic only when we have animations
-                              // and mesh is deformable
+        if ( hasAnimations && mesh.rigid == false )
+            // dynamic only when we have animations
+            // and mesh is deformable
         {
             g->setDataVariance( osg::Object::DYNAMIC );
             // ^ No drawing during updates. Otherwise there will be a
@@ -238,22 +289,17 @@ Model::load( CoreModel* cm,
         }
 
         meshes[ mesh.name ] = g;
-        osg::Geode* geode = new osg::Geode;
-        geode->addDrawable( g );
 
-        if ( !mesh.rigid )
+        if ( mesh.rigid == false // deformable
+             || (mesh.rigid && mesh.rigidBoneId == -1) // unrigged
+             || hasAnimations == false ) // no animations
         {
-            addChild( geode );
-        }
-        else if ( mesh.rigidBoneId == -1 )
-        {
-            addChild( geode ); // we also add rigid unrigged meshes at
-                               // top since no transform is necessary
+            geode->addDrawable( g );
         }
         else
         {
-            // for rigid meshes we use bone transform w/o
-            // per-vertex transformations
+            // for rigged animateable rigid meshes we use bone
+            // transform w/o per-vertex transformations
             std::map< int, osg::MatrixTransform* >::iterator
                 boneMT = rigidTransforms.find( mesh.rigidBoneId );
 
@@ -269,39 +315,36 @@ Model::load( CoreModel* cm,
                 // create new matrix transform for bone
                 mt = new osg::MatrixTransform;
 
-                if ( !coreModel->getAnimationNames().empty() )
-                {
-                    // dynamic only when we have animations
-                    mt->setDataVariance( osg::Object::DYNAMIC );
-                }
-                else
-                {                
-                    mt->setDataVariance( osg::Object::STATIC );
-                }
-            
+                mt->setDataVariance( osg::Object::DYNAMIC );            
                 mt->setMatrix( osg::Matrix::identity() );
 
                 addChild( mt );
                 rigidTransforms[ mesh.rigidBoneId ] = mt;
+
+                mt->addChild( new osg::Geode );
             }
 
-            mt->addChild( geode );
+            static_cast< osg::Geode* >( mt->getChild( 0 ) )->addDrawable( g );
         }
     }
 
     meshTyper->unref();
+
+    // -- Add resulting geodes --
+    if ( shaderGeode.valid() && shaderGeode->getNumDrawables() > 0 )
+    {
+        addChild( shaderGeode.get() );
+    }
+
+    if ( geode.valid() && geode->getNumDrawables() > 0 )
+    {
+        addChild( geode.get() );
+    }
 }
 
 void
 Model::update( double deltaTime ) 
 {
-    if ( shaderGeodeRemoved == false )
-    {
-//        removeChild( 0, 1 ); // not needed more
-        // TODO: we need to remove it only after all shaders compiled
-        shaderGeodeRemoved = true;
-    }
-
     CalMixer* calMixer = (CalMixer*)calModel->getAbstractMixer();
 
     if ( //calMixer->getAnimationVector().size() == <total animations count>
@@ -320,120 +363,139 @@ Model::update( double deltaTime )
         return; // no animations, nothing to update
     }
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif // _OPENMP
-    for(unsigned int i = 0; i < getNumChildren(); i++)
+    updateNode( this );
+}
+
+void
+Model::updateNode( osg::Node* node ) 
+{
+    if ( node == shaderGeode.get() )
     {
-        osg::Node* node = getChild(i);
-
-        // -- Update SubMeshHardware/Software if child is Geode --
-        osg::Geode* geode = dynamic_cast< osg::Geode* >( node );
-        if ( geode )
+        return;
+    }
+    
+    // -- Update SubMeshHardware/Software if child is Geode --
+    osg::Geode* geode = dynamic_cast< osg::Geode* >( node );
+    if ( geode )
+    {
+        for ( size_t j = 0; j < geode->getNumDrawables(); j++ )
         {
-            for ( size_t j = 0; j < geode->getNumDrawables(); j++ )
-            {
-                osg::Drawable* drawable = geode->getDrawable( j );
+            osg::Drawable* drawable = geode->getDrawable( j );
             
-                SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
-                if ( hardware )
-                {
-                    hardware->update();
-                    continue;
-                }
-            
-                SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
-                if ( software )
-                {
-                    software->update();
-                    continue;
-                }
-
-                //throw std::runtime_error( "unexpected drawable type" );
-                // ^ maybe user add his own drawables
-            }
-            
-            continue;
-        }
-
-        // -- Set transformation matrix if child is MatrixTransform --
-        osg::MatrixTransform* mt = dynamic_cast< osg::MatrixTransform* >( node );
-        if ( mt )
-        {
-            osg::Drawable* drawable = static_cast< osg::Geode* >( mt->getChild( 0 ) )->getDrawable( 0 );
-            CoreModel::Mesh* m = 0;
             SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
             if ( hardware )
             {
-                m = hardware->getCoreModelMesh();
+                hardware->update();
+                continue;
             }
-            else
-            {               
-                SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
-                if ( software )
-                {
-                    m = software->getCoreModelMesh();
-                }
-                else
-                {
-                    throw std::runtime_error( "unexpected drawable type" );
-                    // ^ currently, first mesh is always SubMeshSoftware/Hardware
-                }
+            
+            SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
+            if ( software )
+            {
+                software->update();
+                continue;
             }
 
-            CalQuaternion   rotationBoneSpace;
-            CalVector       translationBoneSpace;
+            //throw std::runtime_error( "unexpected drawable type" );
+            // ^ maybe user add his own drawables
+        }
+
+        return;
+    }
+
+    // -- Set transformation matrix if child is MatrixTransform --
+    osg::MatrixTransform* mt = dynamic_cast< osg::MatrixTransform* >( node );
+    if ( mt )
+    {
+        osg::Drawable* drawable =
+            static_cast< osg::Geode* >( mt->getChild( 0 ) )->getDrawable( 0 );
+        CoreModel::Mesh* m = 0;
+        SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
+        if ( hardware )
+        {
+            m = hardware->getCoreModelMesh();
+        }
+        else
+        {               
+            SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
+            if ( software )
+            {
+                m = software->getCoreModelMesh();
+            }
+            else
+            {
+                throw std::runtime_error( "unexpected drawable type" );
+                // ^ currently, first mesh is always SubMeshSoftware/Hardware
+            }
+        }
+
+        CalQuaternion   rotationBoneSpace;
+        CalVector       translationBoneSpace;
 	    
-            CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
+        CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
 
 #ifdef _OPENMP
 #pragma omp critical
 #endif // _OPENMP
+        {
+            hardwareModel->selectHardwareMesh( m->hardwareMeshId );
+
+            if ( hardwareModel->getBoneCount() > 1 )
             {
-                hardwareModel->selectHardwareMesh( m->hardwareMeshId );
-
-                if ( hardwareModel->getBoneCount() > 1 )
-                {
-                    throw std::runtime_error( "more than one bone in rigid mesh" );
-                }
-
-                // -- Get bone matrix --
-                if ( hardwareModel->getBoneCount() == 1 )
-                {
-                    rotationBoneSpace =
-                        hardwareModel->getRotationBoneSpace( 0, calModel->getSkeleton() );
-                    translationBoneSpace =
-                        hardwareModel->getTranslationBoneSpace( 0, calModel->getSkeleton() );
-                }
-                else // hardwareModel->getBoneCount() == 0
-                {
-                    // do not touch default no rotation & zero translation
-                }
+                throw std::runtime_error( "more than one bone in rigid mesh" );
             }
 
-            CalMatrix       rotationMatrix = rotationBoneSpace;
-            GLfloat         rotation[9];
-            GLfloat         translation[3];
-
-            rotation[0] = rotationMatrix.dxdx;
-            rotation[1] = rotationMatrix.dxdy;
-            rotation[2] = rotationMatrix.dxdz;
-            rotation[3] = rotationMatrix.dydx;
-            rotation[4] = rotationMatrix.dydy;
-            rotation[5] = rotationMatrix.dydz;
-            rotation[6] = rotationMatrix.dzdx;
-            rotation[7] = rotationMatrix.dzdy;
-            rotation[8] = rotationMatrix.dzdz;
-
-            translation[0] = translationBoneSpace.x;
-            translation[1] = translationBoneSpace.y;
-            translation[2] = translationBoneSpace.z;
-
-            mt->setMatrix( osg::Matrixf( rotation[0]   , rotation[3]   , rotation[6]   , 0,
-                                         rotation[1]   , rotation[4]   , rotation[7]   , 0,
-                                         rotation[2]   , rotation[5]   , rotation[8]   , 0,
-                                         translation[0], translation[1], translation[2], 1 ) );
+            // -- Get bone matrix --
+            if ( hardwareModel->getBoneCount() == 1 )
+            {
+                rotationBoneSpace =
+                    hardwareModel->getRotationBoneSpace( 0, calModel->getSkeleton() );
+                translationBoneSpace =
+                    hardwareModel->getTranslationBoneSpace( 0, calModel->getSkeleton() );
+            }
+            else // hardwareModel->getBoneCount() == 0
+            {
+                // do not touch default no rotation & zero translation
+            }
         }
+
+        CalMatrix       rotationMatrix = rotationBoneSpace;
+        GLfloat         rotation[9];
+        GLfloat         translation[3];
+
+        rotation[0] = rotationMatrix.dxdx;
+        rotation[1] = rotationMatrix.dxdy;
+        rotation[2] = rotationMatrix.dxdz;
+        rotation[3] = rotationMatrix.dydx;
+        rotation[4] = rotationMatrix.dydy;
+        rotation[5] = rotationMatrix.dydz;
+        rotation[6] = rotationMatrix.dzdx;
+        rotation[7] = rotationMatrix.dzdy;
+        rotation[8] = rotationMatrix.dzdz;
+
+        translation[0] = translationBoneSpace.x;
+        translation[1] = translationBoneSpace.y;
+        translation[2] = translationBoneSpace.z;
+
+        mt->setMatrix( osg::Matrixf( rotation[0]   , rotation[3]   , rotation[6]   , 0,
+                                     rotation[1]   , rotation[4]   , rotation[7]   , 0,
+                                     rotation[2]   , rotation[5]   , rotation[8]   , 0,
+                                     translation[0], translation[1], translation[2], 1 ) );
+        return;
+    }
+
+    // -- Is group? (MatrixTransform is also a Group BTW) --
+    osg::Group* group = dynamic_cast< osg::Group* >( node );
+    if ( group )
+    {
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif // _OPENMP
+        for(size_t i = 0; i < group->getNumChildren(); i++)
+        {
+            updateNode( group->getChild(i) );
+        }
+        return;
     }
 }
 
