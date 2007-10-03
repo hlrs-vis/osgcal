@@ -141,6 +141,22 @@ namespace osgCal {
 
             osg::Geometry* getMesh( const std::string& name ) const throw (std::runtime_error);
 
+
+            osg::Quat getBoneRotation( int boneId ) const;
+            osg::Vec3 getBoneTranslation( int boneId ) const;
+
+            /**
+             * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
+             * Remark that you must pass not local bone index in mesh,
+             * but bone id (using CoreModel::Mesh::getBoneId(index)).
+             */
+            void getBoneRotationTranslation( int boneId,
+                                             GLfloat* rotation,
+                                             GLfloat* translation ) const;
+            osg::Matrixf getBoneMatrix( int boneId ) const;
+            std::pair< osg::Matrix3, osg::Vec3 > getBoneRotationTranslation( int boneId ) const;
+
+
         protected:
 
             virtual ~Model();
@@ -174,6 +190,8 @@ namespace osgCal {
              * shaders, we save it here to not process in updateNode().
              */
             osg::ref_ptr< osg::Geode > shaderGeode;
+
+            const std::vector<CalBone *>* vectorBone;
     };
 
 }; // namespace osgCal

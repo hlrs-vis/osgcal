@@ -56,6 +56,7 @@ namespace osgCal
     
     OSGCAL_EXPORT bool isFileOlder( const std::string& fileName1,
                                     const std::string& fileName2 );
+    OSGCAL_EXPORT bool isFileExists( const std::string& f );
 
 
     // -- Vertex buffer objects & I/O --
@@ -133,17 +134,23 @@ namespace osgCal
 
 
     // -- CalHardwareModel I/O --
-    
-    OSGCAL_EXPORT CalHardwareModel* loadHardwareModel( CalCoreModel* calCoreModel,
-                                                       const std::string& fileName )
+
+    OSGCAL_EXPORT CalHardwareModel* loadHardwareModel( const CalCoreModel* calCoreModel,
+                                                       const std::string& fileName,
+                                                       std::vector< std::string >& meshNames )
         throw (std::runtime_error);
-    OSGCAL_EXPORT void saveHardwareModel( CalHardwareModel* calHardwareModel,
-                                          const std::string& fileName ) throw (std::runtime_error);
+    OSGCAL_EXPORT void saveHardwareModel( const CalHardwareModel* calHardwareModel,
+                                          const CalCoreModel*     calCoreModel,
+                                          const std::vector< std::string >& meshNames,
+                                          const std::string& fileName )
+        throw (std::runtime_error);
 
     // -- CalCoreModel I/O --
 
     OSGCAL_EXPORT CalCoreModel* loadCoreModel( const std::string& cfgFileName,
-                                               float& scale ) throw (std::runtime_error);
+                                               float& scale,
+                                               bool ignoreMeshes = false )
+        throw (std::runtime_error);
 }; // namespace osgCal
 
 #endif

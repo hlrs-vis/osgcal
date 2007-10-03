@@ -119,17 +119,29 @@ main( int argc,
         float scale;
         CalHardwareModel* calHardwareModel = 0;
         VBOs* bos = 0;
+        std::vector< std::string > meshNames;
 
         BRACKET_ERROR( calCoreModel = loadCoreModel( cfgFileName, scale ),
                        "Can't load model:\n%s" );
 
         calHardwareModel = new CalHardwareModel( calCoreModel );
-
         BRACKET_ERROR( bos = loadVBOs( calHardwareModel ),
                        "Can't load vbos from hardware model:\n%s" );
+        for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
+            hardwareMeshId++)
+        {
+            meshNames.push_back(
+                calCoreModel->
+                getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
+                getName() );
+        }
+
         BRACKET_ERROR( saveVBOs( bos, VBOsCacheFileName( cfgFileName ) ),
                        "Can't save vbos cache:\n%s" );
-        BRACKET_ERROR( saveHardwareModel( calHardwareModel, HWModelCacheFileName( cfgFileName ) ),
+        BRACKET_ERROR( saveHardwareModel( calHardwareModel,
+                                          calCoreModel,
+                                          meshNames,
+                                          HWModelCacheFileName( cfgFileName ) ),
                        "Can't save hardware model cache:\n%s" );
 
         delete bos;

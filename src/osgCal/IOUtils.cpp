@@ -101,6 +101,14 @@ isFileOlder( const std::string& f1,
     return ( stat1.st_mtime < stat2.st_mtime );
 }
 
+bool
+isFileExists( const std::string& f )
+{
+    struct stat st;
+
+    return ( stat( f.c_str(), &st ) == 0 );
+}
+
 std::string
 VBOsCacheFileName( const std::string& cfgFileName )
 {
@@ -537,9 +545,13 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
     return vbos.release();
 }
 
+static const int HW_MODEL_FILE_VERSION = 0xCA3D0001;
+    
 CalHardwareModel*
-loadHardwareModel( CalCoreModel* calCoreModel,
-                   const std::string& fn ) throw (std::runtime_error)
+loadHardwareModel( const CalCoreModel* calCoreModel,
+                   const std::string& fn,
+                   std::vector< std::string >& meshNames )
+    throw (std::runtime_error)
 {
     FILE* f = fopen( fn.c_str(), "rb" );
 
@@ -548,9 +560,19 @@ loadHardwareModel( CalCoreModel* calCoreModel,
         throw std::runtime_error( "Can't open " + fn );
     }
 
-    std::auto_ptr< CalHardwareModel > calHardwareModel( new CalHardwareModel(calCoreModel) );
+#define READ_I32( _i ) { int32_t _i32_tmp = 0; READ_( &_i32_tmp, 4 ); _i = _i32_tmp; }
 
-#define READ_I32( _i ) { int32_t _i32_tmp = _i; READ_( &_i32_tmp, 4 ); _i = _i32_tmp; }
+    int version;
+
+    READ_I32( version );
+    if ( version != HW_MODEL_FILE_VERSION )
+    {
+        fclose( f );
+        throw std::runtime_error( "Incorrect file version " + fn + ". Try rerun osgCalPreparer." );
+    }
+
+    std::auto_ptr< CalHardwareModel > calHardwareModel(
+        new CalHardwareModel(const_cast< CalCoreModel* >( calCoreModel ) ) );
     
     std::vector< CalHardwareModel::CalHardwareMesh >& hwMeshes =
         calHardwareModel->getVectorHardwareMesh();
@@ -578,11 +600,27 @@ loadHardwareModel( CalCoreModel* calCoreModel,
         READ_I32( mesh.meshId );
         READ_I32( mesh.submeshId );
 
-        CalCoreMesh*    calCoreMesh = calCoreModel->getCoreMesh( mesh.meshId );
-        CalCoreSubmesh* calCoreSubmesh = calCoreMesh->getCoreSubmesh( mesh.submeshId );
+        int coreMaterialThreadId;
+        READ_I32( coreMaterialThreadId );
 
-        mesh.pCoreMaterial =
-            calCoreModel->getCoreMaterial( calCoreSubmesh->getCoreMaterialThreadId() );
+//         CalCoreMesh*    calCoreMesh = calCoreModel->getCoreMesh( mesh.meshId );
+//         CalCoreSubmesh* calCoreSubmesh = calCoreMesh->getCoreSubmesh( mesh.submeshId );
+
+//         mesh.pCoreMaterial =
+//             calCoreModel->getCoreMaterial( calCoreSubmesh->getCoreMaterialThreadId() );
+        mesh.pCoreMaterial = const_cast< CalCoreModel* >( calCoreModel )->
+            getCoreMaterial( coreMaterialThreadId );
+
+        int nameBufSize;
+        READ_I32( nameBufSize );
+        if ( nameBufSize > 1024 )
+        {
+            fclose( f );
+            throw std::runtime_error( "Too long mesh name (incorrect hwmodel.cache file?)." );
+        }
+        char name[ 1024 ];
+        READ_( name, nameBufSize );
+        meshNames.push_back( std::string( &name[0], &name[ nameBufSize ] ) );
     }
 
     fclose( f );
@@ -590,10 +628,34 @@ loadHardwareModel( CalCoreModel* calCoreModel,
     return calHardwareModel.release();
 }
 
+int
+getCoreMaterialThreadId( CalCoreModel* model,
+                         const CalCoreMaterial* material )
+{
+    for ( int i = 0; i < model->getCoreMaterialCount(); i++ )
+    {
+        if ( model->getCoreMaterial( i ) == material )
+        {
+            return i;
+        }
+    }
+    return (-1);
+}
+
 void
-saveHardwareModel( CalHardwareModel* calHardwareModel,
+saveHardwareModel( const CalHardwareModel* calHardwareModel,
+                   const CalCoreModel*     calCoreModel,
+                   const std::vector< std::string >& meshNames,
                    const std::string& fn ) throw (std::runtime_error)
 {
+    const std::vector< CalHardwareModel::CalHardwareMesh >& hwMeshes =
+        const_cast< CalHardwareModel* >( calHardwareModel )->getVectorHardwareMesh();
+
+    if ( meshNames.size() != hwMeshes.size() )
+    {
+        throw std::runtime_error( "meshNames.size() != hwMeshes.size()" );
+    }
+
     FILE* f = fopen( fn.c_str(), "wb" );
 
     if ( f == NULL )
@@ -601,16 +663,15 @@ saveHardwareModel( CalHardwareModel* calHardwareModel,
         throw std::runtime_error( "Can't create " + fn );
     }
 
-    std::vector< CalHardwareModel::CalHardwareMesh >& hwMeshes =
-        calHardwareModel->getVectorHardwareMesh();
-
 #define WRITE_I32( _i ) { int32_t _i32_tmp = _i; WRITE_( &_i32_tmp, 4 ); }
+
+    WRITE_I32( HW_MODEL_FILE_VERSION );
 
     WRITE_I32( hwMeshes.size() );
 
     for ( size_t i = 0; i < hwMeshes.size(); i++ )
     {
-        CalHardwareModel::CalHardwareMesh& mesh = hwMeshes[i];
+        const CalHardwareModel::CalHardwareMesh& mesh = hwMeshes[i];
         WRITE_I32( mesh.m_vectorBonesIndices.size() );
         for ( size_t j = 0; j < mesh.m_vectorBonesIndices.size(); j++ )
         {
@@ -622,6 +683,19 @@ saveHardwareModel( CalHardwareModel* calHardwareModel,
         WRITE_I32( mesh.faceCount );
         WRITE_I32( mesh.meshId );
         WRITE_I32( mesh.submeshId );
+
+        int coreMaterialThreadId = getCoreMaterialThreadId(
+            const_cast< CalCoreModel* >( calCoreModel ), mesh.pCoreMaterial );
+        if ( coreMaterialThreadId < 0 )
+        {
+            fclose( f );
+            throw std::runtime_error( "Can't get coreMaterialThreadId (mesh.pCoreMaterial not found in coreModel?" );            
+        }
+        WRITE_I32( coreMaterialThreadId );
+
+        const std::string& name = meshNames[ i ];
+        WRITE_I32( name.size() );
+        WRITE_( name.data(), name.size() );
     }
 
     fclose( f );
@@ -629,7 +703,9 @@ saveHardwareModel( CalHardwareModel* calHardwareModel,
 
 CalCoreModel*
 loadCoreModel( const std::string& cfgFileName,
-               float& scale ) throw (std::runtime_error)
+               float& scale,
+               bool ignoreMeshes )
+    throw (std::runtime_error)
 {
     // -- Initial loading of model --
     scale = 1.0f;
@@ -710,9 +786,11 @@ loadCoreModel( const std::string& cfgFileName,
             }
             else if ( !strcmp( buffer, "mesh" ) )
             {
-//                 CalCoreMesh* ccm = new CalCoreMesh();
-//                 ccm->addCoreSubmesh( new CalCoreSubmesh() );
-//                 int meshId = calCoreModel->addCoreMesh( ccm );
+                if ( ignoreMeshes )
+                {
+                    continue; // we don't need meshes since VBO data is already loaded from cache
+                }
+
                 int meshId = calCoreModel->loadCoreMesh( fullpath );
                 if( meshId < 0 )
                 {

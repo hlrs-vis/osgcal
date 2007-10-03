@@ -173,6 +173,8 @@ Model::load( CoreModel* cm,
 
     setUpdateCallback( new CalUpdateCallback() );
 
+    vectorBone = &(calModel->getSkeleton()->getVectorBone());
+
     if ( meshTyper == 0 )
     {
         meshTyper = new AllMeshesHardware();
@@ -429,58 +431,21 @@ Model::updateNode( osg::Node* node )
             }
         }
 
-        CalQuaternion   rotationBoneSpace;
-        CalVector       translationBoneSpace;
-	    
-        CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
-
-#ifdef _OPENMP
-#pragma omp critical
-#endif // _OPENMP
+        if ( m->getBonesCount() > 1 )
         {
-            hardwareModel->selectHardwareMesh( m->hardwareMeshId );
-
-            if ( hardwareModel->getBoneCount() > 1 )
-            {
-                throw std::runtime_error( "more than one bone in rigid mesh" );
-            }
-
-            // -- Get bone matrix --
-            if ( hardwareModel->getBoneCount() == 1 )
-            {
-                rotationBoneSpace =
-                    hardwareModel->getRotationBoneSpace( 0, calModel->getSkeleton() );
-                translationBoneSpace =
-                    hardwareModel->getTranslationBoneSpace( 0, calModel->getSkeleton() );
-            }
-            else // hardwareModel->getBoneCount() == 0
-            {
-                // do not touch default no rotation & zero translation
-            }
+            throw std::runtime_error( "more than one bone in rigid mesh" );
         }
 
-        CalMatrix       rotationMatrix = rotationBoneSpace;
-        GLfloat         rotation[9];
-        GLfloat         translation[3];
+        // -- Set bone matrix --
+        if ( m->getBonesCount() == 1 )
+        {
+            mt->setMatrix( getBoneMatrix( m->getBoneId( 0 ) ) );
+        }
+        else // hardwareModel->getBoneCount() == 0
+        {
+            // do not touch default no rotation & zero translation
+        }
 
-        rotation[0] = rotationMatrix.dxdx;
-        rotation[1] = rotationMatrix.dxdy;
-        rotation[2] = rotationMatrix.dxdz;
-        rotation[3] = rotationMatrix.dydx;
-        rotation[4] = rotationMatrix.dydy;
-        rotation[5] = rotationMatrix.dydz;
-        rotation[6] = rotationMatrix.dzdx;
-        rotation[7] = rotationMatrix.dzdy;
-        rotation[8] = rotationMatrix.dzdz;
-
-        translation[0] = translationBoneSpace.x;
-        translation[1] = translationBoneSpace.y;
-        translation[2] = translationBoneSpace.z;
-
-        mt->setMatrix( osg::Matrixf( rotation[0]   , rotation[3]   , rotation[6]   , 0,
-                                     rotation[1]   , rotation[4]   , rotation[7]   , 0,
-                                     rotation[2]   , rotation[5]   , rotation[8]   , 0,
-                                     translation[0], translation[1], translation[2], 1 ) );
         return;
     }
 
@@ -527,4 +492,74 @@ Model::getMesh( const std::string& name ) const throw (std::runtime_error)
     {
         throw std::runtime_error( "Model::getMesh - can't find mesh \"" + name + "\"" );
     }
+}
+
+
+osg::Quat
+Model::getBoneRotation( int boneId ) const
+{
+    CalQuaternion r = (*vectorBone)[ boneId ]->getRotationBoneSpace();
+    return osg::Quat( r.x, r.y, r.z, r.w );
+}
+
+osg::Vec3
+Model::getBoneTranslation( int boneId ) const
+{
+    CalVector t =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+    return osg::Vec3( t.x, t.y, t.z );
+}
+
+void
+Model::getBoneRotationTranslation( int boneId,
+                                   GLfloat* rotation,
+                                   GLfloat* translation ) const
+{
+    CalQuaternion   rotationBoneSpace = (*vectorBone)[ boneId ]->getRotationBoneSpace();
+    CalVector       translationBoneSpace =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+
+    CalMatrix       rotationMatrix = rotationBoneSpace;
+
+    rotation[0] = rotationMatrix.dxdx;
+    rotation[1] = rotationMatrix.dxdy;
+    rotation[2] = rotationMatrix.dxdz;
+    rotation[3] = rotationMatrix.dydx;
+    rotation[4] = rotationMatrix.dydy;
+    rotation[5] = rotationMatrix.dydz;
+    rotation[6] = rotationMatrix.dzdx;
+    rotation[7] = rotationMatrix.dzdy;
+    rotation[8] = rotationMatrix.dzdz;
+
+    translation[0] = translationBoneSpace.x;
+    translation[1] = translationBoneSpace.y;
+    translation[2] = translationBoneSpace.z;
+}
+
+osg::Matrixf
+Model::getBoneMatrix( int boneId ) const
+{
+    CalQuaternion   rotation = (*vectorBone)[ boneId ]->getRotationBoneSpace();
+    CalVector       translation =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+
+    CalMatrix       rm = rotation;
+
+    return osg::Matrixf( rm.dxdx   , rm.dydx   , rm.dzdx   , 0.0f,
+                         rm.dxdy   , rm.dydy   , rm.dzdy   , 0.0f,
+                         rm.dxdz   , rm.dydz   , rm.dzdz   , 0.0f,
+                         translation.x, translation.y, translation.z, 1.0f );
+}
+
+
+std::pair< osg::Matrix3, osg::Vec3 >
+Model::getBoneRotationTranslation( int boneId ) const
+{
+    CalQuaternion   rotation = (*vectorBone)[ boneId ]->getRotationBoneSpace();
+    CalVector       translation =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+
+    CalMatrix       rm = rotation;
+
+    return std::make_pair(
+        osg::Matrix3( rm.dxdx   , rm.dydx   , rm.dzdx   ,
+                      rm.dxdy   , rm.dydy   , rm.dzdy   ,
+                      rm.dxdz   , rm.dydz   , rm.dzdz   ),
+        osg::Vec3( translation.x, translation.y, translation.z ) );
 }
