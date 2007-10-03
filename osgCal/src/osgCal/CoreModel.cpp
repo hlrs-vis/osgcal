@@ -359,18 +359,42 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         cfgFileName = cfgFileNameOriginal;
     }
 
-    calCoreModel = loadCoreModel( cfgFileName, scale );
-
-    // -- Preparing hardware model --
-    calHardwareModel = 0;
+    std::vector< std::string > meshNames;
     std::auto_ptr< VBOs > bos;
 
-    try // try load cached vbos
+    if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
+         || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
     {
-        if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 )
+        // -- Load model and hw model from model --
+        calCoreModel = loadCoreModel( cfgFileName, scale );
+
+        calHardwareModel = new CalHardwareModel(calCoreModel);
+        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel ) );
+        //saveVBOs( bos, dir + "/vbos.cache" );
+        //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
+        // ^ it's not loading task, cache preparation is export task
+        // see `applications/preparer' for this.
+
+        // -- Fill meshNames array --
+        for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
+            hardwareMeshId++)
         {
-            throw std::runtime_error( "caching was only tested on cal3d 0.10.0 and 0.11.0" );
+            meshNames.push_back(
+                calCoreModel->
+                getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
+                getName() );
         }
+    }
+    else
+    {
+        // -- Load cached hardware model --
+        if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 && Cal::LIBRARY_VERSION != 1200 )
+        {
+            throw std::runtime_error( "caching was only tested on cal3d 0.10.0, 0.11.0 and 0.12.0" );
+        }
+        
+        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
+
 //         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
 //         {
         // We don't check file dates, since after `svn up' they can be
@@ -381,38 +405,25 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
         //std::cout << "faceCount = "   << bos->faceCount << std::endl;
         calHardwareModel = loadHardwareModel( calCoreModel,
-                                              HWModelCacheFileName( cfgFileName ) );
+                                              HWModelCacheFileName( cfgFileName ),
+                                              meshNames );
 //         }
 //         else
 //         {
 //             throw std::runtime_error( "cache is older than .cfg" );
 //         }
     }
-    catch ( std::runtime_error& e )
-    {
-        delete calHardwareModel;
-        calHardwareModel = new CalHardwareModel(calCoreModel);
-        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel ) );
-        //saveVBOs( bos, dir + "/vbos.cache" );
-        //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
-        // ^ it's not loading task, cache preparation is export task
-        // see `applications/preparer' for this.
-    }
 
     // -- Preparing meshes and materials for fast Model creation --
     for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
         hardwareMeshId++)
     {
-        calHardwareModel->selectHardwareMesh(hardwareMeshId);
-
         // -- Setup some fields --
         Mesh m;
 
         m.hardwareMeshId = hardwareMeshId;
         m.hardwareMesh   = &calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
-        m.coreMesh       = calCoreModel->getCoreMesh( m.hardwareMesh->meshId );
-        //m.coreSubMesh    = m.coreMesh->getCoreSubmesh( m.hardwareMesh->submeshId );
-        m.name           = m.coreMesh->getName();
+        m.name           = meshNames[ hardwareMeshId ];
 
         if ( m.hardwareMesh->faceCount == 0 )
         {
@@ -468,7 +479,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
         if ( m.rigid )
         {
-            if ( calHardwareModel->getBoneCount() != 1 )
+            if ( m.getBonesCount() != 1 )
             {
                 throw std::runtime_error( "must be one bone in this mesh" );
             }

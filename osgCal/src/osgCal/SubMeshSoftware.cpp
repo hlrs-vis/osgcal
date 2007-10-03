@@ -152,49 +152,13 @@ SubMeshSoftware::update()
     // hmm. is it good to copy/paste? its nearly the same algorithm
     
     // -- Setup rotation matrices & translation vertices --
-    CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
-    
-    hardwareModel->selectHardwareMesh( mesh->hardwareMeshId );
-
     std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
 
-    for( int boneId = 0; boneId < hardwareModel->getBoneCount(); boneId++ )
+    for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
     {
-        CalQuaternion   rotationBoneSpace =
-            hardwareModel->getRotationBoneSpace( boneId, calModel->getSkeleton() );
-        CalVector       translationBoneSpace =
-            hardwareModel->getTranslationBoneSpace( boneId, calModel->getSkeleton() );
+        int boneId = mesh->getBoneId( boneIndex );
 
-        CalMatrix       rotationMatrix = rotationBoneSpace;
-        GLfloat         rotation[9];
-        GLfloat         translation[3];
-
-        rotation[0] = rotationMatrix.dxdx;
-        rotation[1] = rotationMatrix.dxdy;
-        rotation[2] = rotationMatrix.dxdz;
-        rotation[3] = rotationMatrix.dydx;
-        rotation[4] = rotationMatrix.dydy;
-        rotation[5] = rotationMatrix.dydz;
-        rotation[6] = rotationMatrix.dzdx;
-        rotation[7] = rotationMatrix.dzdy;
-        rotation[8] = rotationMatrix.dzdz;
-
-        translation[0] = translationBoneSpace.x;
-        translation[1] = translationBoneSpace.y;
-        translation[2] = translationBoneSpace.z;
-
-        osg::Matrix3 r( rotation[0], rotation[3], rotation[6],
-                        rotation[1], rotation[4], rotation[7], 
-                        rotation[2], rotation[5], rotation[8] );
-//         osg::Matrixf r( rotation[0], rotation[3], rotation[6], 0,
-//                         rotation[1], rotation[4], rotation[7], 0, 
-//                         rotation[2], rotation[5], rotation[8], 0,
-//                         0          , 0          , 0          , 1 );
-        osg::Vec3 v( translation[0],
-                     translation[1],
-                     translation[2] );
-        
-        rotationTranslationMatrices.push_back( std::make_pair( r, v ) );
+        rotationTranslationMatrices.push_back( model->getBoneRotationTranslation( boneId ) );
     }
 
     rotationTranslationMatrices.resize( 31 );

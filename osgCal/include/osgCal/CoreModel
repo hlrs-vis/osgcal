@@ -265,9 +265,7 @@ namespace osgCal
                 public:
 
                     Mesh()
-                        : coreMesh( 0 )
-                          //, coreSubMesh( 0 )
-                        , maxBonesInfluence( 0 )
+                        : maxBonesInfluence( 0 )
                         , rigid( false )
                         , rigidBoneId( -1 )
                         , hardwareMeshId( -1 )
@@ -276,9 +274,6 @@ namespace osgCal
                     
                     std::string                   name;
                     HwStateDesc                   hwStateDesc;
-
-                    CalCoreMesh*                  coreMesh;
-                    //CalCoreSubmesh*               coreSubMesh;
 
                     int                           maxBonesInfluence;
 
@@ -306,6 +301,15 @@ namespace osgCal
 
                     int getIndexInVbo() const   { return hardwareMesh->startIndex; }
                     int getIndexesCount() const { return hardwareMesh->faceCount * 3; }
+
+                    int getBonesCount() const { return hardwareMesh->m_vectorBonesIndices.size(); }
+                    int getBoneId( int index ) const { return hardwareMesh->m_vectorBonesIndices[ index ]; }
+                    CalBone* getBone( int index,
+                                      CalSkeleton* skeleton ) const
+                    {
+                        const std::vector<CalBone *>& vectorBone = skeleton->getVectorBone();
+                        return vectorBone[ getBoneId( index ) ];
+                    }
 
                     /**
                      * Mesh state set. Contain material, textures and also

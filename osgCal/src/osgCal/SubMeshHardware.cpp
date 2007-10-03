@@ -90,10 +90,6 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     //std::cout << "SubMeshHardware::drawImplementation: start" << std::endl;
     osg::State& state = *renderInfo.getState();
     
-    CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
-    
-    hardwareModel->selectHardwareMesh( mesh->hardwareMeshId );
-
     // -- Bind our vertex buffers --
     state.disableAllVertexArrays();
     
@@ -190,40 +186,30 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     else
     {
         // otherwise setup uniforms
-        for( int boneId = 0; boneId < hardwareModel->getBoneCount(); boneId++ )
+        for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
         {
-            CalQuaternion   rotationBoneSpace =
-                hardwareModel->getRotationBoneSpace( boneId, calModel->getSkeleton() );
-            CalVector       translationBoneSpace =
-                hardwareModel->getTranslationBoneSpace( boneId, calModel->getSkeleton() );
+            int boneId = mesh->getBoneId( boneIndex );
 
-            CalMatrix       rotationMatrix = rotationBoneSpace;
             GLfloat         rotation[9];
             GLfloat         translation[3];
 
-            rotation[0] = rotationMatrix.dxdx;
-            rotation[1] = rotationMatrix.dxdy;
-            rotation[2] = rotationMatrix.dxdz;
-            rotation[3] = rotationMatrix.dydx;
-            rotation[4] = rotationMatrix.dydy;
-            rotation[5] = rotationMatrix.dydz;
-            rotation[6] = rotationMatrix.dzdx;
-            rotation[7] = rotationMatrix.dzdy;
-            rotation[8] = rotationMatrix.dzdz;
+            model->getBoneRotationTranslation( boneId, rotation, translation );
 
-            translation[0] = translationBoneSpace.x;
-            translation[1] = translationBoneSpace.y;
-            translation[2] = translationBoneSpace.z;
-
-            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneId,
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
                                                1, GL_TRUE, rotation );
-            gl2extensions->glUniform3fv( translationVectorsAttrib + boneId,
+            gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
                                          1, translation );
+//             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
+//                                                1, GL_FALSE,
+//                                                rotationTranslationMatrices[ boneIndex ].first.ptr() );
+//             gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
+//                                          1,
+//                                          rotationTranslationMatrices[ boneIndex ].second.ptr() );
         }
     
         GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         GLfloat translation[3] = {0,0,0};
-        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_TRUE, rotation );
+        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
         gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
     }
 
@@ -396,101 +382,45 @@ SubMeshHardware::update()
     }
     
     // -- Setup rotation matrices & translation vertices --
-    CalHardwareModel* hardwareModel = coreModel->getCalHardwareModel();
-
-    // TODO: it is not thread safe!!!
-    // one hardware model for each model & one vertex buffer for all sub-meshes
-    // we can make separate vertex buffers, but do we really need them.
-    // we have meshes without common points (but also we have models with big amount
-    // of small meshes)
-    //
-    // i think per-model update lock would be enough
     std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
 
     bool deformed = false;
 
-#ifdef _OPENMP
-    #pragma omp critical
-#endif // _OPENMP
+    for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
     {
-        hardwareModel->selectHardwareMesh( mesh->hardwareMeshId );
+        int boneId = mesh->getBoneId( boneIndex );
 
-        for( int boneId = 0; boneId < hardwareModel->getBoneCount(); boneId++ )
-        {
-            CalQuaternion   rotationBoneSpace =
-                hardwareModel->getRotationBoneSpace( boneId, calModel->getSkeleton() );
-            CalVector       translationBoneSpace =
-                hardwareModel->getTranslationBoneSpace( boneId, calModel->getSkeleton() );
+        rotationTranslationMatrices.push_back( model->getBoneRotationTranslation( boneId ) );
+        osg::Vec3 translation = model->getBoneTranslation( boneId );
+        osg::Quat rotation    = model->getBoneRotation( boneId );
 
-            CalMatrix       rotationMatrix = rotationBoneSpace;
-            GLfloat         rotation[9];
-            GLfloat         translation[3];
-
-            rotation[0] = rotationMatrix.dxdx;
-            rotation[1] = rotationMatrix.dxdy;
-            rotation[2] = rotationMatrix.dxdz;
-            rotation[3] = rotationMatrix.dydx;
-            rotation[4] = rotationMatrix.dydy;
-            rotation[5] = rotationMatrix.dydz;
-            rotation[6] = rotationMatrix.dzdx;
-            rotation[7] = rotationMatrix.dzdy;
-            rotation[8] = rotationMatrix.dzdz;
-
-            translation[0] = translationBoneSpace.x;
-            translation[1] = translationBoneSpace.y;
-            translation[2] = translationBoneSpace.z;
-
-            osg::Matrix3 r( rotation[0], rotation[3], rotation[6],
-                            rotation[1], rotation[4], rotation[7], 
-                            rotation[2], rotation[5], rotation[8] );
-//             osg::Matrixf r( rotation[0], rotation[3], rotation[6], 0,
-//                             rotation[1], rotation[4], rotation[7], 0, 
-//                             rotation[2], rotation[5], rotation[8], 0,
-//                             0          , 0          , 0          , 1 );
-            osg::Vec3 v( translation[0],
-                         translation[1],
-                         translation[2] );
-        
-            rotationTranslationMatrices.push_back( std::make_pair( r, v ) );
-
-            if ( 
-//                  rotation[0] != 1 || rotation[3] != 0 || rotation[6] != 0 ||
-//                  rotation[1] != 0 || rotation[4] != 1 || rotation[7] != 0 ||
-//                  rotation[2] != 0 || rotation[5] != 0 || rotation[8] != 1 ||
-//                  translation[0] != 0 || translation[1] != 0 || translation[2] != 0
-
-                 // cal3d reports nonzero translations for non-animated models
-                 // and non zero quaternions (seems like some FP round-off error). 
-                 // So we must check for deformations using some epsilon value.
-                 // Problem:
-                 //   * It is cal3d that must return correct values, no epsilons
-                 // But nevertheless we use this to reduce CPU load.
+        if ( // cal3d reports nonzero translations for non-animated models
+            // and non zero quaternions (seems like some FP round-off error). 
+            // So we must check for deformations using some epsilon value.
+            // Problem:
+            //   * It is cal3d that must return correct values, no epsilons
+            // But nevertheless we use this to reduce CPU load.
                  
-                 v.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
-                 ||
-                 osg::Vec3( rotationBoneSpace.x,
-                            rotationBoneSpace.y,
-                            rotationBoneSpace.z ).length() > 1e-6 // usually 1e-7 .. 1e-8
-                )
-            {
-                deformed = true;
-//                 std::cout << "quaternion: "
-//                           << rotationBoneSpace.x << ' '
-//                           << rotationBoneSpace.y << ' '
-//                           << rotationBoneSpace.z << ' '
-//                           << rotationBoneSpace.w << std::endl
-//                           << "rotation:\n"
-//                           << rotation[0] << ' ' << rotation[3] << ' ' << rotation[6] << std::endl
-//                           << rotation[1] << ' ' << rotation[4] << ' ' << rotation[7] << std::endl
-//                           << rotation[2] << ' ' << rotation[5] << ' ' << rotation[8] << std::endl
-//                           << "translation: "
-//                           << translation[0] << ' ' << translation[1] << ' ' << translation[2]
-//                           << "; len = " << v.length() << std::endl
-//                           << "len / bbox.radius = " << v.length() / boundingBox.radius()
-//                           << std::endl;
-            }
+            translation.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
+            ||
+            osg::Vec3d( rotation.x(),
+                        rotation.y(),
+                        rotation.z() ).length() > 1e-6 // usually 1e-7 .. 1e-8
+            )
+        {
+            deformed = true;
+//             std::cout << "quaternion: "
+//                       << rotation.x << ' '
+//                       << rotation.y << ' '
+//                       << rotation.z << ' '
+//                       << rotation.w << std::endl
+//                       << "translation: "
+//                       << translation.x << ' ' << translation.y << ' ' << translation.z
+//                       << "; len = " << translation.length() << std::endl
+//                       << "len / bbox.radius = " << translation.length() / boundingBox.radius()
+//                       << std::endl;
         }
-    }    
+    }
 
     rotationTranslationMatrices.resize( 31 );
     rotationTranslationMatrices[ 30 ] = // last always identity (see #68)
@@ -522,7 +452,7 @@ SubMeshHardware::update()
 //    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
     if ( rtDistance( rotationTranslationMatrices,
                      previousRotationTranslationMatrices,
-                     hardwareModel->getBoneCount() ) < 1e-7 ) // usually 1e-8..1e-10
+                     mesh->getBonesCount() ) < 1e-7 ) // usually 1e-8..1e-10
     {
 //        std::cout << "didn't changed" << std::endl;
         return; // no changes
