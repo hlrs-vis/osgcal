@@ -326,7 +326,7 @@ operator << ( std::ostream& os,
     os << "ambientColor     : " << sd.material.ambientColor << std::endl
        << "diffuseColor     : " << sd.material.diffuseColor << std::endl
        << "specularColor    : " << sd.material.specularColor << std::endl
-       << "shininess        : " << sd.material.shininess << std::endl
+       << "glossiness       : " << sd.material.glossiness << std::endl
        << "duffuseMap       : " << sd.diffuseMap << std::endl
        << "normalsMap       : " << sd.normalsMap << std::endl
 //       << "normalsMapAmount : " << sd.normalsMapAmount << std::endl
@@ -613,7 +613,7 @@ MaterialDesc::MaterialDesc( CalCoreMaterial* m,
     : ambientColor(  colorToVec4( m->getAmbientColor()  ) )
     , diffuseColor(  colorToVec4( m->getDiffuseColor()  ) )
     , specularColor( colorToVec4( m->getSpecularColor() ) * m->getShininess() ) 
-    , shininess( glossiness )
+    , glossiness( glossiness )
 {
     ambientColor.a() = opacity;
     diffuseColor.a() = opacity;
@@ -633,8 +633,8 @@ osgCal::operator < ( const MaterialDesc& md1,
                      md2.diffuseColor,
                      lt( md1.specularColor,
                          md2.specularColor,
-                         lt( md1.shininess,
-                             md2.shininess, false ))));
+                         lt( md1.glossiness,
+                             md2.glossiness, false ))));
     return r;
 }
 
@@ -827,7 +827,8 @@ MaterialsCache::createMaterial( const MaterialDesc& desc )
     material->setAmbient( osg::Material::FRONT_AND_BACK, desc.ambientColor );
     material->setDiffuse( osg::Material::FRONT_AND_BACK, desc.diffuseColor );
     material->setSpecular( osg::Material::FRONT_AND_BACK, desc.specularColor );
-    material->setShininess( osg::Material::FRONT_AND_BACK, desc.shininess );
+    material->setShininess( osg::Material::FRONT_AND_BACK,
+                            desc.glossiness > 128.0 ? 128.0 : desc.glossiness );
     // TODO: test shininess in sw mode
 
     return material;
@@ -1047,6 +1048,8 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
                                         desc.shaderFlags +
                                         rgba * SHADER_FLAG_RGBA ),
                                     osg::StateAttribute::ON );
+
+    stateSet->addUniform( newFloatUniform( "glossiness", desc.material.glossiness ) );
 
     // -- setup normals map --
     if ( desc.normalsMap != "" )
