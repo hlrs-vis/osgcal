@@ -64,10 +64,10 @@ namespace osgCal
             osg::Vec4      ambientColor;
             osg::Vec4      diffuseColor;
             osg::Vec4      specularColor;
-            float          shininess;
+            float          glossiness;
 
             MaterialDesc()
-                : shininess( 0 )
+                : glossiness( 0 )
             {}
 
             /**

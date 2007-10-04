@@ -29,6 +29,7 @@ varying half3 transformedNormal;
 #endif
 
 uniform half face;
+uniform half glossiness;
 
 void main()
 {
@@ -104,11 +105,16 @@ void main()
 //         float NdotHV = dot( R, normalize(-eyeVec) );
     //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector - very slow
     half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );
+    // remark that for correct calculations with big glossines (and
+    // therefore small normal variance) we need float normal
+    // calculations instead of half, but with it we also need float
+    // eyeBasis and eat more GPU resources, so we leave half
+    // cacluations for the moment.
     // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
     if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        half specularPower0 = pow( NdotHV0, half(gl_FrontMaterial.shininess) );
+        half specularPower0 = pow( NdotHV0, half(/*gl_FrontMaterial.shininess*/glossiness) );
 //        specularPower0 = specularPower0 > 0.8 ? 1.0 : 0.0; // cartoon, too discreete
         half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *
             specularPower0;
@@ -119,7 +125,7 @@ void main()
 //     if ( NdotHV1 > 0.0 )
 //     {
 //         vec3 specular1 = gl_FrontMaterial.specular.rgb * gl_LightSource[1].specular.rgb * 
-//             pow( NdotHV1, gl_FrontMaterial.shininess );
+//             pow( NdotHV1, /*gl_FrontMaterial.shininess*/glossiness );
 //         color += specular1;
 //     }
 #endif // SHINING

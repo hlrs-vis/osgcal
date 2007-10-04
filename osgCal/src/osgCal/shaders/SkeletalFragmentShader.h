@@ -29,6 +29,7 @@ shaderText += "varying half3 transformedNormal;\n";
 }
 shaderText += "\n";
 shaderText += "uniform half face;\n";
+shaderText += "uniform half glossiness;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
@@ -104,11 +105,16 @@ shaderText += "//         vec3 R = reflect( -lightDir, normal );\n";
 shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) );\n";
 shaderText += "    //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector - very slow\n";
 shaderText += "    half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );\n";
+shaderText += "    // remark that for correct calculations with big glossines (and\n";
+shaderText += "    // therefore small normal variance) we need float normal\n";
+shaderText += "    // calculations instead of half, but with it we also need float\n";
+shaderText += "    // eyeBasis and eat more GPU resources, so we leave half\n";
+shaderText += "    // cacluations for the moment.\n";
 shaderText += "    // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? \n";
 shaderText += "    if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
 shaderText += "        // I don't see difference if we remove this if\n";
 shaderText += "    {\n";
-shaderText += "        half specularPower0 = pow( NdotHV0, half(gl_FrontMaterial.shininess) );\n";
+shaderText += "        half specularPower0 = pow( NdotHV0, half(/*gl_FrontMaterial.shininess*/glossiness) );\n";
 shaderText += "//        specularPower0 = specularPower0 > 0.8 ? 1.0 : 0.0; // cartoon, too discreete\n";
 shaderText += "        half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *\n";
 shaderText += "            specularPower0;\n";
@@ -119,7 +125,7 @@ shaderText += "//     float NdotHV1 = dot( normal, gl_LightSource[1].halfVector.
 shaderText += "//     if ( NdotHV1 > 0.0 )\n";
 shaderText += "//     {\n";
 shaderText += "//         vec3 specular1 = gl_FrontMaterial.specular.rgb * gl_LightSource[1].specular.rgb * \n";
-shaderText += "//             pow( NdotHV1, gl_FrontMaterial.shininess );\n";
+shaderText += "//             pow( NdotHV1, /*gl_FrontMaterial.shininess*/glossiness );\n";
 shaderText += "//         color += specular1;\n";
 shaderText += "//     }\n";
 } // SHINING
