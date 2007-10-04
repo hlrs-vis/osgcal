@@ -16,15 +16,20 @@ uniform sampler2D decalMap;
 
 #if NORMAL_MAPPING == 1
 uniform sampler2D normalMap;
+#endif
 
-varying half3x3 eyeBasis; // in tangent space
+#if BUMP_MAPPING == 1
+uniform sampler2D bumpMap;
+uniform half      bumpMapAmount;
 #endif
 
 #if SHINING
 //varying vec3 eyeVec;//phong
 #endif
 
-#ifndef NORMAL_MAPPING
+#if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
+varying half3x3 eyeBasis; // in tangent space
+#else
 varying half3 transformedNormal;
 #endif
 
@@ -40,8 +45,14 @@ void main()
     // it says that it unsupported language element
     // and shader will run in software
     // GeForce < 6.x also doesn't know about this.
-#if NORMAL_MAPPING == 1
-    half2 ag = half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));   
+#if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
+    half2 ag = half2(0.0);
+    #if NORMAL_MAPPING == 1
+      ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));
+    #endif
+    #if BUMP_MAPPING == 1
+      ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).rg) - half(0.5));
+    #endif
     half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
     normal = normalize( normal * eyeBasis );
@@ -103,21 +114,18 @@ void main()
 #if SHINING == 1
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
-    //vec3 H = lightDir + normalize(-eyeVec); // per-pixel half vector - very slow
     half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );
     // remark that for correct calculations with big glossines (and
-    // therefore small normal variance) we need float normal
+    // therefore small normal variance) we need float normals
     // calculations instead of half, but with it we also need float
-    // eyeBasis and eat more GPU resources, so we leave half
+    // eyeBasis and eat more GPU resources, so we leave half precision
     // cacluations for the moment.
     // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
     if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        half specularPower0 = pow( NdotHV0, half(/*gl_FrontMaterial.shininess*/glossiness) );
-//        specularPower0 = specularPower0 > 0.8 ? 1.0 : 0.0; // cartoon, too discreete
         half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *
-            specularPower0;
+            pow( NdotHV0, glossiness );
         color += specular0;
     }
 
@@ -125,7 +133,7 @@ void main()
 //     if ( NdotHV1 > 0.0 )
 //     {
 //         vec3 specular1 = gl_FrontMaterial.specular.rgb * gl_LightSource[1].specular.rgb * 
-//             pow( NdotHV1, /*gl_FrontMaterial.shininess*/glossiness );
+//             pow( NdotHV1, glossiness );
 //         color += specular1;
 //     }
 #endif // SHINING
@@ -144,37 +152,6 @@ void main()
     half4 fragColor = half4(color, 1.0);
   #endif
 #endif
-
-// #if NORMAL_MAPPING == 1
-//     // stupid test curvature shading
-// # define PIXEL( _dx, _dy ) half2(texture2D(normalMap, gl_TexCoord[0].st + vec2(_dx/1024.0, _dy/1024.0)).ag)
-// # define NORMAL2( _a ) half2((_a), sqrt(half(1.0) - dot( (_a), (_a) )))
-// # define NORMAL3( _a ) half3((_a), sqrt(half(1.0) - dot( (_a), (_a) )))
-
-//     const half4 convex_color  = half4(1.0);//half4(1.0, 0.0, 0.0, 0.0);
-//     const half4 concave_color = half4(0.0);//half4(0.0, 1.0, 0.0, 0.0);
-
-//     half2 x0ym1 = NORMAL2( PIXEL( 0.0, -1.0 ).y );
-//     half2 x0yp1 = NORMAL2( PIXEL( 0.0,  1.0 ).y );
-//     half y_curvature = cross( half3(x0ym1, 0.0), // <- mp instead of pm because normal map is flipped
-//                               half3(x0yp1, 0.0) ).z/half(2.0); 
-//     fragColor = mix( y_curvature > half(0.0) ? convex_color : concave_color,
-//                      fragColor, half(1.0) - abs(y_curvature) );
-
-//     half2 xm1y0 = NORMAL2( PIXEL( -1.0, 0.0 ).x );
-//     half2 xp1y0 = NORMAL2( PIXEL(  1.0, 0.0 ).x );
-//     half x_curvature = cross( half3(xp1y0, 0.0),
-//                               half3(xm1y0, 0.0) ).z/half(2.0); 
-//     fragColor = mix( x_curvature > half(0.0) ? convex_color : concave_color,
-//                      fragColor, half(1.0) - abs(x_curvature) );
-
-// //     half3 xm1ym1 = NORMAL3( PIXEL( -1.0, -1.0 ) );
-// //     half3 xp1yp1 = NORMAL3( PIXEL(  1.0,  1.0 ) );
-// //     // ^ incorrect, we need normals projected to diagonal
-// //     half d1_curvature = dot( cross( xm1ym1, xp1yp1 ), half3( -1.0, 1.0, 0.0 ) );
-// //     fragColor = mix( d1_curvature > half(0.0) ? convex_color : concave_color,
-// //                      fragColor, half(1.0) - abs(d1_curvature) );
-// #endif
 
 #if FOG
 //     float fog = (gl_Fog.end - gl_FogFragCoord) * gl_Fog.scale;

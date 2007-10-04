@@ -98,7 +98,8 @@ class VertexBufferObject : public osg::BufferObject
 
 using namespace osgCal;
 
-#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 64)
+#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 128)
+#define SHADER_FLAG_BUMP_MAPPING        64
 #define SHADER_FLAG_FOG                 32
 #define SHADER_FLAG_RGBA                16 // enable blending of RGBA textures
 #define SHADER_FLAG_OPACITY             8
@@ -139,6 +140,7 @@ class SkeletalShadersSet : public osg::Referenced
                 int OPACITY = ( SHADER_FLAG_OPACITY & flags ) ? 1 : 0;  \
                 int TEXTURING = ( SHADER_FLAG_TEXTURING & flags ) ? 1 : 0; \
                 int NORMAL_MAPPING = ( SHADER_FLAG_NORMAL_MAPPING & flags ) ? 1 : 0; \
+                int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
                 int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;
 
                 PARSE_FLAGS;
@@ -146,13 +148,14 @@ class SkeletalShadersSet : public osg::Referenced
                 osg::Program* p = new osg::Program;
 
                 char name[ 256 ];
-                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s)",
+                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s)",
                          BONES_COUNT,
                          FOG ? ", fog" : "",
                          RGBA ? ", rgba" : "",
                          OPACITY ? ", opacity" : "",
                          TEXTURING ? ", texturing" : "",
                          NORMAL_MAPPING ? ", normal mapping" : "",
+                         BUMP_MAPPING ? ", bump mapping" : "",
                          SHINING ? ", shining" : "" );
                             
                 p->setName( name );
@@ -330,8 +333,8 @@ operator << ( std::ostream& os,
        << "duffuseMap       : " << sd.diffuseMap << std::endl
        << "normalsMap       : " << sd.normalsMap << std::endl
 //       << "normalsMapAmount : " << sd.normalsMapAmount << std::endl
-//       << "bumpMap          : " << sd.bumpMap << std::endl
-//       << "bumpMapAmount    : " << sd.bumpMapAmount << std::endl
+       << "bumpMap          : " << sd.bumpMap << std::endl
+       << "bumpMapAmount    : " << sd.bumpMapAmount << std::endl
        << "sides            : " << sd.sides << std::endl;
     return os;
 }
@@ -733,8 +736,8 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
         }
         else if ( prefix == "BumpMap:" )
         {
-            //bumpMap = dir + "/" + suffix;
-            //shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
+//             bumpMap = dir + "/" + suffix;
+//             shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
         }
         else if ( prefix == "BumpAmount:" )
         {
@@ -1058,6 +1061,16 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
 
         stateSet->setTextureAttributeAndModes( 1, texture, osg::StateAttribute::ON );
         stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "normalMap", 1 ) );
+    }
+
+    // -- setup bump map --
+    if ( desc.bumpMap != "" )
+    {
+        osg::Texture2D* texture = texturesCache->get( desc.bumpMap );
+
+        stateSet->setTextureAttributeAndModes( 2, texture, osg::StateAttribute::ON );
+        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 1 ) );
+        stateSet->addUniform( newFloatUniform( "bumpMapAmount", desc.bumpMapAmount ) );
     }
 
     // -- setup some uniforms --
