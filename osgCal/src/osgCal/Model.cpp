@@ -154,6 +154,22 @@ Model::~Model()
 //               << coreModel->referenceCount() << std::endl;
 }
 
+static
+osg::Drawable*
+linesDrawable( osg::Vec3Array* lines,
+               const osg::Vec3& color )
+{
+    osg::Geometry* g = new osg::Geometry;
+    osg::Vec3Array* vcolor = new osg::Vec3Array;
+    vcolor->push_back( color );
+    g->setVertexArray( lines );
+    g->setColorArray( vcolor );
+    g->setColorBinding( osg::Geometry::BIND_OVERALL );
+    g->addPrimitiveSet( new osg::DrawArrays( GL_LINES, 0, lines->size() ) );
+    g->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OVERRIDE|osg::StateAttribute::OFF);;
+    return g;
+}
+
 void
 Model::load( CoreModel* cm,
              MeshTyper* meshTyper,
@@ -331,6 +347,30 @@ Model::load( CoreModel* cm,
     }
 
     meshTyper->unref();
+
+    // -- TBN debug --
+//     osg::Vec3Array* t = new osg::Vec3Array;
+//     osg::Vec3Array* b = new osg::Vec3Array;
+//     osg::Vec3Array* n = new osg::Vec3Array;
+//     const NormalBuffer& vb = *(coreModel->getVertexBuffer());
+//     const NormalBuffer& tb = *(coreModel->getTangentBuffer());
+//     const NormalBuffer& bb = *(coreModel->getBinormalBuffer());
+//     const NormalBuffer& nb = *(coreModel->getNormalBuffer());
+//     const float scale = 1.0f;
+
+//     for ( size_t i = 0; i < vb.size(); i++ )
+//     {
+//         t->push_back( vb[i] );
+//         b->push_back( vb[i] );
+//         n->push_back( vb[i] );
+//         t->push_back( vb[i] + tb[i]*scale );
+//         b->push_back( vb[i] + bb[i]*scale );
+//         n->push_back( vb[i] + nb[i]*scale );
+//     }
+
+//     geode->addDrawable( linesDrawable( t, osg::Vec3( 1.0, 0.0, 0.0 ) ) );
+//     geode->addDrawable( linesDrawable( b, osg::Vec3( 0.0, 1.0, 0.0 ) ) );
+//     geode->addDrawable( linesDrawable( n, osg::Vec3( 0.0, 0.0, 1.0 ) ) );
 
     // -- Add resulting geodes --
     if ( shaderGeode.valid() && shaderGeode->getNumDrawables() > 0 )

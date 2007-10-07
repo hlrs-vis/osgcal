@@ -559,6 +559,8 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
     matrixIndexBuffer   = bos->matrixIndexBuffer;
     indexBuffer         = bos->indexBuffer;
     normalBuffer        = bos->normalBuffer;
+    binormalBuffer      = bos->binormalBuffer;
+    tangentBuffer       = bos->tangentBuffer;
     texCoordBuffer      = bos->texCoordBuffer;
 
     // -- Create vertex buffer objects --
@@ -739,7 +741,7 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
 //             bumpMap = dir + "/" + suffix;
 //             shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
         }
-        else if ( prefix == "BumpAmount:" )
+        else if ( prefix == "BumpMapAmount:" )
         {
             bumpMapAmount = stringToFloat( suffix );
         }
@@ -1066,10 +1068,10 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
     // -- setup bump map --
     if ( desc.bumpMap != "" )
     {
-        osg::Texture2D* texture = texturesCache->get( desc.bumpMap );
+        osg::Texture2D* texture = texturesCache->get( desc.bumpMap );        
 
         stateSet->setTextureAttributeAndModes( 2, texture, osg::StateAttribute::ON );
-        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 1 ) );
+        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 2 ) );
         stateSet->addUniform( newFloatUniform( "bumpMapAmount", desc.bumpMapAmount ) );
     }
 

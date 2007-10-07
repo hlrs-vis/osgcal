@@ -94,62 +94,43 @@ main( int argc,
         cfgFileName = "./" + cfgFileName;
     }
 
-    try // try check for cached vbos
-    {
-        if ( !forced
-             &&
-             ::isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) )
-             &&
-             ::isFileOlder( cfgFileName, HWModelCacheFileName( cfgFileName ) ) )
-        {
-            printf( "Skipping  %s  ...  ok\n", cfgFileName.c_str() );;
-            return 0;
-        }
-        else
-        {
-            throw std::runtime_error( "cache is older than .cfg" );
-        }
-    }
-    catch ( std::runtime_error& e )
-    {
-        printf( "Preparing %s  ...  ", cfgFileName.c_str() );;
-        fflush( stdout );
+    printf( "Preparing %s  ...  ", cfgFileName.c_str() );;
+    fflush( stdout );
         
-        CalCoreModel* calCoreModel = 0;
-        float scale;
-        CalHardwareModel* calHardwareModel = 0;
-        VBOs* bos = 0;
-        std::vector< std::string > meshNames;
+    CalCoreModel* calCoreModel = 0;
+    float scale;
+    CalHardwareModel* calHardwareModel = 0;
+    VBOs* bos = 0;
+    std::vector< std::string > meshNames;
 
-        BRACKET_ERROR( calCoreModel = loadCoreModel( cfgFileName, scale ),
-                       "Can't load model:\n%s" );
+    BRACKET_ERROR( calCoreModel = loadCoreModel( cfgFileName, scale ),
+                   "Can't load model:\n%s" );
 
-        calHardwareModel = new CalHardwareModel( calCoreModel );
-        BRACKET_ERROR( bos = loadVBOs( calHardwareModel ),
-                       "Can't load vbos from hardware model:\n%s" );
-        for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-            hardwareMeshId++)
-        {
-            meshNames.push_back(
-                calCoreModel->
-                getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
-                getName() );
-        }
-
-        BRACKET_ERROR( saveVBOs( bos, VBOsCacheFileName( cfgFileName ) ),
-                       "Can't save vbos cache:\n%s" );
-        BRACKET_ERROR( saveHardwareModel( calHardwareModel,
-                                          calCoreModel,
-                                          meshNames,
-                                          HWModelCacheFileName( cfgFileName ) ),
-                       "Can't save hardware model cache:\n%s" );
-
-        delete bos;
-        delete calHardwareModel;
-        delete calCoreModel;
-
-        puts( "ok" );
+    calHardwareModel = new CalHardwareModel( calCoreModel );
+    BRACKET_ERROR( bos = loadVBOs( calHardwareModel ),
+                   "Can't load vbos from hardware model:\n%s" );
+    for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
+        hardwareMeshId++)
+    {
+        meshNames.push_back(
+            calCoreModel->
+            getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
+            getName() );
     }
+
+    BRACKET_ERROR( saveVBOs( bos, VBOsCacheFileName( cfgFileName ) ),
+                   "Can't save vbos cache:\n%s" );
+    BRACKET_ERROR( saveHardwareModel( calHardwareModel,
+                                      calCoreModel,
+                                      meshNames,
+                                      HWModelCacheFileName( cfgFileName ) ),
+                   "Can't save hardware model cache:\n%s" );
+
+    delete bos;
+    delete calHardwareModel;
+    delete calCoreModel;
+
+    puts( "ok" );
     
     return 0;
 }

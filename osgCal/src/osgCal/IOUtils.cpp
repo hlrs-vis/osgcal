@@ -429,15 +429,19 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
                 // sdir & tdir can be 0 (when UV unwrap doesn't exists
                 // or has errors like coincide points)
                 // we ignore them
-                if ( sdir.length() > 0 && tdir.length() > 0 )
+                if ( sdir.length() > 0 )
                 {
                     sdir.normalize(); 
-                    tdir.normalize();
 
                     tan1[i1] += sdir;
                     //tan1[i2] += sdir;
                     //tan1[i3] += sdir;
-        
+                }
+
+                if ( tdir.length() > 0 )
+                {
+                    tdir.normalize();
+
                     tan2[i1] += tdir;
                     //tan2[i2] += tdir;
                     //tan2[i3] += tdir;
@@ -450,15 +454,15 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
             CalVector tangent;
             CalVector binormal;
             CalVector t = tan1[a];
+            CalVector b = tan2[a];
+            CalVector n = CalVector( normalBuffer[a*3+0],
+                                     normalBuffer[a*3+1],
+                                     normalBuffer[a*3+2] );
 
-            // tangent can be zero when UV unwrap doesn't exists
+            // tangent & bitangent can be zero when UV unwrap doesn't exists
             // or has errors like coincide points
             if ( t.length() > 0 )
             {
-                CalVector n = CalVector( normalBuffer[a*3+0],
-                                         normalBuffer[a*3+1],
-                                         normalBuffer[a*3+2] );
-
                 t.normalize();
         
                 // Gram-Schmidt orthogonalize
@@ -467,8 +471,21 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
 
                 // Calculate handedness
                 binormal = CalVector(n % tangent) *
-                    ((((n % t) * tan2[a]) < 0.0F) ? -1.0f : 1.0f);
+                    ((((n % t) * b) < 0.0F) ? -1.0f : 1.0f);
                 binormal.normalize();
+            }
+            else if ( b.length() > 0 )
+            {
+                b.normalize();
+        
+                // Gram-Schmidt orthogonalize
+                binormal = b - n * (n*b);
+                binormal.normalize();
+
+                // Calculate handedness
+                tangent = CalVector(n % binormal) *
+                    ((((n % b) * t) < 0.0F) ? -1.0f : 1.0f);
+                tangent.normalize();
             }
 
 //             std::cout << "t = " << tangent.x  << '\t' << tangent.y  << '\t' << tangent.z << '\n' ;
