@@ -51,11 +51,12 @@ void main()
       ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
     #if BUMP_MAPPING == 1
-      ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).rg) - half(0.5));
+       ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
     half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
 //    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
     normal = normalize( normal * eyeBasis );
+//     gl_FragColor = vec4(normal/2.0+0.5, 1.0);
 ///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),

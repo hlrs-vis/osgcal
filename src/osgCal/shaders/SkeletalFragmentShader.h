@@ -51,11 +51,12 @@ shaderText += "    half2 ag = half2(0.0);\n";
 shaderText += "      ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
     }
     if ( BUMP_MAPPING == 1 ) {
-shaderText += "      ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).rg) - half(0.5));\n";
+shaderText += "       ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
     }
 shaderText += "    half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
 shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));\n";
 shaderText += "    normal = normalize( normal * eyeBasis );\n";
+shaderText += "//     gl_FragColor = vec4(normal/2.0+0.5, 1.0);\n";
 shaderText += "///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );\n";
 shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
 shaderText += "//                                        normalize( eyeBasis[1] ),\n";

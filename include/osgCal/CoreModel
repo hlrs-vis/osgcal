@@ -333,6 +333,8 @@ namespace osgCal
             const MatrixIndexBuffer* getMatrixIndexBuffer() const { return matrixIndexBuffer.get(); }
             const IndexBuffer* getIndexBuffer() const { return indexBuffer.get(); }
             const NormalBuffer* getNormalBuffer() const { return normalBuffer.get(); }            
+            const NormalBuffer* getBinormalBuffer() const { return binormalBuffer.get(); }            
+            const NormalBuffer* getTangentBuffer() const { return tangentBuffer.get(); }            
             const TexCoordBuffer* getTexCoordBuffer() const { return texCoordBuffer.get(); }
 
         private:
@@ -356,6 +358,8 @@ namespace osgCal
             osg::ref_ptr< MatrixIndexBuffer >   matrixIndexBuffer;
             osg::ref_ptr< IndexBuffer >         indexBuffer;
             osg::ref_ptr< NormalBuffer >        normalBuffer;
+            osg::ref_ptr< NormalBuffer >        binormalBuffer;
+            osg::ref_ptr< NormalBuffer >        tangentBuffer;
             osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
 
             std::vector< osg::ref_ptr< osg::BufferObject > > vbos;            
