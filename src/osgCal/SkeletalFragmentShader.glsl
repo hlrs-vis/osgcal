@@ -28,13 +28,13 @@ uniform half      bumpMapAmount;
 #endif
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-varying half3x3 eyeBasis; // in tangent space
+varying mat3 eyeBasis; // in tangent space
 #else
-varying half3 transformedNormal;
+varying vec3 transformedNormal;
 #endif
 
 uniform half face;
-uniform half glossiness;
+uniform float glossiness;
 
 void main()
 {
@@ -53,17 +53,18 @@ void main()
     #if BUMP_MAPPING == 1
        ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
-    half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
-//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));
-    normal = normalize( normal * eyeBasis );
-//     gl_FragColor = vec4(normal/2.0+0.5, 1.0);
-///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );
+    half3 hnormal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
+    vec3 normal = normalize( vec3(hnormal) * eyeBasis );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),
 //                                        normalize( eyeBasis[2] ) ) );
     // ^ not much difference
 #else        
-    half3 normal = face*normalize(transformedNormal);
+    vec3 normal = face*normalize(transformedNormal);
+    // Remark that we calculate lighting (normals) with full precision
+    // but colors only with half one.
+    // We previously calculated lighting in half precision too, but it gives us
+    // precision errors on meshes with high glossiness, so we reverted to full precision.
 #endif
 
     // -- Calculate decal (texture) color --
@@ -94,8 +95,8 @@ void main()
 //     color += ambient1;
 
     // -- Lights diffuse --
-    half3 lightDir0 = half3(gl_LightSource[0].position.xyz);
-    half  NdotL0 = max( half(0.0), dot( normal, lightDir0 ) );
+    vec3 lightDir0 = gl_LightSource[0].position.xyz;
+    half  NdotL0 = max( half(0.0), half(dot( normal, lightDir0 )) );
     //NdotL0 = NdotL0 > half(0.4) ? half(0.8) : half(0.5);
        //0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs
     half3 diffuse0 = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb);
@@ -115,18 +116,13 @@ void main()
 #if SHINING == 1
 //         vec3 R = reflect( -lightDir, normal );
 //         float NdotHV = dot( R, normalize(-eyeVec) );
-    half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );
-    // remark that for correct calculations with big glossines (and
-    // therefore small normal variance) we need float normals
-    // calculations instead of half, but with it we also need float
-    // eyeBasis and eat more GPU resources, so we leave half precision
-    // cacluations for the moment.
+    float NdotHV0 = dot( normal, gl_LightSource[0].halfVector.xyz );
     // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? 
-    if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)
+    if ( NdotHV0 > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
         half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *
-            pow( NdotHV0, glossiness );
+            half(pow( NdotHV0, glossiness ));
         color += specular0;
     }
 

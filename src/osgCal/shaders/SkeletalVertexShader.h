@@ -24,9 +24,9 @@ shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "attribute vec3 tangent;\n";
 shaderText += "attribute vec3 binormal;\n";
-shaderText += "varying half3x3 eyeBasis; // in tangent space\n";
+shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 } else {
-shaderText += "varying half3 transformedNormal;\n";
+shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
 if ( SHINING ) {
@@ -74,9 +74,10 @@ if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    mat3 tangentBasis =\n";
 shaderText += "        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );\n";
 shaderText += "\n";
-shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
-shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
-shaderText += "                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
+shaderText += "//    eyeBasis = transpose( tangentBasis );\n";
+shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
  if ( SHINING ) {
 shaderText += "    //eyeVec *= tangentBasis;\n";
@@ -109,9 +110,10 @@ shaderText += "                                   vec4( binormal, 0.0 ),\n";
 shaderText += "                                   vec4( gl_Normal, 0.0 ),\n";
 shaderText += "                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );\n";
 shaderText += "\n";
-shaderText += "    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
-shaderText += "                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
-shaderText += "                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
+shaderText += "//    eyeBasis = transpose( tangentBasis );\n";
+shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],\n";
+shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
+shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
  if ( SHINING ) {
 shaderText += "    //eyeVec *= tangentBasis;\n";

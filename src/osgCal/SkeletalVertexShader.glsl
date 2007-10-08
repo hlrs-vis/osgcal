@@ -24,9 +24,9 @@ uniform vec3 translationVectors[31];
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
 attribute vec3 tangent;
 attribute vec3 binormal;
-varying half3x3 eyeBasis; // in tangent space
+varying mat3 eyeBasis; // in tangent space
 #else
-varying half3 transformedNormal;
+varying vec3 transformedNormal;
 #endif
 
 #if SHINING
@@ -74,9 +74,10 @@ void main()
     mat3 tangentBasis =
         gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );
 
-    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
+//    eyeBasis = transpose( tangentBasis );
+    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
  #if SHINING
     //eyeVec *= tangentBasis;
@@ -109,9 +110,10 @@ void main()
                                    vec4( gl_Normal, 0.0 ),
                                    vec4( 0.0, 0.0, 0.0, 1.0 ) );
 
-    eyeBasis = half3x3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                        tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                        tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
+//    eyeBasis = transpose( tangentBasis );
+    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
+                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
+                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
  #if SHINING
     //eyeVec *= tangentBasis;
