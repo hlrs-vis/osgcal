@@ -154,21 +154,21 @@ Model::~Model()
 //               << coreModel->referenceCount() << std::endl;
 }
 
-static
-osg::Drawable*
-linesDrawable( osg::Vec3Array* lines,
-               const osg::Vec3& color )
-{
-    osg::Geometry* g = new osg::Geometry;
-    osg::Vec3Array* vcolor = new osg::Vec3Array;
-    vcolor->push_back( color );
-    g->setVertexArray( lines );
-    g->setColorArray( vcolor );
-    g->setColorBinding( osg::Geometry::BIND_OVERALL );
-    g->addPrimitiveSet( new osg::DrawArrays( GL_LINES, 0, lines->size() ) );
-    g->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OVERRIDE|osg::StateAttribute::OFF);;
-    return g;
-}
+// static
+// osg::Drawable*
+// linesDrawable( osg::Vec3Array* lines,
+//                const osg::Vec3& color )
+// {
+//     osg::Geometry* g = new osg::Geometry;
+//     osg::Vec3Array* vcolor = new osg::Vec3Array;
+//     vcolor->push_back( color );
+//     g->setVertexArray( lines );
+//     g->setColorArray( vcolor );
+//     g->setColorBinding( osg::Geometry::BIND_OVERALL );
+//     g->addPrimitiveSet( new osg::DrawArrays( GL_LINES, 0, lines->size() ) );
+//     g->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OVERRIDE|osg::StateAttribute::OFF);;
+//     return g;
+// }
 
 void
 Model::load( CoreModel* cm,

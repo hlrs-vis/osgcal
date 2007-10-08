@@ -209,6 +209,19 @@ namespace osgCal
             osg::StateSet* createHwMeshStateSet( const HwStateDesc& swsd );
     };
 
+    class DepthMeshStateSetCache : public osg::Referenced
+    {
+        public:
+            osg::StateSet* get( const HwStateDesc& swsd );
+
+        private:
+            // map from < bone count, sides count > to stateset
+            typedef std::map< std::pair< int, int >, osg::ref_ptr< osg::StateSet > > Map;
+
+            Map cache;
+
+            osg::StateSet* createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount );
+    };
     
     // -- CORE MODEL CLASS --
 
@@ -319,6 +332,9 @@ namespace osgCal
                     osg::ref_ptr< osg::StateSet >       staticHardwareStateSet; ///< zero bones state set
                     osg::ref_ptr< osg::StateSet >       stateSet;
 
+                    osg::ref_ptr< osg::StateSet >       depthStateSet; ///< depth only hw state ste
+                    osg::ref_ptr< osg::StateSet >       staticDepthStateSet; ///< zero bones state set
+
                     osg::BoundingBox                    boundingBox;
             };
 
@@ -349,6 +365,7 @@ namespace osgCal
             TexturesCache*              texturesCache;
             SwMeshStateSetCache*        swMeshStateSetCache;
             HwMeshStateSetCache*        hwMeshStateSetCache;
+            DepthMeshStateSetCache*     depthMeshStateSetCache;
 
             std::vector< Mesh >         meshes;
             std::vector< std::string >  animationNames;
