@@ -738,8 +738,8 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
         }
         else if ( prefix == "BumpMap:" )
         {
-//             bumpMap = dir + "/" + suffix;
-//             shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
+            bumpMap = dir + "/" + suffix;
+            shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
         }
         else if ( prefix == "BumpMapAmount:" )
         {
