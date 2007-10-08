@@ -28,13 +28,13 @@ shaderText += "//varying vec3 eyeVec;//phong\n";
 }
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "varying half3x3 eyeBasis; // in tangent space\n";
+shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 } else {
-shaderText += "varying half3 transformedNormal;\n";
+shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
 shaderText += "uniform half face;\n";
-shaderText += "uniform half glossiness;\n";
+shaderText += "uniform float glossiness;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
@@ -53,17 +53,18 @@ shaderText += "      ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].
     if ( BUMP_MAPPING == 1 ) {
 shaderText += "       ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
     }
-shaderText += "    half3 normal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
-shaderText += "//    vec3 normal = face*normalize(2.0 * (texture2D(normalMap, gl_TexCoord[0].st).rgb - 0.5));\n";
-shaderText += "    normal = normalize( normal * eyeBasis );\n";
-shaderText += "//     gl_FragColor = vec4(normal/2.0+0.5, 1.0);\n";
-shaderText += "///    normal = normalize( vec3( eyeBasis[0][2], eyeBasis[1][2], eyeBasis[2][2] ) );\n";
+shaderText += "    half3 hnormal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
+shaderText += "    vec3 normal = normalize( vec3(hnormal) * eyeBasis );\n";
 shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
 shaderText += "//                                        normalize( eyeBasis[1] ),\n";
 shaderText += "//                                        normalize( eyeBasis[2] ) ) );\n";
 shaderText += "    // ^ not much difference\n";
 } else {        
-shaderText += "    half3 normal = face*normalize(transformedNormal);\n";
+shaderText += "    vec3 normal = face*normalize(transformedNormal);\n";
+shaderText += "    // Remark that we calculate lighting (normals) with full precision\n";
+shaderText += "    // but colors only with half one.\n";
+shaderText += "    // We previously calculated lighting in half precision too, but it gives us\n";
+shaderText += "    // precision errors on meshes with high glossiness, so we reverted to full precision.\n";
 }
 shaderText += "\n";
 shaderText += "    // -- Calculate decal (texture) color --\n";
@@ -94,8 +95,8 @@ shaderText += "//     vec3 ambient1 = gl_FrontMaterial.ambient.rgb * gl_LightSou
 shaderText += "//     color += ambient1;\n";
 shaderText += "\n";
 shaderText += "    // -- Lights diffuse --\n";
-shaderText += "    half3 lightDir0 = half3(gl_LightSource[0].position.xyz);\n";
-shaderText += "    half  NdotL0 = max( half(0.0), dot( normal, lightDir0 ) );\n";
+shaderText += "    vec3 lightDir0 = gl_LightSource[0].position.xyz;\n";
+shaderText += "    half  NdotL0 = max( half(0.0), half(dot( normal, lightDir0 )) );\n";
 shaderText += "    //NdotL0 = NdotL0 > half(0.4) ? half(0.8) : half(0.5);\n";
 shaderText += "       //0.2 * floor( NdotL0 * 4.0 ) / 4.0 + 0.8 * NdotL0; // cartoon, need play with coeffs\n";
 shaderText += "    half3 diffuse0 = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[0].diffuse.rgb);\n";
@@ -115,18 +116,13 @@ shaderText += "    // -- Specular --\n";
 if ( SHINING == 1 ) {
 shaderText += "//         vec3 R = reflect( -lightDir, normal );\n";
 shaderText += "//         float NdotHV = dot( R, normalize(-eyeVec) );\n";
-shaderText += "    half NdotHV0 = dot( normal, half3(gl_LightSource[0].halfVector.xyz) );\n";
-shaderText += "    // remark that for correct calculations with big glossines (and\n";
-shaderText += "    // therefore small normal variance) we need float normals\n";
-shaderText += "    // calculations instead of half, but with it we also need float\n";
-shaderText += "    // eyeBasis and eat more GPU resources, so we leave half precision\n";
-shaderText += "    // cacluations for the moment.\n";
+shaderText += "    float NdotHV0 = dot( normal, gl_LightSource[0].halfVector.xyz );\n";
 shaderText += "    // why `pow(RdotE_phong, s) = pow(NdotHV_blinn, 4*s)' ??? \n";
-shaderText += "    if ( NdotHV0 > half(0.0) ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
+shaderText += "    if ( NdotHV0 > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
 shaderText += "        // I don't see difference if we remove this if\n";
 shaderText += "    {\n";
 shaderText += "        half3 specular0 = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[0].specular.rgb) *\n";
-shaderText += "            pow( NdotHV0, glossiness );\n";
+shaderText += "            half(pow( NdotHV0, glossiness ));\n";
 shaderText += "        color += specular0;\n";
 shaderText += "    }\n";
 shaderText += "\n";
