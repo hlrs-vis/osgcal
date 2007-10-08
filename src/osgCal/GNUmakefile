@@ -23,7 +23,9 @@ include $(TOPDIR)/Make/makerules
 
 CoreModel.cpp: \
 	shaders/SkeletalVertexShader.h \
-	shaders/SkeletalFragmentShader.h
+	shaders/SkeletalFragmentShader.h \
+	shaders/SkeletalVertexShaderDepthOnly.h \
+	shaders/SkeletalFragmentShaderDepthOnly.h
 
 shaders/SkeletalVertexShader.h: SkeletalVertexShader.glsl
 ifeq ($(OS),MINGW)
@@ -37,4 +39,18 @@ ifeq ($(OS),MINGW)
 	sed -f ../glsl2cpp.sed <../SkeletalFragmentShader.glsl >../shaders/SkeletalFragmentShader.h
 else
 	sed -e s/\\r// <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
+endif
+
+shaders/SkeletalVertexShaderDepthOnly.h: SkeletalVertexShaderDepthOnly.glsl
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalVertexShaderDepthOnly.glsl >../shaders/SkeletalVertexShaderDepthOnly.h
+else
+	sed -e s/\\r// <../SkeletalVertexShaderDepthOnly.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShaderDepthOnly.h
+endif
+
+shaders/SkeletalFragmentShaderDepthOnly.h: SkeletalFragmentShaderDepthOnly.glsl
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalFragmentShaderDepthOnly.glsl >../shaders/SkeletalFragmentShaderDepthOnly.h
+else
+	sed -e s/\\r// <../SkeletalFragmentShaderDepthOnly.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShaderDepthOnly.h
 endif

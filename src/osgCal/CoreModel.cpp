@@ -27,6 +27,7 @@
 #include <osg/Vec4>
 #include <osg/BlendFunc>
 #include <osg/CullFace>
+#include <osg/Depth>
 #include <osg/io_utils>
 
 #include <osgDB/FileNameUtils>
@@ -98,7 +99,8 @@ class VertexBufferObject : public osg::BufferObject
 
 using namespace osgCal;
 
-#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 128)
+#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 256)
+#define SHADER_FLAG_DEPTH_ONLY          128
 #define SHADER_FLAG_BUMP_MAPPING        64
 #define SHADER_FLAG_FOG                 32
 #define SHADER_FLAG_RGBA                16 // enable blending of RGBA textures
@@ -125,6 +127,11 @@ class SkeletalShadersSet : public osg::Referenced
 
         osg::Program* get( int flags )
         {
+            if ( flags & SHADER_FLAG_DEPTH_ONLY )
+            {
+                flags &= ~0x7F; // remove all flags except depth_only & bones count
+            }
+
             ProgramsMap::const_iterator pmi = programs.find( flags );
 
             if ( pmi != programs.end() )
@@ -141,15 +148,17 @@ class SkeletalShadersSet : public osg::Referenced
                 int TEXTURING = ( SHADER_FLAG_TEXTURING & flags ) ? 1 : 0; \
                 int NORMAL_MAPPING = ( SHADER_FLAG_NORMAL_MAPPING & flags ) ? 1 : 0; \
                 int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
-                int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;
+                int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0; \
+                int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
 
                 PARSE_FLAGS;
                 
                 osg::Program* p = new osg::Program;
 
                 char name[ 256 ];
-                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s)",
+                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s)",
                          BONES_COUNT,
+                         DEPTH_ONLY ? ", depth_only" : "",
                          FOG ? ", fog" : "",
                          RGBA ? ", rgba" : "",
                          OPACITY ? ", opacity" : "",
@@ -206,7 +215,14 @@ class SkeletalShadersSet : public osg::Referenced
 
                 std::string shaderText;
 
-                #include "shaders/SkeletalVertexShader.h"
+                if ( DEPTH_ONLY )
+                {
+                     #include "shaders/SkeletalVertexShaderDepthOnly.h"
+                }
+                else
+                {                    
+                     #include "shaders/SkeletalVertexShader.h"
+                }
 
                 osg::Shader* vs = new osg::Shader( osg::Shader::VERTEX,
                                                    shaderText.data() );
@@ -236,7 +252,14 @@ class SkeletalShadersSet : public osg::Referenced
 
                 std::string shaderText;
 
-                #include "shaders/SkeletalFragmentShader.h"
+                if ( DEPTH_ONLY )
+                {
+                     #include "shaders/SkeletalFragmentShaderDepthOnly.h"
+                }
+                else
+                {                    
+                     #include "shaders/SkeletalFragmentShader.h"
+                }
 
                 osg::Shader* fs = new osg::Shader( osg::Shader::FRAGMENT,
                                                    shaderText.data() );
@@ -273,12 +296,14 @@ CoreModel::CoreModel()
                                                    texturesCache );
     hwMeshStateSetCache = new HwMeshStateSetCache( swMeshStateSetCache,
                                                    texturesCache );
+    depthMeshStateSetCache = new DepthMeshStateSetCache();
 
     // add initial reference since we are not keeping caches in osg::ref_ptr 
     // and unref them manually (before destroying skeletal shader to which they are refer)
     texturesCache->ref();
     swMeshStateSetCache->ref();
     hwMeshStateSetCache->ref();
+    depthMeshStateSetCache->ref();
 
     // create or add ref skeletal vertex shader
     if ( !skeletalShadersSet )
@@ -308,7 +333,8 @@ CoreModel::~CoreModel()
     hwMeshStateSetCache->unref();
     swMeshStateSetCache->unref();
     texturesCache->unref();
-
+    depthMeshStateSetCache->unref();
+    
     // unref skeletal vertex program and delete when no references left
     SkeletalShadersSet* sss = skeletalShadersSet.release();
     if ( sss->referenceCount() <= 0 )
@@ -506,9 +532,12 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         m.stateSet = swMeshStateSetCache->get( static_cast< SwStateDesc >( m.hwStateDesc ) );
 
         m.staticHardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
+        m.staticDepthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
 
         m.hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m.maxBonesInfluence );
+
         m.hardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
+        m.depthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
 
         // -- Done with mesh --
         meshes.push_back( m );
@@ -1103,6 +1132,62 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             // undefined sides count -- use default OSG culling
             break;
     }
+
+//     stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false ),
+//                                     // LEQUAL and turn off depth writes
+//                                     osg::StateAttribute::ON |
+//                                     osg::StateAttribute::PROTECTED );
     
+    return stateSet;
+}
+
+osg::StateSet*
+DepthMeshStateSetCache::get( const HwStateDesc& desc )
+{
+    int bonesCount = desc.shaderFlags / SHADER_FLAG_BONES(1);
+    return getOrCreate( cache, std::make_pair( bonesCount, desc.sides ), this,
+                        &DepthMeshStateSetCache::createDepthMeshStateSet );
+}
+
+osg::StateSet*
+DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount )
+{
+    osg::StateSet* stateSet = new osg::StateSet();
+
+    stateSet->setAttributeAndModes( skeletalShadersSet->get(
+                                        boneAndSidesCount.first * SHADER_FLAG_BONES(1)
+                                        +
+                                        SHADER_FLAG_DEPTH_ONLY ),
+                                    osg::StateAttribute::ON );
+    // -- setup sidedness --
+    switch ( boneAndSidesCount.second )
+    {
+        case 1:
+            // one sided mesh -- force backface culling
+            stateSet->setAttributeAndModes( new osg::CullFace(),
+                                            osg::StateAttribute::ON |
+                                            osg::StateAttribute::PROTECTED );
+            // PROTECTED, since overriding of this state (for example by
+            // pressing 'b') leads to incorrect display
+            break;
+
+        case 2:
+            // two sided mesh -- no culling (for sw mesh)
+            stateSet->setAttributeAndModes( new osg::CullFace(),
+                                            osg::StateAttribute::OFF |
+                                            osg::StateAttribute::PROTECTED );
+            break;
+
+        default:
+            // undefined sides count -- use default OSG culling
+            break;
+    }
+
+    stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true ),
+                                    osg::StateAttribute::ON |
+                                    osg::StateAttribute::PROTECTED );
+
+    stateSet->setRenderBinDetails( -10, "RenderBin" ); // we render depth meshes before any other meshes
+
     return stateSet;
 }
