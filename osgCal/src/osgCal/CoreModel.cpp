@@ -28,6 +28,7 @@
 #include <osg/BlendFunc>
 #include <osg/CullFace>
 #include <osg/Depth>
+#include <osg/ColorMask>
 #include <osg/io_utils>
 
 #include <osgDB/FileNameUtils>
@@ -1184,6 +1185,10 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
     }
 
     stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true ),
+                                    osg::StateAttribute::ON |
+                                    osg::StateAttribute::PROTECTED );
+    stateSet->setAttributeAndModes( new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE ),
+                                    // turn off color writes
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
 

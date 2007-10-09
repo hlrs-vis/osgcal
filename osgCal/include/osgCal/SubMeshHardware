@@ -28,7 +28,29 @@
 
 namespace osgCal
 {
-    class /*OSGCAL_EXPORT*/ SubMeshHardware: public /*osg::Drawable //*/osg::Geometry 
+    class SubMeshHardware; // forward
+
+    /**
+     * Submesh which is only draw depth part of specified hardware submesh.
+     */
+    class SubMeshDepth :  public /*osg::Drawable //*/osg::Geometry 
+    {
+        public:
+           
+            SubMeshDepth( SubMeshHardware* hw );
+
+            virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
+            void update( bool deformed );
+
+            osg::BoundingBox computeBound() const;
+
+        private:
+
+            SubMeshHardware* hwMesh;
+
+    };
+
+    class /*OSGCAL_EXPORT*/ SubMeshHardware : public /*osg::Drawable //*/osg::Geometry 
     {
         public:
            
@@ -54,6 +76,11 @@ namespace osgCal
 
             CoreModel::Mesh* getCoreModelMesh() { return mesh; }
 
+            /**
+             * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
+             */
+            SubMeshDepth* getDepthSubMesh() { return depthSubMesh.get(); }
+
         private:
 
             CoreModel*                  coreModel;
@@ -64,6 +91,7 @@ namespace osgCal
             bool                        meshIsStatic;
             std::vector< std::pair< osg::Matrix3, osg::Vec3f > >
                                         previousRotationTranslationMatrices;
+            osg::ref_ptr< SubMeshDepth > depthSubMesh;
 
     };
 
