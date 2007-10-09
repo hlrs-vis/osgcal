@@ -13,7 +13,7 @@ IF ERRORLEVEL 2 goto error
 
 del %1_map_paths.lst
 
-osgCalPreparer %2\cal3d.cfg
+IF "%3" == "all" osgCalPreparer %2\cal3d.cfg
 
 IF ERRORLEVEL 2 goto error
 

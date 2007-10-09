@@ -129,8 +129,14 @@ bool CMaxInterface::ExportAnimationFromMaxscriptCall(const std::string& strFilen
 
 	// set the duration of the animation
 	float duration;
+	bool backward = false;
 	duration = (float)(param->m_endframe - param->m_startframe) / (float)GetFps();
-	coreAnimation.setDuration(duration);
+	if ( duration < 0 )
+	{
+		duration = -duration;
+		backward = true;
+	}
+	coreAnimation.setDuration(duration > 0 ? duration : FLT_EPSILON);
 
 	// get bone candidate vector
 	std::vector<CBoneCandidate *>& vectorBoneCandidate = skeletonCandidate.GetVectorBoneCandidate();
@@ -169,32 +175,43 @@ bool CMaxInterface::ExportAnimationFromMaxscriptCall(const std::string& strFilen
 	// calculate the end frame
 	int endFrame;
 	endFrame = (int)(duration * (float)param->m_framerate + 0.5f);
+	// m_framerate actually is not frame rate but sampling rate,
+	// i.e. how often key-frames are taken
 
 	// calculate the displaced frame
-  int displacedFrame;
-  displacedFrame = (int)(((float)param->m_frameoffset / (float)GetFps()) * (float)param->m_framerate + 0.5f) % endFrame;
+    int displacedFrame = 0;
+    if ( endFrame > 0 )
+    {
+	    displacedFrame = (int)(((float)param->m_frameoffset / (float)GetFps())
+                               * (float)param->m_framerate + 0.5f) % endFrame;
+    }
 
 	// calculate the possible wrap frame
-  int wrapFrame;
-  wrapFrame = (displacedFrame > 0) ? 1 : 0;
-  float wrapTime;
-  wrapTime = 0.0f;
+    int wrapFrame;
+    wrapFrame = (displacedFrame > 0) ? 1 : 0;
+    float wrapTime;
+    wrapTime = 0.0f;
 
-  int frame;
-  int outputFrame;
-  for(frame = 0,  outputFrame = 0; frame <= (endFrame + wrapFrame); frame++)
+    /*CString str;
+    str.Format("m_framerate = %f; GetFps() = %f; endFrame = %d", (float)param->m_framerate, (float)GetFps(), endFrame);
+    AfxMessageBox( str );*/
+
+    int frame;
+    int outputFrame;
+    for(frame = 0,  outputFrame = 0; frame <= (endFrame + wrapFrame); frame++)
 	{
 		// update the progress info
 		SetProgressInfo(int(100.0f * (float)frame / (float)(endFrame + wrapFrame + 1)));
 
 		// calculate the time in seconds
 		float time;
-		time = (float)param->m_startframe / (float)GetFps() + (float)displacedFrame / (float)param->m_framerate;
-
+		time = (float)param->m_startframe / (float)GetFps() +
+            (float)(backward ? -displacedFrame : displacedFrame) / (float)param->m_framerate;
+ 
 /* DEBUG
-CString str;
-str.Format("frame=%d, endframe=%d, disframe=%d, ouputFrame=%d (%f), time=%f\n", frame, endFrame, displacedFrame, outputFrame, (float)outputFrame / (float)param->m_framerate + wrapTime, time);
-OutputDebugString(str);
+   CString str;
+   str.Format("frame=%d, endframe=%d, disframe=%d, ouputFrame=%d (%f), time=%f\n", frame, endFrame, displacedFrame, outputFrame, (float)outputFrame / (float)param->m_framerate + wrapTime, time);
+   OutputDebugString(str);
 */
 
 		for(boneCandidateId = 0; boneCandidateId < vectorBoneCandidate.size(); boneCandidateId++)
@@ -244,26 +261,26 @@ OutputDebugString(str);
 			}
 		}
 
-    // calculate the next displaced frame and its frame time
-    if(wrapFrame > 0)
-    {
-      if(displacedFrame == endFrame)
-      {
-        wrapTime = 0.0001f;
-        displacedFrame = 0;
-      }
-      else
-      {
-        wrapTime = 0.0f;
-        outputFrame++;
-        displacedFrame++;
-      }
-    }
-    else
-    {
-      outputFrame++;
-      displacedFrame++;
-   }
+        // calculate the next displaced frame and its frame time
+        if(wrapFrame > 0)
+        {
+            if(displacedFrame == endFrame)
+            {
+                wrapTime = 0.0001f;
+                displacedFrame = 0;
+            }
+            else
+            {
+                wrapTime = 0.0f;
+                outputFrame++;
+                displacedFrame++;
+            }
+        }
+        else
+        {
+            outputFrame++;
+            displacedFrame++;
+        }
 	}
 
 	// stop the progress info

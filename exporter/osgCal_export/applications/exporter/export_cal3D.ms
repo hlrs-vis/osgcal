@@ -236,9 +236,11 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 	edittext lblViewerPath "" pos:[88,320] width:360 height:16 enabled:false
 	button btnExportDir "Export dir" pos:[16,336] width:72 height:16
 	edittext lblExportDir "" pos:[88,336] width:360 height:16 enabled:false
-	button btnSaveConfig "Save config" pos:[88,368] width:80 height:24
-	button btnExport "Export" pos:[176,368] width:112 height:24
-	button btnAbort "Cancel" pos:[296,368] width:80 height:24
+	button btnSaveConfig "Save config" pos:[10,368] width:70 height:24
+	button btnExportAll "Export All" pos:[85,368] width:110 height:24
+	button btnExportMaterials "Export Materials" pos:[200,368] width:85 height:24
+	button btnExportAnimations "Export Animations" pos:[290,368] width:85 height:24
+	button btnAbort "Cancel" pos:[380,368] width:70 height:24
 	--	-------------------------------------------------------------------
 	fn displayAnim num =
 	--	Fills the fields of the currently selected (num) animation data
@@ -466,26 +468,32 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		setSaveRequired ON
 	)
 	--	-------------------------------------------------------------------
-	fn exportData =
+	fn exportData exportType =
 	--	Export the skeleton / mesh / animations files
 	--	Returns an empty string in case of succes
 	--	Returns an error message string in case of failure
 	--	-------------------------------------------------------------------
 	(
+        exportSkeleton = (exportType == "all")
+        exportMeshes   = (exportType == "all")
+        exportAnimations = (exportType == "animations" or exportType == "all")
+        exportMaterials  = (exportType == "materials" or exportType == "all")
+
         -- remove all previous meshes, materials and caches
-        for f in getFiles (lblExportDir.text + "*.cmf") do deleteFile f
-        for f in getFiles (lblExportDir.text + "*.crf") do deleteFile f
-        for f in getFiles (lblExportDir.text + "*.cache") do deleteFile f
         deleteFile (lblExportDir.text + "cal3d.cfg")
-        deleteFile (lblExportDir.text + "skeleton.csf")
+        if exportAnimations then (for f in getFiles (lblExportDir.text + "*.caf") do deleteFile f)
+        if exportMeshes     then (for f in getFiles (lblExportDir.text + "*.cmf") do deleteFile f)
+        if exportMaterials  then (for f in getFiles (lblExportDir.text + "*.crf") do deleteFile f)
+        if exportMeshes     then (for f in getFiles (lblExportDir.text + "*.cache") do deleteFile f)
+        if exportSkeleton   then (deleteFile (lblExportDir.text + "skeleton.csf"))
 
         oldCommandPanelTaskMode = getCommandPanelTaskMode()
 
 		--	Need the TimeSlider on frame 0
-				oldAnimationRange = animationRange
-				animationRange = interval 0f animationRange.end
-				oldSliderTime = sliderTime
-				sliderTime = 0f
+		oldAnimationRange = animationRange
+		animationRange = interval 0f animationRange.end
+		oldSliderTime = sliderTime
+		sliderTime = 0f
 
 		--	Export every object
 		local expType = if rdoFormat.state==1 then "c" else "x"
@@ -499,6 +507,8 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		)
 
 		--	Skeleton
+        if ( exportSkeleton or exportAnimations ) then
+        (
 		skeletonfile = exportDir + "skeleton."+expType+"sf"
 		try ( SRootsSet = for obj in selectionSets[ddlSkelSet.selected] collect obj )
 		catch ( return "The Named Selection Set that lists the skeleton roots is invalid" )
@@ -511,6 +521,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 			 2 : return "The Named Selection Set that lists the skeleton roots is empty"
 			 3 : return "The Named Selection Set that lists the skeleton roots contains invalid references"
 		)
+        )
 
 		--	Mat & Mesh
 		num=0
@@ -528,7 +539,9 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 					return ("The following object has a filename-related invalid name :	\n"+obj.name+"\nIt should not contain any of these characters "+wrongChars)
 			)
 
-			--	Re-index materials
+			--	Re-index and export materials
+            if exportMaterials then
+            (
 			mat = obj.material
 			case (classof mat) of
 			(
@@ -578,8 +591,11 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				 2 : return "No good material"	--	already checked before the export (will never appear)
 				 3 : return "No good material"	--	already checked before the export (will never appear)
 			)
+            )
 
 			--	Export Mesh
+            if exportMeshes then
+            (
 			meshFile = exportDir + obj.name + "."+expType+"mf"
 
 			if (getCommandPanelTaskMode() == #modify) then
@@ -599,8 +615,11 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				 6 : return "The Names Selection Set for the objects cointains invalid mesh nodes ("+obj.name+")"
 				 7 : return "The Names Selection Set for the objects cointains invalid mesh nodes ("+obj.name+")"
 			)
+            )
 		)
 		--	Animations
+        if exportAnimations then
+        (
 		for anm in aList do
 		(
 			local bonesList
@@ -615,7 +634,11 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				getChildren SRootsSet &bonesList
 			)
 
-			res = exportcalanim animationFile skeletonfile boneslist anm[2] anm[3] spnSRate.value frameRate transform:chkTransform.checked
+            samplingRate = spnSRate.value;
+            if samplingRate == 0 then ( samplingRate = frameRate )
+            
+			res = exportcalanim animationFile skeletonfile boneslist anm[2] anm[3] 0 samplingRate --frameRate -- transform:chkTransform.checked
+            -- don't know what is frame offset, so pass zero instead
 			case res of
 			(
 				(-2) : return "An Exception occured in the ExportAnimation plugin function"
@@ -632,6 +655,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				10 : return "The Names Selection Set that lists the bones contains invalid nodes"
 			)
 		)
+        )
 
 		--	Set the environment back to its former state
 		animationrange = oldAnimationRange
@@ -641,13 +665,13 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		return ""
 	)
 	--	-------------------------------------------------------------------
-	fn exportDataCheck =
+	fn exportDataCheck exportType =
 	--	Calls the exportData process
 	--	If no error is returned, creates the cal3D.cfg file and launches the viewer
 	--	-------------------------------------------------------------------
 	(
 		--	Export the data files and check for an error
-		err = exportData()
+		err = exportData(exportType)
 		if (err != "") then
 		(
 			MessageBox ("Error during the export :\n" + err + "\n\nProcess aborted") title:"CAL3D Export"
@@ -726,6 +750,9 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 			format "\n" to:f
 			close f
 
+            -- Export textures and prepare model --
+            if exportType == "materials" or exportType == "all" then
+            (
             -- Create map paths list file --
             f = createFile (maxFilePath + getFilenameFile maxFileName + "_map_paths.lst")
 			if (f==undefined) then
@@ -805,11 +832,13 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 			)
 			close f
 
-            -- Perform exporting of textures --
+            -- Perform exporting of textures --            
             ShellLaunch ("\""+scriptsPath+"cal3D_export\\export_textures_and_prepare_model.bat\"")\
                         ("\""+maxFilePath + getFilenameFile maxFileName + "\"" + \
-                         " \""+ substring lblExportDir.text 1 (lblExportDir.text.count - 1) + "\"")
+                         " \""+ substring lblExportDir.text 1 (lblExportDir.text.count - 1) + "\"" \
+                         + " " + exportType)
                          -- we remove last backslash from path
+            )
 
             -- Write exported_from.txt for further reexports --
 			f = createFile (lblExportDir.text + "exported_from.txt")
@@ -957,11 +986,25 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		saveExportParam()
 		destroyDialog cal3DexportR
 	)
-	on btnExport pressed do
+	on btnExportAll pressed do
 	(
 		saveConfig()
 		saveExportParam()
-		exportDataCheck()
+		exportDataCheck("all")
+		destroyDialog cal3DexportR
+	)
+	on btnExportMaterials pressed do
+	(
+		saveConfig()
+		saveExportParam()
+		exportDataCheck("materials")
+		destroyDialog cal3DexportR
+	)
+	on btnExportAnimations pressed do
+	(
+		saveConfig()
+		saveExportParam()
+		exportDataCheck("animations")
 		destroyDialog cal3DexportR
 	)
 	on btnAbort pressed do

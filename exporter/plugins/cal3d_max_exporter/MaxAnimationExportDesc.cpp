@@ -169,7 +169,7 @@ Value* ExportCalAnim_cf(Value** arg_list, int count)
 
 		if (EndFrame < 0)return new Integer(6);
 
-		if (StartFrame > EndFrame ) return new Integer(7);
+		//if (StartFrame > EndFrame ) return new Integer(7);
 
 		if (FrameOffset < 0) return new Integer(8);
 
