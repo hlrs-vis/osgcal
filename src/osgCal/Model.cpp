@@ -232,11 +232,16 @@ Model::load( CoreModel* cm,
         }
 
         osg::Geometry* g = 0;
+        osg::Drawable* depthSubMesh = 0;
 
         switch ( meshTyper->type( mesh ) )
         {
             case MT_HARDWARE:
-                g = new SubMeshHardware( this, i, mesh.rigid );
+            {
+                SubMeshHardware* smhw = new SubMeshHardware( this, i, mesh.rigid );
+
+                g = smhw;
+                depthSubMesh = smhw->getDepthSubMesh();
 
                 // -- Add shader state sets for compilation --
                 if ( hasAnimations )
@@ -262,6 +267,7 @@ Model::load( CoreModel* cm,
                     }
                 }
                 break;
+            }
 
             case MT_SOFTWARE:
                 if ( normalBuffer.get() == 0 )
@@ -306,6 +312,11 @@ Model::load( CoreModel* cm,
             g->setDataVariance( osg::Object::STATIC );
         }
 
+        if ( depthSubMesh )
+        {
+            depthSubMesh->setDataVariance( g->getDataVariance() );
+        }
+
         meshes[ mesh.name ] = g;
 
         if ( mesh.rigid == false // deformable
@@ -313,6 +324,10 @@ Model::load( CoreModel* cm,
              || hasAnimations == false ) // no animations
         {
             geode->addDrawable( g );
+            if ( depthSubMesh )
+            {
+                geode->addDrawable( depthSubMesh );
+            }
         }
         else
         {
@@ -343,6 +358,10 @@ Model::load( CoreModel* cm,
             }
 
             static_cast< osg::Geode* >( mt->getChild( 0 ) )->addDrawable( g );
+            if ( depthSubMesh )
+            {
+                static_cast< osg::Geode* >( mt->getChild( 0 ) )->addDrawable( depthSubMesh );
+            }
         }
     }
 

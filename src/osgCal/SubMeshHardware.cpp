@@ -92,12 +92,20 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     
     // -- Bind our vertex buffers --
     state.disableAllVertexArrays();
+
+    const osg::Program* stateProgram =
+        static_cast< const osg::Program* >(
+//             getStateSet()->
+//             getAttribute( osg::StateAttribute::PROGRAM ) )->
+            state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM ) );
+
+    if ( stateProgram == 0 )
+    {
+        throw std::runtime_error( "SubMeshHardware::drawImplementation(): can't get program (shader compilation failed?" );
+    }
     
     const osg::Program::PerContextProgram* program =
-        static_cast< const osg::Program* >(
-            getStateSet()->
-            getAttribute( osg::StateAttribute::PROGRAM ) )->
-            getPCP( state.getContextID() );
+            stateProgram->getPCP( state.getContextID() );
 
 #define BIND(_type)                                                     \
     coreModel->getVbo(CoreModel::BI_##_type)->compileBuffer( state );   \
@@ -207,8 +215,8 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 //                                          rotationTranslationMatrices[ boneIndex ].second.ptr() );
         }
     
-        GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         GLfloat translation[3] = {0,0,0};
+        GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
         gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
     }
@@ -251,33 +259,40 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 
     GLint faceUniform = program->getUniformLocation( "face" );
 
-    if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
-         & osg::StateSet::TRANSPARENT_BIN )
+    if ( faceUniform >= 0 )
     {
-        glCullFace( GL_FRONT ); // first draw only back faces
-        gl2extensions->glUniform1f( faceUniform, -1.0f );
-        DRAW;
-        gl2extensions->glUniform1f( faceUniform, 1.0f );
-        glCullFace( GL_BACK ); // then draw only front faces
-        DRAW;
+        if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
+             & osg::StateSet::TRANSPARENT_BIN )
+        {
+            glCullFace( GL_FRONT ); // first draw only back faces
+            gl2extensions->glUniform1f( faceUniform, -1.0f );
+            DRAW;
+            gl2extensions->glUniform1f( faceUniform, 1.0f );
+            glCullFace( GL_BACK ); // then draw only front faces
+            DRAW;
+        }
+        else
+        {
+            if ( mesh->hwStateDesc.sides == 2 ) 
+            {
+                //glCullFace( GL_BACK ); // (already enabled) draw only front faces
+                gl2extensions->glUniform1f( faceUniform, 1.0f );
+                DRAW;
+                glCullFace( GL_FRONT ); // then draw only back faces
+                gl2extensions->glUniform1f( faceUniform, -1.0f );
+                DRAW;
+                glCullFace( GL_BACK ); // restore state
+            }
+            else // single sided (or undefined) -- simply draw it
+            {
+                gl2extensions->glUniform1f( faceUniform, 1.0f );
+                DRAW; // simple draw for single-sided non-transparent meshes
+            }
+        }
     }
     else
     {
-        if ( mesh->hwStateDesc.sides == 2 ) 
-        {
-            //glCullFace( GL_BACK ); // (already enabled) draw only front faces
-            gl2extensions->glUniform1f( faceUniform, 1.0f );
-            DRAW;
-            glCullFace( GL_FRONT ); // then draw only back faces
-            gl2extensions->glUniform1f( faceUniform, -1.0f );
-            DRAW;
-            glCullFace( GL_BACK ); // restore state
-        }
-        else // single sided (or undefined) -- simply draw it
-        {
-            gl2extensions->glUniform1f( faceUniform, 1.0f );
-            DRAW; // simple draw for single-sided non-transparent meshes
-        }
+        DRAW; // just draw if no face uniform available
     }
     
     //glError();
@@ -320,6 +335,13 @@ SubMeshHardware::create()
 //                                           mesh->getIndexesCount() ) );
 
     boundingBox = mesh->boundingBox;
+
+    // create depth submesh for non-transparent meshes
+//     if ( !(mesh->staticHardwareStateSet.get()->getRenderingHint()
+//            & osg::StateSet::TRANSPARENT_BIN) )
+//     {
+//         depthSubMesh = new SubMeshDepth( this ); 
+//     }
 }
 
 static
@@ -441,6 +463,12 @@ SubMeshHardware::update()
         // for undeformed meshes we use static state set which not
         // perform vertex, normal, binormal and tangent deformations
         // in vertex shader
+    }
+
+    // -- Update depthSubMesh --
+    if ( depthSubMesh.valid() )
+    {
+        depthSubMesh->update( deformed );
     }
 
     // -- Check changes --    
@@ -586,5 +614,45 @@ SubMeshHardware::update()
     dirtyBound();
 
 //    dirtyDisplayList(); //<- no display list for deformable mesh?
-    // TODO: investigate display list stuff 
+    // TODO: investigate display list stuff
+}
+
+
+// -- Depth submesh --
+
+SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
+    : hwMesh( hw )
+{
+    setUseDisplayList( false );
+    setSupportsDisplayList( false );
+    setUseVertexBufferObjects( false ); // false is default
+    setStateSet( hwMesh->getCoreModelMesh()->staticDepthStateSet.get() );
+    dirtyBound();
+}
+
+void
+SubMeshDepth::drawImplementation(osg::RenderInfo& renderInfo) const
+{
+    hwMesh->drawImplementation( renderInfo );
+}
+
+void
+SubMeshDepth::update( bool deformed )
+{
+    if ( deformed )
+    {
+        setStateSet( hwMesh->getCoreModelMesh()->depthStateSet.get() );
+    }
+    else
+    {
+        setStateSet( hwMesh->getCoreModelMesh()->staticDepthStateSet.get() );
+    }
+
+    dirtyBound();
+}
+
+osg::BoundingBox
+SubMeshDepth::computeBound() const
+{
+    return hwMesh->computeBound();
 }

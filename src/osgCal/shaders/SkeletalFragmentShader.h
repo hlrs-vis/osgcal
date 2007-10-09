@@ -39,7 +39,7 @@ shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
 shaderText += "    // -- Calculate normal --\n";
-shaderText += "//    face = gl_FrontFacing ? 1.0 : -1.0;\n";
+shaderText += "    //half face = gl_FrontFacing ? half(1.0) : half(-1.0);\n";
 shaderText += "    // two-sided lighting\n";
 shaderText += "    // ATI doesn't know about gl_FrontFacing ???\n";
 shaderText += "    // it says that it unsupported language element\n";

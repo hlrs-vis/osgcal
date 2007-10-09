@@ -39,7 +39,7 @@ uniform float glossiness;
 void main()
 {
     // -- Calculate normal --
-//    face = gl_FrontFacing ? 1.0 : -1.0;
+    //half face = gl_FrontFacing ? half(1.0) : half(-1.0);
     // two-sided lighting
     // ATI doesn't know about gl_FrontFacing ???
     // it says that it unsupported language element
