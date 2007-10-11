@@ -284,7 +284,8 @@ class SkeletalShadersSet : public osg::Referenced
  * and destroyed after last CoreModel destroyed ( and hence all Models destroyed also
  * since they are referred to CoreModel ).
  */
-static osg::ref_ptr< SkeletalShadersSet > skeletalShadersSet;
+//static osg::ref_ptr< SkeletalShadersSet > skeletalShadersSet;
+static SkeletalShadersSet* skeletalShadersSet = NULL;
 
 
 CoreModel::CoreModel()
@@ -306,15 +307,13 @@ CoreModel::CoreModel()
     hwMeshStateSetCache->ref();
     depthMeshStateSetCache->ref();
 
-    // create or add ref skeletal vertex shader
+    // create and ref skeletal vertex shader
     if ( !skeletalShadersSet )
     {
         skeletalShadersSet = new SkeletalShadersSet();
     }
-    else
-    {
-        skeletalShadersSet->ref();
-    }
+
+    skeletalShadersSet->ref();
 }
 
 CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
@@ -331,20 +330,16 @@ CoreModel::~CoreModel()
     delete calHardwareModel;
     delete calCoreModel;
 
+    depthMeshStateSetCache->unref();
     hwMeshStateSetCache->unref();
     swMeshStateSetCache->unref();
     texturesCache->unref();
-    depthMeshStateSetCache->unref();
-    
-    // unref skeletal vertex program and delete when no references left
-    SkeletalShadersSet* sss = skeletalShadersSet.release();
-    if ( sss->referenceCount() <= 0 )
+
+    // delete skeletalShadersSet when no references left
+    if ( skeletalShadersSet->referenceCount() == 1 )
     {
-        sss->unref();
-    }
-    else
-    {
-        skeletalShadersSet = sss;
+        skeletalShadersSet->unref();
+        skeletalShadersSet = NULL;
     }
 //     std::cout << "CoreModel::~CoreModel()" << std::endl;
 }
