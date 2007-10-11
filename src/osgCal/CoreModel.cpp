@@ -949,6 +949,11 @@ setupTransparentStateSet( osg::StateSet* stateSet )
     stateSet->setAttributeAndModes( bf,
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
+
+    // turn off depth writes
+    stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false ),
+                                    osg::StateAttribute::ON |
+                                    osg::StateAttribute::PROTECTED );
 }
 
 SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
