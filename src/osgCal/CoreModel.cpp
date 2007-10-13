@@ -441,6 +441,10 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
     }
 
     // -- Preparing meshes and materials for fast Model creation --
+    bool needTBN = false; // TBN for normals map or bump map
+    bool needWeights = false; // weight and matrix index buffer for deformation
+    // ^ TODO: make per mesh buffer management to remove unnecessary buffer parts.
+    
     for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
         hardwareMeshId++)
     {
@@ -521,8 +525,17 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
             m.rigidBoneId = -1; // no bone
         }
 
+        if ( !m.rigid )
+        {
+            needWeights = true;
+        }
+
         // -- Setup state sets --
         m.hwStateDesc = HwStateDesc( m.hardwareMesh->pCoreMaterial, dir );
+        if ( !m.hwStateDesc.normalsMap.empty() || !m.hwStateDesc.bumpMap.empty() )
+        {
+            needTBN = true;
+        }
 //         calCoreModel->getCoreMaterial( m.coreSubMesh->getCoreMaterialThreadId() );
 //         coreMaterialId == coreMaterialThreadId - we made them equal on load phase
         
@@ -581,12 +594,15 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
     
     // -- Save some buffers --
     vertexBuffer        = bos->vertexBuffer;
-    weightBuffer        = bos->weightBuffer;
-    matrixIndexBuffer   = bos->matrixIndexBuffer;
+    if ( needWeights )
+    {
+        weightBuffer        = bos->weightBuffer;
+        matrixIndexBuffer   = bos->matrixIndexBuffer;
+    }
     indexBuffer         = bos->indexBuffer;
     normalBuffer        = bos->normalBuffer;
-    binormalBuffer      = bos->binormalBuffer;
-    tangentBuffer       = bos->tangentBuffer;
+//    binormalBuffer      = bos->binormalBuffer; <- only for TBN debug
+//    tangentBuffer       = bos->tangentBuffer;
     texCoordBuffer      = bos->texCoordBuffer;
 
     // -- Create vertex buffer objects --
@@ -594,16 +610,22 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
 
     vbos[ BI_VERTEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
                                                 bos->vertexBuffer.get() );
-    vbos[ BI_WEIGHT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                bos->weightBuffer.get() );
+    if ( needWeights )
+    {
+        vbos[ BI_WEIGHT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
+                                                    bos->weightBuffer.get() );
+        vbos[ BI_MATRIX_INDEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
+                                                          bos->matrixIndexBuffer.get() );
+    }
     vbos[ BI_NORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
                                                 bos->normalBuffer.get() );
-    vbos[ BI_TANGENT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                 bos->tangentBuffer.get() );
-    vbos[ BI_BINORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                  bos->binormalBuffer.get() );
-    vbos[ BI_MATRIX_INDEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                      bos->matrixIndexBuffer.get() );
+    if ( needTBN )
+    {
+        vbos[ BI_TANGENT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
+                                                     bos->tangentBuffer.get() );
+        vbos[ BI_BINORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
+                                                      bos->binormalBuffer.get() );
+    }
     vbos[ BI_TEX_COORD ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
                                                    bos->texCoordBuffer.get() );
     vbos[ BI_INDEX ] = new VertexBufferObject( GL_ELEMENT_ARRAY_BUFFER_ARB,

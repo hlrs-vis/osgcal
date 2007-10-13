@@ -30,8 +30,7 @@
 #include <osg/Texture2D>
 #include <osg/Timer>
 #include <osg/MatrixTransform>
-
-#include <osgDB/ReadFile>
+#include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Model>
 #include <osgCal/SubMeshHardware>
@@ -412,6 +411,28 @@ Model::load( CoreModel* cm,
     {
         addChild( geode.get() );
     }
+}
+
+
+void
+Model::accept( osg::NodeVisitor& nv )
+{
+    osgUtil::GLObjectsVisitor* glv = dynamic_cast< osgUtil::GLObjectsVisitor* >( &nv );
+
+    if ( glv )
+    {
+        osg::State* s = glv->getState();
+
+        for ( int i = 0; i < CoreModel::BI_TOTAL_COUNT; i++ )
+        {
+            if ( coreModel->getVbo( i ) )
+            {
+                coreModel->getVbo( i )->compileBuffer( *s );
+            }
+        }
+    }
+    
+    osg::Group::accept( nv );
 }
 
 void
