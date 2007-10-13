@@ -897,6 +897,7 @@ TexturesCache::createTexture( const TextureDesc& fileName )
     texture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
 
     texture->setImage( img );
+    img->setDataVariance( osg::Object::STATIC ); // unnecessary
     texture->setUnRefImageDataAfterApply( true );
 
     return texture;
