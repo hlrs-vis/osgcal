@@ -182,7 +182,17 @@ Model::load( CoreModel* cm,
 
     coreModel = cm;
 
-    vertexBuffer = (VertexBuffer*) cm->getVertexBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
+    bool hasAnimations = !coreModel->getAnimationNames().empty();
+
+    if ( hasAnimations )
+    {
+        vertexBuffer = (VertexBuffer*) cm->getVertexBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
+    }
+    else
+    {
+        vertexBuffer = const_cast< VertexBuffer* >( cm->getVertexBuffer() );
+        // no need to clone, since it won't be mutated
+    }
 
     calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
@@ -201,7 +211,6 @@ Model::load( CoreModel* cm,
     }
 
     // -- Setup shader compilation Geode --
-    bool hasAnimations = !coreModel->getAnimationNames().empty();
     std::map< osg::StateSet*, bool > usedStateSets;
     if ( hasAnimations )
     {
@@ -284,8 +293,10 @@ Model::load( CoreModel* cm,
                         (*normalBuffer)[i].z() = (*src)[i].z() / 127.0;
                     }
 #else
-                    normalBuffer = (NormalBuffer*) cm->getNormalBuffer()->
-                        clone( osg::CopyOp::DEEP_COPY_ALL );
+                    normalBuffer = (NormalBuffer*)
+                        (hasAnimations
+                         ? cm->getNormalBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL )
+                         : cm->getNormalBuffer());
 #endif
                 }
                 
