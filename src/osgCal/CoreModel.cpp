@@ -929,6 +929,41 @@ isTransparentStateSet( osg::StateSet* stateSet )
     return ( stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN ) != 0;
 }
 
+/**
+ * Some global state attributes. Just to not allocate new duplicated
+ * attributes for each state set that use them. We get nearly no
+ * performance nor memory benefit from this.
+ */
+struct osgCalStateAttributes
+{
+        osg::ref_ptr< osg::BlendFunc > blending;
+        osg::ref_ptr< osg::Depth >     depthFuncLessWriteMaskTrue;
+        osg::ref_ptr< osg::Depth >     depthFuncLessWriteMaskFalse;
+        osg::ref_ptr< osg::Depth >     depthFuncLequalWriteMaskFalse;
+        osg::ref_ptr< osg::CullFace >  backFaceCulling;
+        osg::ref_ptr< osg::ColorMask > noColorWrites;
+
+        osgCalStateAttributes()
+        {
+            blending = new osg::BlendFunc;
+            blending->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
+            depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
+            depthFuncLequalWriteMaskFalse = new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false );
+
+            backFaceCulling = new osg::CullFace( osg::CullFace::BACK );
+
+            noColorWrites = new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+        }
+};
+
+namespace osgCal
+{
+    static osgCalStateAttributes stateAttributes;
+}
+using osgCal::stateAttributes;
+
 static
 void
 setupTransparentStateSet( osg::StateSet* stateSet )
@@ -941,14 +976,12 @@ setupTransparentStateSet( osg::StateSet* stateSet )
     stateSet->setRenderingHint( osg::StateSet::TRANSPARENT_BIN );
 
     // enable blending
-    osg::BlendFunc* bf = new osg::BlendFunc;
-    bf->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    stateSet->setAttributeAndModes( bf,
+    stateSet->setAttributeAndModes( stateAttributes.blending.get(),
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
 
     // turn off depth writes
-    stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false ),
+    stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
 }
@@ -987,7 +1020,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
     {
         case 1:
             // one sided mesh -- force backface culling
-            stateSet->setAttributeAndModes( new osg::CullFace(),
+            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::ON |
                                             osg::StateAttribute::PROTECTED );
             // PROTECTED, since overriding of this state (for example by
@@ -996,7 +1029,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
 
         case 2:
             // two sided mesh -- no culling (for sw mesh)
-            stateSet->setAttributeAndModes( new osg::CullFace(),
+            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::OFF |
                                             osg::StateAttribute::PROTECTED );
             break;
@@ -1011,7 +1044,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
     {
         setupTransparentStateSet( stateSet );
         // and force backface culling
-        stateSet->setAttributeAndModes( new osg::CullFace(),
+        stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                         osg::StateAttribute::ON |
                                         osg::StateAttribute::PROTECTED );
         // TODO: actually for software meshes we need two pass render
@@ -1094,7 +1127,9 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
         osg::Texture2D* texture = texturesCache->get( desc.normalsMap );
 
         stateSet->setTextureAttributeAndModes( 1, texture, osg::StateAttribute::ON );
-        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "normalMap", 1 ) );
+        static osg::ref_ptr< osg::Uniform > normalMap =
+            newIntUniform( osg::Uniform::SAMPLER_2D, "normalMap", 1 );
+        stateSet->addUniform( normalMap.get() );
     }
 
     // -- setup bump map --
@@ -1103,14 +1138,18 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
         osg::Texture2D* texture = texturesCache->get( desc.bumpMap );        
 
         stateSet->setTextureAttributeAndModes( 2, texture, osg::StateAttribute::ON );
-        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 2 ) );
+        static osg::ref_ptr< osg::Uniform > bumpMap =
+            newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 2 );
+        stateSet->addUniform( bumpMap.get() );
         stateSet->addUniform( newFloatUniform( "bumpMapAmount", desc.bumpMapAmount ) );
     }
 
     // -- setup some uniforms --
     if ( desc.diffuseMap != "" )
     {
-        stateSet->addUniform( newIntUniform( osg::Uniform::SAMPLER_2D, "decalMap", 0 ) );
+        static osg::ref_ptr< osg::Uniform > decalMap =
+            newIntUniform( osg::Uniform::SAMPLER_2D, "decalMap", 0 );
+        stateSet->addUniform( decalMap.get() );
     }
 
     // -- setup sidedness --
@@ -1126,7 +1165,7 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             // (we use two pass render for double sided meshes,
             //  or single pass when gl_FrontFacing used, but in only
             //  works on GeForce >= 6.x and not works on ATI)
-            stateSet->setAttributeAndModes( new osg::CullFace(),
+            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::ON |
                                             osg::StateAttribute::PROTECTED );
             break;
@@ -1136,8 +1175,7 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             break;
     }
 
-//     stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false ),
-//                                     // LEQUAL and turn off depth writes
+//     stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
 //                                     osg::StateAttribute::ON |
 //                                     osg::StateAttribute::PROTECTED );
     
@@ -1167,7 +1205,7 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
     {
         case 1:
             // one sided mesh -- force backface culling
-            stateSet->setAttributeAndModes( new osg::CullFace(),
+            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::ON |
                                             osg::StateAttribute::PROTECTED );
             // PROTECTED, since overriding of this state (for example by
@@ -1176,7 +1214,7 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
 
         case 2:
             // two sided mesh -- no culling (for sw mesh)
-            stateSet->setAttributeAndModes( new osg::CullFace(),
+            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::OFF |
                                             osg::StateAttribute::PROTECTED );
             break;
@@ -1186,11 +1224,10 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
             break;
     }
 
-    stateSet->setAttributeAndModes( new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true ),
+    stateSet->setAttributeAndModes( stateAttributes.depthFuncLessWriteMaskTrue.get(),
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
-    stateSet->setAttributeAndModes( new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE ),
-                                    // turn off color writes
+    stateSet->setAttributeAndModes( stateAttributes.noColorWrites.get(),
                                     osg::StateAttribute::ON |
                                     osg::StateAttribute::PROTECTED );
 
