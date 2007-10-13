@@ -156,6 +156,10 @@ namespace osgCal {
             osg::Matrixf getBoneMatrix( int boneId ) const;
             std::pair< osg::Matrix3, osg::Vec3 > getBoneRotationTranslation( int boneId ) const;
 
+            /**
+             * For compiling of vertex buffers when accept osgUtil::GLObjectsVisitor.
+             */
+            virtual void accept( osg::NodeVisitor& nv );
 
         protected:
 
