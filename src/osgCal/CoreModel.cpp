@@ -84,11 +84,12 @@ class VertexBufferObject : public osg::BufferObject
             extensions->glBindBuffer(_target, vbo);
             extensions->glBufferData(_target, _totalSize, array->getDataPointer(),
                                      _usage);
+            //array = 0; // unref after apply
         }
 
     private:
 
-        osg::ref_ptr< osg::Array > array;
+        mutable osg::ref_ptr< osg::Array > array;
 };
 
 
