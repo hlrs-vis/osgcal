@@ -42,9 +42,8 @@ namespace osgCal {
             virtual const char* libraryName() const { return "osgCal"; }
             virtual const char* className() const { return "SubMeshSoftware"; }
 
-            SubMeshSoftware( Model*     model,
-                             int        meshIndex,
-                             bool       meshIsStatic );
+            SubMeshSoftware( Model*                 model,
+                             const CoreModel::Mesh* mesh );
             SubMeshSoftware(const SubMeshSoftware&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
             void create();
@@ -52,16 +51,15 @@ namespace osgCal {
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 
-            CoreModel::Mesh* getCoreModelMesh() { return mesh; }
+            const CoreModel::Mesh* getCoreModelMesh() const { return mesh; }
 
         private:
 
             CoreModel*                  coreModel;
             Model*                      model;
             CalModel*                   calModel;
-            CoreModel::Mesh*            mesh;
+            const CoreModel::Mesh*      mesh;
             osg::BoundingBox            boundingBox;
-            bool                        meshIsStatic;
             std::vector< std::pair< osg::Matrix3, osg::Vec3f > >
                                         previousRotationTranslationMatrices;
   

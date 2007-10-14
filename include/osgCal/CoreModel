@@ -274,6 +274,11 @@ namespace osgCal
                  * software meshes (free them after VBOs are applied).
                  */
                 NO_SOFTWARE_MESHES = 8,
+
+                /**
+                 * Show Tangent-Binormal-Normal basis.
+                 */
+                SHOW_TBN = 16,
             };
 
             /**

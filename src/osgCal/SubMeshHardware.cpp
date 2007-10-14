@@ -25,16 +25,13 @@ using namespace osgCal;
 
 
 
-SubMeshHardware::SubMeshHardware( Model*     _model,
-                                  int        meshIndex,
-                                  bool       _meshIsStatic )
+SubMeshHardware::SubMeshHardware( Model*                 _model,
+                                  const CoreModel::Mesh* _mesh )
     : coreModel( _model->getCoreModel() )
     , model( _model )
-    , calModel( _model->getCalModel() )
-    , mesh( const_cast< CoreModel::Mesh* >( &_model->getCoreModel()->getMeshes()[ meshIndex ] ) )
-    , meshIsStatic( _meshIsStatic )
+    , mesh( _mesh )
 {   
-    if ( mesh->maxBonesInfluence == 0 || meshIsStatic )
+    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
     {
         setUseDisplayList( false/*true*/ );
         setSupportsDisplayList( false/*true*/ ); // won't work otherwise ???
@@ -58,7 +55,7 @@ SubMeshHardware::SubMeshHardware( Model*     _model,
     setStateSet( mesh->staticHardwareStateSet.get() );
     // Initially we use static (not skinning) state set. It will
     // changed to skinning (in update() method when some animation
-    // starts. 
+    // starts.
 
     create();
 
@@ -409,7 +406,7 @@ rtDistance( const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v1,
 void
 SubMeshHardware::update()
 {   
-    if ( mesh->maxBonesInfluence == 0 || meshIsStatic )
+    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
     {
         return; // no bones - no update
     }

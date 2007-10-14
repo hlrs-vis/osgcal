@@ -19,6 +19,8 @@
 #ifndef __OSGCAL__MODEL_H__
 #define __OSGCAL__MODEL_H__
 
+#include <map>
+
 #include <osg/Group>
 #include <osg/Geometry>
 
@@ -196,13 +198,14 @@ namespace osgCal {
              */
             osg::ref_ptr< SwNormalBuffer >        normalBuffer;
 
-            /**
-             * Shader geode is used for precompilation of used
-             * shaders, we save it here to not process in updateNode().
-             */
-            osg::ref_ptr< osg::Geode > shaderGeode;
-
             const std::vector<CalBone *>* vectorBone;
+
+            /**
+             * Map of used state sets for compilation when
+             * GLObjectsVisitor is applied to model.
+             */
+            std::map< osg::StateSet*, bool > usedStateSets;
+
     };
 
 }; // namespace osgCal

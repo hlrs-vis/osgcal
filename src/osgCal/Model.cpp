@@ -30,6 +30,7 @@
 #include <osg/Texture2D>
 #include <osg/Timer>
 #include <osg/MatrixTransform>
+#include <osg/io_utils>
 #include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Model>
@@ -91,47 +92,6 @@ class CalUpdateCallback: public osg::NodeCallback
 
 };
 
-/**
- * For precompilation of shaders we use geode with empty
- * drawables but different shaders. It's unnecessary to draw it so we
- * make this CullCallback to cull this geode.
- */
-class ShaderGeodeCullCallback: public osg::NodeCallback 
-{
-    public:
-
-        ShaderGeodeCullCallback()
-            : firstFrame( true )
-        {}
-
-        virtual void operator()( osg::Node*        node,
-                                 osg::NodeVisitor* nv )
-        {
-            if ( firstFrame )
-            {
-                firstFrame = false;
-                traverse(node, nv); // traverse to compile shaders
-                // but is it necessary? GLObjectsVisitor ignores CullCallback
-            }
-            else
-            {
-                osg::Geode* g = static_cast< osg::Geode* >( node );
-
-                g->removeDrawables( 0, g->getNumDrawables() );
-                // TODO: why its not culled simply by not calling traverse()?
-                // TODO: it would be good to remove geode at all
-                //
-                // The best case is somehow always cull shader geode,
-                // but leave it for shader compilation by
-                // GLObjectsVisitor
-                // (also need to look, is osgViewer calls
-                // GLObjectsVisitor, or it only draws all our empty drawables?)
-            }
-        }
-
-        bool firstFrame;
-};
-
 Model::Model()
     : calModel( 0 )
 {
@@ -153,21 +113,21 @@ Model::~Model()
 //               << coreModel->referenceCount() << std::endl;
 }
 
-// static
-// osg::Drawable*
-// linesDrawable( osg::Vec3Array* lines,
-//                const osg::Vec3& color )
-// {
-//     osg::Geometry* g = new osg::Geometry;
-//     osg::Vec3Array* vcolor = new osg::Vec3Array;
-//     vcolor->push_back( color );
-//     g->setVertexArray( lines );
-//     g->setColorArray( vcolor );
-//     g->setColorBinding( osg::Geometry::BIND_OVERALL );
-//     g->addPrimitiveSet( new osg::DrawArrays( GL_LINES, 0, lines->size() ) );
-//     g->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OVERRIDE|osg::StateAttribute::OFF);;
-//     return g;
-// }
+static
+osg::Drawable*
+linesDrawable( osg::Vec3Array* lines,
+               const osg::Vec3& color )
+{
+    osg::Geometry* g = new osg::Geometry;
+    osg::Vec3Array* vcolor = new osg::Vec3Array;
+    vcolor->push_back( color );
+    g->setVertexArray( lines );
+    g->setColorArray( vcolor );
+    g->setColorBinding( osg::Geometry::BIND_OVERALL );
+    g->addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::LINES, 0, lines->size() ) );
+    g->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OVERRIDE|osg::StateAttribute::OFF);;
+    return g;
+}
 
 void
 Model::load( CoreModel* cm,
@@ -212,23 +172,6 @@ Model::load( CoreModel* cm,
         meshTyper->ref();
     }
 
-    // -- Setup shader compilation Geode --
-    std::map< osg::StateSet*, bool > usedStateSets;
-    if ( hasAnimations )
-    {
-        shaderGeode = new osg::Geode;
-
-        shaderGeode->setCullCallback( new ShaderGeodeCullCallback() );
-        // TODO: we now handle GLObjectsVisitor, so move shaderGeode compiling there.
-        
-        // Since we switch static/skinning shaders in SubMesh::update we
-        // need some method to compile shaders before they first used
-        // (i.e. before actual animation starts).
-        // So we use Geode with empty drawables for used state sets,
-        // and GLObjectsVisitor automatically compiles all shaders
-        // when osgViewer initialized. 
-    }
-
     // we use matrix transforms for rigid meshes, one transform per bone
     std::map< int, osg::MatrixTransform* > rigidTransforms;
 
@@ -251,38 +194,36 @@ Model::load( CoreModel* cm,
         {
             case MT_HARDWARE:
             {
-                SubMeshHardware* smhw = new SubMeshHardware( this, i, mesh.rigid );
+                SubMeshHardware* smhw = new SubMeshHardware( this, &mesh );
 
                 g = smhw;
                 depthSubMesh = smhw->getDepthSubMesh();
 
                 // -- Add shader state sets for compilation --
+                usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
+
                 if ( hasAnimations )
                 {
-                    // no need to add state sets for non-animating
-                    // models, since their state sets are not changed
-                    if ( usedStateSets.find( mesh.staticHardwareStateSet.get() )
-                         == usedStateSets.end() )
-                    {
-                        osg::Drawable* d = new osg::Geometry;
-                        d->setStateSet( mesh.staticHardwareStateSet.get() );
-                        usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
-                        shaderGeode->addDrawable( d );
-                    }
+                    usedStateSets[ mesh.hardwareStateSet.get() ] = true;
+                }
 
-                    if ( usedStateSets.find( mesh.hardwareStateSet.get() )
-                         == usedStateSets.end() )
+                if ( depthSubMesh )
+                {
+                    usedStateSets[ mesh.staticDepthStateSet.get() ] = true;
+                    if ( hasAnimations )
                     {
-                        osg::Drawable* d = new osg::Geometry;
-                        d->setStateSet( mesh.hardwareStateSet.get() );
-                        usedStateSets[ mesh.hardwareStateSet.get() ] = true;
-                        shaderGeode->addDrawable( d );
+                        usedStateSets[ mesh.depthStateSet.get() ] = true;
                     }
                 }
                 break;
             }
 
             case MT_SOFTWARE:
+                if ( coreModel->getFlags() & CoreModel::NO_SOFTWARE_MESHES )
+                {
+                    throw std::runtime_error( "Model::load(): software mesh required and NO_SOFTWARE_MESHES flag is set" );
+                }
+                
                 if ( normalBuffer.get() == 0 )
                 {
                     // create local normals buffer only if necessary.
@@ -304,7 +245,8 @@ Model::load( CoreModel* cm,
 #endif
                 }
                 
-                g = new SubMeshSoftware( this, i, mesh.rigid );
+                g = new SubMeshSoftware( this, &mesh );
+                usedStateSets[ mesh.stateSet.get() ] = true;
                 break;
 
             default:
@@ -383,35 +325,36 @@ Model::load( CoreModel* cm,
     meshTyper->unref();
 
     // -- TBN debug --
-//     osg::Vec3Array* t = new osg::Vec3Array;
-//     osg::Vec3Array* b = new osg::Vec3Array;
-//     osg::Vec3Array* n = new osg::Vec3Array;
-//     const NormalBuffer& vb = *(coreModel->getVertexBuffer());
-//     const NormalBuffer& tb = *(coreModel->getTangentBuffer());
-//     const NormalBuffer& bb = *(coreModel->getBinormalBuffer());
-//     const NormalBuffer& nb = *(coreModel->getNormalBuffer());
-//     const float scale = 1.0f;
-
-//     for ( size_t i = 0; i < vb.size(); i++ )
-//     {
-//         t->push_back( vb[i] );
-//         b->push_back( vb[i] );
-//         n->push_back( vb[i] );
-//         t->push_back( vb[i] + tb[i]*scale );
-//         b->push_back( vb[i] + bb[i]*scale );
-//         n->push_back( vb[i] + nb[i]*scale );
-//     }
-
-//     geode->addDrawable( linesDrawable( t, osg::Vec3( 1.0, 0.0, 0.0 ) ) );
-//     geode->addDrawable( linesDrawable( b, osg::Vec3( 0.0, 1.0, 0.0 ) ) );
-//     geode->addDrawable( linesDrawable( n, osg::Vec3( 0.0, 0.0, 1.0 ) ) );
-
-    // -- Add resulting geodes --
-    if ( shaderGeode.valid() && shaderGeode->getNumDrawables() > 0 )
+    if ( coreModel->getFlags() & CoreModel::SHOW_TBN )
     {
-        addChild( shaderGeode.get() );
+        osg::Vec3Array* t = new osg::Vec3Array;
+        osg::Vec3Array* b = new osg::Vec3Array;
+        osg::Vec3Array* n = new osg::Vec3Array;
+        const NormalBuffer& vb = *(coreModel->getVertexBuffer());
+        const NormalBuffer& tb = *(coreModel->getTangentBuffer());
+        const NormalBuffer& bb = *(coreModel->getBinormalBuffer());
+        const NormalBuffer& nb = *(coreModel->getNormalBuffer());
+        const float scale = 1.0f;
+
+        for ( size_t i = 0; i < vb.size(); i++ )
+        {
+            if ( tb[i].length2() > 0 )
+            {
+                t->push_back( vb[i] );
+                b->push_back( vb[i] );
+                n->push_back( vb[i] );
+                t->push_back( vb[i] + tb[i]*scale );
+                b->push_back( vb[i] + bb[i]*scale );
+                n->push_back( vb[i] + nb[i]*scale );
+            }
+        }
+
+        geode->addDrawable( linesDrawable( t, osg::Vec3( 1.0, 0.0, 0.0 ) ) );
+        geode->addDrawable( linesDrawable( b, osg::Vec3( 0.0, 1.0, 0.0 ) ) );
+        geode->addDrawable( linesDrawable( n, osg::Vec3( 0.0, 0.0, 1.0 ) ) );
     }
 
+    // -- Add resulting geodes --
     if ( geode.valid() && geode->getNumDrawables() > 0 )
     {
         addChild( geode.get() );
@@ -433,13 +376,25 @@ Model::accept( osg::NodeVisitor& nv )
             if ( coreModel->getVbo( i ) )
             {
                 coreModel->getVbo( i )->compileBuffer( *s );
+                coreModel->getVbo( i )->unbindBuffer( s->getContextID() );
             }
         }
 
         vertexVbo->compileBuffer( *s );
+        vertexVbo->unbindBuffer( s->getContextID() );
+
+        for ( std::map< osg::StateSet*, bool >::iterator s = usedStateSets.begin();
+              s != usedStateSets.end(); ++s )
+        {
+            glv->apply( *(s->first) );
+        }
+
+        usedStateSets.clear();
     }
-    
-    osg::Group::accept( nv );
+    else
+    {
+        osg::Group::accept( nv );        
+    }
 }
 
 void
@@ -469,11 +424,6 @@ Model::update( double deltaTime )
 void
 Model::updateNode( osg::Node* node ) 
 {
-    if ( node == shaderGeode.get() )
-    {
-        return;
-    }
-    
     // -- Update SubMeshHardware/Software if child is Geode --
     osg::Geode* geode = dynamic_cast< osg::Geode* >( node );
     if ( geode )
@@ -509,7 +459,7 @@ Model::updateNode( osg::Node* node )
     {
         osg::Drawable* drawable =
             static_cast< osg::Geode* >( mt->getChild( 0 ) )->getDrawable( 0 );
-        CoreModel::Mesh* m = 0;
+        const CoreModel::Mesh* m = 0;
         SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
         if ( hardware )
         {

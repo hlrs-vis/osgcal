@@ -413,7 +413,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         throw std::runtime_error( "model already loaded" );
     }
 
-//     _flags = USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
+//    _flags = SHOW_TBN;//USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
 //         | DONT_CALCULATE_VERTEX_IN_SHADER;
     
     flags = _flags;
@@ -643,19 +643,26 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
     
     // -- Save some buffers --
     vertexBuffer        = bos->vertexBuffer;
+    indexBuffer         = bos->indexBuffer;
+
     if ( needWeights )
     {
         weightBuffer        = bos->weightBuffer;
         matrixIndexBuffer   = bos->matrixIndexBuffer;
     }
-    indexBuffer         = bos->indexBuffer;
+
     if ( !(flags & NO_SOFTWARE_MESHES) )
     {
         texCoordBuffer      = bos->texCoordBuffer;
         normalBuffer        = bos->normalBuffer;
     }
-//    binormalBuffer      = bos->binormalBuffer; <- only for TBN debug
-//    tangentBuffer       = bos->tangentBuffer;
+
+    if ( flags & SHOW_TBN )
+    {
+        tangentBuffer       = bos->tangentBuffer;
+        binormalBuffer      = bos->binormalBuffer;
+        normalBuffer        = bos->normalBuffer;
+    }
 
     // -- Create vertex buffer objects --
     vbos.resize( 8 );
