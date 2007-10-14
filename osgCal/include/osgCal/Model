@@ -112,6 +112,7 @@ namespace osgCal {
             CalModel*  getCalModel() { return calModel; }
             CoreModel* getCoreModel() { return coreModel.get(); }
             VertexBuffer* getVertexBuffer() { return vertexBuffer.get(); }           
+            osg::BufferObject* getVertexVbo() { return vertexVbo.get(); }
 
 #ifdef OSG_CAL_BYTE_BUFFERS
             typedef osg::Vec3Array SwNormalBuffer;
@@ -182,6 +183,12 @@ namespace osgCal {
              * Local model's vertex buffer.
              */
             osg::ref_ptr< VertexBuffer >        vertexBuffer;
+
+            /**
+             * Possibly local (when DONT_CALCULATE_VERTEX_IN_SHADER
+             * flag is set) model VBO.
+             */
+            osg::ref_ptr< osg::BufferObject >   vertexVbo;
 
             /**
              * Local model's normals buffer.

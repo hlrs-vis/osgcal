@@ -167,7 +167,9 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         state.setTexCoordPointer( 0, 2, GL_FLOAT, 0, 0 );
     }
 
-    BIND( VERTEX );
+//    BIND( VERTEX );
+    model->getVertexVbo()->compileBuffer( state );
+    model->getVertexVbo()->bindBuffer( state.getContextID() );
     state.setVertexPointer( 3, GL_FLOAT, 0, 0);
 
     // -- Calculate and bind rotation/translation uniforms --
@@ -187,7 +189,7 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         translationVectorsAttrib = program->getUniformLocation( "translationVectors[0]" );
     }
 
-    if ( rotationMatricesAttrib < 0 || translationVectorsAttrib < 0 )
+    if ( rotationMatricesAttrib < 0 && translationVectorsAttrib < 0 )
     {
         ; // in static shader we can get no rotation/translation attributes
     }
@@ -205,8 +207,11 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 
             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
                                                1, GL_TRUE, rotation );
-            gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
-                                         1, translation );
+            if ( translationVectorsAttrib >= 0 )
+            {
+                gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
+                                             1, translation );
+            }
 //             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
 //                                                1, GL_FALSE,
 //                                                rotationTranslationMatrices[ boneIndex ].first.ptr() );
@@ -218,7 +223,10 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         GLfloat translation[3] = {0,0,0};
         GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
-        gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
+        if ( translationVectorsAttrib >= 0 )
+        {
+            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
+        }
     }
 
     // -- Brute force fix of display list bug --
@@ -309,7 +317,8 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     if ( program->getAttribLocation( "tangent" ) > 0 )
         state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
 
-    UNBIND( TEX_COORD );
+//    UNBIND( VERTEX );
+    model->getVertexVbo()->unbindBuffer( state.getContextID() );
     UNBIND( INDEX );
 
     //std::cout << "SubMeshHardware::drawImplementation: end" << std::endl;
@@ -337,11 +346,13 @@ SubMeshHardware::create()
     boundingBox = mesh->boundingBox;
 
     // create depth submesh for non-transparent meshes
-//     if ( !(mesh->staticHardwareStateSet.get()->getRenderingHint()
-//            & osg::StateSet::TRANSPARENT_BIN) )
-//     {
-//         depthSubMesh = new SubMeshDepth( this ); 
-//     }
+    if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
+         &&
+         !(mesh->staticHardwareStateSet.get()->getRenderingHint()
+           & osg::StateSet::TRANSPARENT_BIN) )
+    {
+        depthSubMesh = new SubMeshDepth( this ); 
+    }
 }
 
 static
@@ -611,6 +622,10 @@ SubMeshHardware::update()
             throw std::runtime_error( "maxBonesInfluence > 4 ???" );            
     }
 
+    if ( coreModel->getFlags() & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER )
+    {
+        model->getVertexVbo()->dirty();
+    }
     dirtyBound();
 
 //    dirtyDisplayList(); //<- no display list for deformable mesh?

@@ -33,13 +33,17 @@ shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
+if ( !GL_FRONT_FACING ) {
 shaderText += "uniform half face;\n";
+}
 shaderText += "uniform float glossiness;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
 shaderText += "    // -- Calculate normal --\n";
-shaderText += "    //half face = gl_FrontFacing ? half(1.0) : half(-1.0);\n";
+if ( GL_FRONT_FACING == 1 ) {
+shaderText += "    half face = gl_FrontFacing ? half(1.0) : half(-1.0);\n";
+}
 shaderText += "    // two-sided lighting\n";
 shaderText += "    // ATI doesn't know about gl_FrontFacing ???\n";
 shaderText += "    // it says that it unsupported language element\n";
