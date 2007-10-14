@@ -186,10 +186,13 @@ Model::load( CoreModel* cm,
     if ( hasAnimations )
     {
         vertexBuffer = (VertexBuffer*) cm->getVertexBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
+        vertexBuffer->setDataVariance( DYNAMIC );
+        vertexVbo = coreModel->makeVbo( vertexBuffer.get() );
     }
     else
     {
         vertexBuffer = const_cast< VertexBuffer* >( cm->getVertexBuffer() );
+        vertexVbo = coreModel->getVbo( CoreModel::BI_VERTEX );
         // no need to clone, since it won't be mutated
     }
 
@@ -216,6 +219,8 @@ Model::load( CoreModel* cm,
         shaderGeode = new osg::Geode;
 
         shaderGeode->setCullCallback( new ShaderGeodeCullCallback() );
+        // TODO: we now handle GLObjectsVisitor, so move shaderGeode compiling there.
+        
         // Since we switch static/skinning shaders in SubMesh::update we
         // need some method to compile shaders before they first used
         // (i.e. before actual animation starts).
@@ -312,14 +317,14 @@ Model::load( CoreModel* cm,
             // dynamic only when we have animations
             // and mesh is deformable
         {
-            g->setDataVariance( osg::Object::DYNAMIC );
+            g->setDataVariance( DYNAMIC );
             // ^ No drawing during updates. Otherwise there will be a
             // crash in multithreaded osgViewer modes
             // (first reported by Jan Ciger)
         }
         else
         {            
-            g->setDataVariance( osg::Object::STATIC );
+            g->setDataVariance( STATIC );
         }
 
         if ( depthSubMesh )
@@ -358,7 +363,7 @@ Model::load( CoreModel* cm,
                 // create new matrix transform for bone
                 mt = new osg::MatrixTransform;
 
-                mt->setDataVariance( osg::Object::DYNAMIC );            
+                mt->setDataVariance( DYNAMIC );            
                 mt->setMatrix( osg::Matrix::identity() );
 
                 addChild( mt );
@@ -430,6 +435,8 @@ Model::accept( osg::NodeVisitor& nv )
                 coreModel->getVbo( i )->compileBuffer( *s );
             }
         }
+
+        vertexVbo->compileBuffer( *s );
     }
     
     osg::Group::accept( nv );

@@ -199,6 +199,8 @@ namespace osgCal
             
             osg::StateSet* get( const HwStateDesc& swsd );
 
+            int flags;
+
         private:
             typedef std::map< HwStateDesc, osg::ref_ptr< osg::StateSet > > Map;
 
@@ -213,6 +215,8 @@ namespace osgCal
     {
         public:
             osg::StateSet* get( const HwStateDesc& swsd );
+
+            int flags;
 
         private:
             // map from < bone count, sides count > to stateset
@@ -239,11 +243,45 @@ namespace osgCal
 
             CoreModel();
 
+            enum LoadFlags
+            {
+                /**
+                 * No double draw of two-sided meshes use
+                 * gl_FrontFacing in shader.
+                 * Remark that not all video boards support this
+                 * (GeForce >= 6.x, ATI -- don't know)
+                 */
+                USE_GL_FRONT_FACING = 1,
+
+                /**
+                 * Draw meshes to depth buffer first, then draw meshes
+                 * with pixel shaders (useful if pixel shading is a
+                 * bottleneck).
+                 */
+                USE_DEPTH_FIRST_MESHES = 2,
+
+                /**
+                 * Send calculated vertex positions to shader instead
+                 * of calculation in it (for slow video boards? no
+                 * visible performance improvements, plus additional
+                 * vertex VBO is allocated for each model).
+                 * Normals are still calculated.
+                 */
+                DONT_CALCULATE_VERTEX_IN_SHADER = 4,
+                
+                /**
+                 * Don't keep normals and texture coords for
+                 * software meshes (free them after VBOs are applied).
+                 */
+                NO_SOFTWARE_MESHES = 8,
+            };
+
             /**
              * Loads cal3d core model and prepare all internal stuff for fast Models creation.
              * This function may be called only once.
              */
-            void load( const std::string& cfgFileName ) throw (std::runtime_error);
+            void load( const std::string& cfgFileName,
+                       int flags = 0 ) throw (std::runtime_error);
 
             /**
              * Same as load, but doesn't throw exceptions on error.
@@ -253,6 +291,8 @@ namespace osgCal
 
             CalCoreModel*       getCalCoreModel() const     { return calCoreModel; }
             CalHardwareModel*   getCalHardwareModel() const { return calHardwareModel; }
+
+            int getFlags() const { return flags; }
 
             /**
              * Indexes of corresponding buffers in vector returned by getVbos().
@@ -272,6 +312,7 @@ namespace osgCal
 
             
             osg::BufferObject* getVbo( int index ) { return vbos[ index ].get(); }
+            osg::BufferObject* makeVbo( osg::Array* array );
 
             struct Mesh
             {
@@ -358,6 +399,7 @@ namespace osgCal
             CoreModel(const CoreModel&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
             virtual ~CoreModel();
 
+            int                 flags;
             float               scale;
             CalCoreModel*       calCoreModel;
             CalHardwareModel*   calHardwareModel;
@@ -379,7 +421,7 @@ namespace osgCal
             osg::ref_ptr< NormalBuffer >        tangentBuffer;
             osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
 
-            std::vector< osg::ref_ptr< osg::BufferObject > > vbos;            
+            std::vector< osg::ref_ptr< osg::BufferObject > > vbos;
     };
 
 }; // namespace osgCal

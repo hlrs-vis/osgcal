@@ -33,13 +33,17 @@ varying mat3 eyeBasis; // in tangent space
 varying vec3 transformedNormal;
 #endif
 
+#if !GL_FRONT_FACING
 uniform half face;
+#endif
 uniform float glossiness;
 
 void main()
 {
     // -- Calculate normal --
-    //half face = gl_FrontFacing ? half(1.0) : half(-1.0);
+#if GL_FRONT_FACING == 1
+    half face = gl_FrontFacing ? half(1.0) : half(-1.0);
+#endif
     // two-sided lighting
     // ATI doesn't know about gl_FrontFacing ???
     // it says that it unsupported language element

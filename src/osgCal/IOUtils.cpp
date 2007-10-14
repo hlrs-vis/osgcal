@@ -135,7 +135,16 @@ VBOs::VBOs( int maxVertices,
     , indexBuffer( new IndexBuffer( maxFaces*3 ) )
     , vertexCount( maxVertices )
     , faceCount( maxFaces )
-{}
+{
+    vertexBuffer->setDataVariance( osg::Object::STATIC );
+    weightBuffer->setDataVariance( osg::Object::STATIC );
+    matrixIndexBuffer->setDataVariance( osg::Object::STATIC );
+    normalBuffer->setDataVariance( osg::Object::STATIC );
+    tangentBuffer->setDataVariance( osg::Object::STATIC );
+    binormalBuffer->setDataVariance( osg::Object::STATIC );
+    texCoordBuffer->setDataVariance( osg::Object::STATIC );
+    indexBuffer->setDataVariance( osg::Object::STATIC );
+}
 
 VBOs::~VBOs()
 {}
@@ -158,6 +167,7 @@ resize( osg::ref_ptr< T >& v,
         int                size )
 {
     v = new T( v->begin(), v->begin() + size );
+    v->setDataVariance( osg::Object::STATIC );
     // STL vector doesn't cut memory on resize
     // so we manually recreate one of necessary size
 }

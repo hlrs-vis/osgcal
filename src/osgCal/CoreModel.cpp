@@ -29,6 +29,7 @@
 #include <osg/CullFace>
 #include <osg/Depth>
 #include <osg/ColorMask>
+#include <osg/DisplaySettings>
 #include <osg/io_utils>
 
 #include <osgDB/FileNameUtils>
@@ -56,9 +57,11 @@ class VertexBufferObject : public osg::BufferObject
         }
        
         VertexBufferObject( GLenum      target,
-                            osg::Array* a )
+                            osg::Array* a,
+                            bool        unref = true )
             : BufferObject()
             , array( a )
+            , unrefAfterApply( unref )
         {
             _target = target;
             _usage = GL_STATIC_DRAW_ARB;
@@ -74,22 +77,40 @@ class VertexBufferObject : public osg::BufferObject
         virtual void compileBuffer(osg::State& state) const
         {
             unsigned int contextID = state.getContextID();
-            if (!needsCompile(contextID)) return;
+            if (!isDirty(contextID) && !needsCompile(contextID)) return;
     
             Extensions* extensions = getExtensions( contextID, true );
 
             GLuint& vbo = buffer( contextID );
 
-            extensions->glGenBuffers(1, &vbo);
+            if ( vbo == 0 )
+            {
+                extensions->glGenBuffers(1, &vbo);
+            }
             extensions->glBindBuffer(_target, vbo);
             extensions->glBufferData(_target, _totalSize, array->getDataPointer(),
                                      _usage);
-            //array = 0; // unref after apply
+
+            _compiledList[contextID] = 1;
+
+            if ( unrefAfterApply && array->getDataVariance() == STATIC && areAllArraysLoaded() )
+            {
+                array = 0;
+            }
         }
 
     private:
+        bool areAllArraysLoaded() const
+        {
+            for(unsigned int i=0;i<osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();++i)
+            {
+                if ( buffer( i ) == 0 ) return false;
+            }
+            return true;
+        }
 
         mutable osg::ref_ptr< osg::Array > array;
+        bool unrefAfterApply;
 };
 
 
@@ -101,8 +122,11 @@ class VertexBufferObject : public osg::BufferObject
 
 using namespace osgCal;
 
-#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 256)
-#define SHADER_FLAG_DEPTH_ONLY          128
+#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 1024)
+#define SHADER_FLAG_DEPTH_ONLY          512
+#define DEPTH_ONLY_MASK                 ~511 // ignore aything except bones
+#define SHADER_FLAG_DONT_CALCULATE_VERTEX 256
+#define SHADER_FLAG_GL_FRONT_FACING     128
 #define SHADER_FLAG_BUMP_MAPPING        64
 #define SHADER_FLAG_FOG                 32
 #define SHADER_FLAG_RGBA                16 // enable blending of RGBA textures
@@ -131,7 +155,14 @@ class SkeletalShadersSet : public osg::Referenced
         {
             if ( flags & SHADER_FLAG_DEPTH_ONLY )
             {
-                flags &= ~0x7F; // remove all flags except depth_only & bones count
+                if ( flags & SHADER_FLAG_DONT_CALCULATE_VERTEX )
+                {
+                    flags = SHADER_FLAG_DEPTH_ONLY; // w/o bones at all
+                }
+                else
+                {
+                    flags &= DEPTH_ONLY_MASK; 
+                }
             }
 
             ProgramsMap::const_iterator pmi = programs.find( flags );
@@ -152,13 +183,15 @@ class SkeletalShadersSet : public osg::Referenced
                 int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
                 int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0; \
                 int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
+                int GL_FRONT_FACING = ( SHADER_FLAG_GL_FRONT_FACING & flags ) ? 1 : 0; \
+                int DONT_CALCULATE_VERTEX = ( SHADER_FLAG_DONT_CALCULATE_VERTEX & flags ) ? 1 : 0; \
 
                 PARSE_FLAGS;
                 
                 osg::Program* p = new osg::Program;
 
                 char name[ 256 ];
-                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s)",
+                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s%s)",
                          BONES_COUNT,
                          DEPTH_ONLY ? ", depth_only" : "",
                          FOG ? ", fog" : "",
@@ -167,7 +200,10 @@ class SkeletalShadersSet : public osg::Referenced
                          TEXTURING ? ", texturing" : "",
                          NORMAL_MAPPING ? ", normal mapping" : "",
                          BUMP_MAPPING ? ", bump mapping" : "",
-                         SHINING ? ", shining" : "" );
+                         SHINING ? ", shining" : "",
+                         GL_FRONT_FACING ? ", gl_FrontFacing" : "",
+                         DONT_CALCULATE_VERTEX ? ", no vertex" : ""
+                    );
                             
                 p->setName( name );
 
@@ -190,9 +226,12 @@ class SkeletalShadersSet : public osg::Referenced
 
         osg::Shader* getVertexShader( int flags )
         {           
-            flags &= ~SHADER_FLAG_RGBA & ~SHADER_FLAG_OPACITY;
-                   // remove irrelevant flags that can lead to
-                   // duplicate shaders in map
+            flags &= ~SHADER_FLAG_RGBA
+                & ~SHADER_FLAG_OPACITY
+                & ~SHADER_FLAG_SHINING
+                & ~SHADER_FLAG_GL_FRONT_FACING;
+            // remove irrelevant flags that can lead to
+            // duplicate shaders in map
 //             if ( flags &
 //                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
 //                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
@@ -213,7 +252,8 @@ class SkeletalShadersSet : public osg::Referenced
             else
             {                
                 PARSE_FLAGS;
-                (void)RGBA, (void)OPACITY; // remove unused variable warning
+                (void)RGBA, (void)OPACITY, (void)SHINING, (void)GL_FRONT_FACING;
+                // remove unused variable warning
 
                 std::string shaderText;
 
@@ -237,9 +277,10 @@ class SkeletalShadersSet : public osg::Referenced
         {
             flags &= ~SHADER_FLAG_BONES(0)
                    & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-                   & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
-                   // remove irrelevant flags that can lead to
-                   // duplicate shaders in map  
+                   & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4)
+                   & ~SHADER_FLAG_DONT_CALCULATE_VERTEX;
+            // remove irrelevant flags that can lead to
+            // duplicate shaders in map  
 
             ShadersMap::const_iterator smi = fragmentShaders.find( flags );
 
@@ -250,7 +291,7 @@ class SkeletalShadersSet : public osg::Referenced
             else
             {                
                 PARSE_FLAGS;
-                (void)BONES_COUNT; // remove unused variable warning
+                (void)BONES_COUNT, (void)DONT_CALCULATE_VERTEX; // remove unused variable warning
 
                 std::string shaderText;
 
@@ -363,13 +404,21 @@ operator << ( std::ostream& os,
 }
 
 void
-CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_error)
+CoreModel::load( const std::string& cfgFileNameOriginal,
+                 int _flags ) throw (std::runtime_error)
 {
     if ( calCoreModel )
     {
         // reloading is not supported
         throw std::runtime_error( "model already loaded" );
     }
+
+//     _flags = USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
+//         | DONT_CALCULATE_VERTEX_IN_SHADER;
+    
+    flags = _flags;
+    hwMeshStateSetCache->flags = _flags;
+    depthMeshStateSetCache->flags = _flags;
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 
@@ -600,10 +649,13 @@ CoreModel::load( const std::string& cfgFileNameOriginal ) throw (std::runtime_er
         matrixIndexBuffer   = bos->matrixIndexBuffer;
     }
     indexBuffer         = bos->indexBuffer;
-    normalBuffer        = bos->normalBuffer;
+    if ( !(flags & NO_SOFTWARE_MESHES) )
+    {
+        texCoordBuffer      = bos->texCoordBuffer;
+        normalBuffer        = bos->normalBuffer;
+    }
 //    binormalBuffer      = bos->binormalBuffer; <- only for TBN debug
 //    tangentBuffer       = bos->tangentBuffer;
-    texCoordBuffer      = bos->texCoordBuffer;
 
     // -- Create vertex buffer objects --
     vbos.resize( 8 );
@@ -646,6 +698,12 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
         errorText = e.what();
         return false;
     }
+}
+
+osg::BufferObject*
+CoreModel::makeVbo( osg::Array* array )
+{
+    return new VertexBufferObject( GL_ARRAY_BUFFER_ARB, array );
 }
 
 
@@ -968,7 +1026,7 @@ struct osgCalStateAttributes
         osgCalStateAttributes()
         {
             blending = new osg::BlendFunc;
-            blending->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            blending->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
             depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
             depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
@@ -1112,7 +1170,8 @@ newIntUniform( osg::Uniform::Type type,
 
 HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
                                           TexturesCache* tc )
-    : swMeshStateSetCache( swssc ? swssc : new SwMeshStateSetCache() )
+    : flags( 0 )
+    , swMeshStateSetCache( swssc ? swssc : new SwMeshStateSetCache() )
     , texturesCache( tc ? tc : new TexturesCache() )
 {}
             
@@ -1137,7 +1196,16 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
     int rgba = isRGBAStateSet( stateSet );
 
     stateSet->setAttributeAndModes( skeletalShadersSet->get(
-                                        desc.shaderFlags +
+                                        desc.shaderFlags
+                                        +
+                                        ( flags & CoreModel::USE_GL_FRONT_FACING
+                                          ? SHADER_FLAG_GL_FRONT_FACING
+                                          : 0 )
+                                        +
+                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
+                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
+                                          : 0 )
+                                        +
                                         rgba * SHADER_FLAG_RGBA ),
                                     osg::StateAttribute::ON );
 
@@ -1187,9 +1255,12 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             // (we use two pass render for double sided meshes,
             //  or single pass when gl_FrontFacing used, but in only
             //  works on GeForce >= 6.x and not works on ATI)
-            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::ON |
-                                            osg::StateAttribute::PROTECTED );
+            if ( !(flags & CoreModel::USE_GL_FRONT_FACING) )
+            {
+                stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
+                                                osg::StateAttribute::ON |
+                                                osg::StateAttribute::PROTECTED );
+            }
             break;
 
         default:
@@ -1197,9 +1268,12 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             break;
     }
 
-//     stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
-//                                     osg::StateAttribute::ON |
-//                                     osg::StateAttribute::PROTECTED );
+    if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES )
+    {
+        stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
+                                        osg::StateAttribute::ON |
+                                        osg::StateAttribute::PROTECTED );
+    }
     
     return stateSet;
 }
@@ -1219,6 +1293,10 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
 
     stateSet->setAttributeAndModes( skeletalShadersSet->get(
                                         boneAndSidesCount.first * SHADER_FLAG_BONES(1)
+                                        +
+                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
+                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
+                                          : 0 )
                                         +
                                         SHADER_FLAG_DEPTH_ONLY ),
                                     osg::StateAttribute::ON );
