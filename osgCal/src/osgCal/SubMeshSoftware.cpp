@@ -25,16 +25,13 @@
 
 using namespace osgCal;
 
-SubMeshSoftware::SubMeshSoftware( Model*     _model,
-                                  int        meshIndex,
-                                  bool       _meshIsStatic )
+SubMeshSoftware::SubMeshSoftware( Model*                 _model,
+                                  const CoreModel::Mesh* _mesh )
     : coreModel( _model->getCoreModel() )
     , model( _model )
-    , calModel( _model->getCalModel() )
-    , mesh( const_cast< CoreModel::Mesh* >( &_model->getCoreModel()->getMeshes()[ meshIndex ] ) )
-    , meshIsStatic( _meshIsStatic )
+    , mesh( _mesh )
 {
-    if ( mesh->maxBonesInfluence == 0 || meshIsStatic )
+    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
     {
         setUseDisplayList( true );
         setSupportsDisplayList( true ); 
@@ -145,7 +142,7 @@ mul3( const osg::Matrix3& m,
 void
 SubMeshSoftware::update()
 {
-    if ( mesh->maxBonesInfluence == 0 || meshIsStatic )
+    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
     {
         return; // no bones - no update
     }
