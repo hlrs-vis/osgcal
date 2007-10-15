@@ -693,11 +693,12 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 
 bool
 CoreModel::loadNoThrow( const std::string& cfgFileName,
-                        std::string&       errorText ) throw ()
+                        std::string&       errorText,
+                        int                flags ) throw ()
 {
     try
     {
-        load( cfgFileName );
+        load( cfgFileName, flags );
         return true;
     }
     catch ( std::runtime_error& e )
