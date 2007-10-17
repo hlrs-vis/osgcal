@@ -35,7 +35,7 @@ varying vec3 transformedNormal;
 
 void main()
 {
-#if TEXTURING == 1 || NORMAL_MAPPING == 1
+#if TEXTURING == 1 || NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     gl_TexCoord[0].st = gl_MultiTexCoord0.st; // export texCoord to fragment shader
 #endif
 

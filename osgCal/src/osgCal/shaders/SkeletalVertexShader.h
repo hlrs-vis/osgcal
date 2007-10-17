@@ -35,7 +35,7 @@ shaderText += "// //varying vec3 eyeVec;//phong\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
-if ( TEXTURING == 1 || NORMAL_MAPPING == 1 ) {
+if ( TEXTURING == 1 || NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    gl_TexCoord[0].st = gl_MultiTexCoord0.st; // export texCoord to fragment shader\n";
 }
 shaderText += "\n";
