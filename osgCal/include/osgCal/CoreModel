@@ -251,14 +251,14 @@ namespace osgCal
                  * Remark that not all video boards support this
                  * (GeForce >= 6.x, ATI -- don't know)
                  */
-                USE_GL_FRONT_FACING = 1,
+                USE_GL_FRONT_FACING = 0x1,
 
                 /**
                  * Draw meshes to depth buffer first, then draw meshes
                  * with pixel shaders (useful if pixel shading is a
                  * bottleneck).
                  */
-                USE_DEPTH_FIRST_MESHES = 2,
+                USE_DEPTH_FIRST_MESHES = 0x2,
 
                 /**
                  * Send calculated vertex positions to shader instead
@@ -267,18 +267,25 @@ namespace osgCal
                  * vertex VBO is allocated for each model).
                  * Normals are still calculated.
                  */
-                DONT_CALCULATE_VERTEX_IN_SHADER = 4,
+                DONT_CALCULATE_VERTEX_IN_SHADER = 0x4,
                 
                 /**
                  * Don't keep normals and texture coords for
                  * software meshes (free them after VBOs are applied).
                  */
-                NO_SOFTWARE_MESHES = 8,
+                NO_SOFTWARE_MESHES = 0x8,
 
                 /**
                  * Show Tangent-Binormal-Normal basis.
                  */
-                SHOW_TBN = 16,
+                SHOW_TBN = 0x10,
+
+                /**
+                 * Enable fog in shader (exp, exp2 or linear mode)
+                 */
+                FOG_EXP = 0x20,
+                FOG_EXP2 = 0x40,
+                FOG_LINEAR = 0x20 + 0x40,
             };
 
             /**

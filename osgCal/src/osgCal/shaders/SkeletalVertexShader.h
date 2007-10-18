@@ -29,9 +29,9 @@ shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
-// if ( SHINING ) {
-shaderText += "// //varying vec3 eyeVec;//phong\n";
-// }
+if ( FOG ) {
+shaderText += "varying vec3 eyeVec;\n";
+}
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
@@ -72,14 +72,10 @@ shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformed
   } else {
 shaderText += "    gl_Position = ftransform();\n";
   }
-// if ( FOG && !SHINING ) {
-shaderText += "//     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
-// } else if ( SHINING ) {
-shaderText += "//     //eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
-// } 
+shaderText += "\n";
 if ( FOG ) {
-shaderText += "    vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
-shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
+shaderText += "    /*vec3*/ eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
+shaderText += "//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
@@ -91,9 +87,6 @@ shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tang
 shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
 shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
-//  if ( SHINING ) {
-shaderText += "//     //eyeVec *= tangentBasis;\n";
-//  } // no shining
 } else { // NORMAL_MAPPING == 1
 shaderText += "    transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));\n";
 } // NORMAL_MAPPING == 1
@@ -102,14 +95,9 @@ shaderText += "\n";
 shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
 shaderText += "    gl_Position = ftransform();\n";
-// if ( FOG && !SHINING ) {
-shaderText += "//     //vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
-// } else if ( SHINING ) {
-shaderText += "//     //eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
-// } 
 if ( FOG ) {
-shaderText += "    vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
-shaderText += "    gl_FogFragCoord = length( eyeVec );\n";
+shaderText += "    /*vec3*/ eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
+shaderText += "//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );\n";
 } // no fog
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
@@ -127,16 +115,9 @@ shaderText += "    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tang
 shaderText += "                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],\n";
 shaderText += "                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );\n";
 shaderText += "\n";
-//  if ( SHINING ) {
-shaderText += "//     //eyeVec *= tangentBasis;\n";
-//  } // no shining
 } else { // NORMAL_MAPPING == 1
 shaderText += "    transformedNormal = half3(gl_NormalMatrix * gl_Normal);\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1
-shaderText += "\n";
-// if ( SHINING ) {
-shaderText += "//     //eyeVec = normalize( eyeVec );\n";
-// } // no shining
 shaderText += "}\n";
