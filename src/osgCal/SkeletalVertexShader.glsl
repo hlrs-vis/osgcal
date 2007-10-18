@@ -29,9 +29,9 @@ varying mat3 eyeBasis; // in tangent space
 varying vec3 transformedNormal;
 #endif
 
-// #if SHINING
-// //varying vec3 eyeVec;//phong
-// #endif
+#if FOG
+varying vec3 eyeVec;
+#endif
 
 void main()
 {
@@ -72,14 +72,10 @@ void main()
   #else
     gl_Position = ftransform();
   #endif
-// #if FOG && !SHINING
-//     //vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
-// #elseif SHINING
-//     //eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
-// #endif 
+
 #if FOG
-    vec3 eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
-    gl_FogFragCoord = length( eyeVec );
+    /*vec3*/ eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
+//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );
 #endif // no fog
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
@@ -91,9 +87,6 @@ void main()
                      tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
                      tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
-//  #if SHINING
-//     //eyeVec *= tangentBasis;
-//  #endif // no shining
 #else // NORMAL_MAPPING == 1
     transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));
 #endif // NORMAL_MAPPING == 1
@@ -102,14 +95,9 @@ void main()
 
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
-// #if FOG && !SHINING
-//     //vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
-// #elseif SHINING
-//     //eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
-// #endif 
 #if FOG
-    vec3 eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
-    gl_FogFragCoord = length( eyeVec );
+    /*vec3*/ eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
+//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );
 #endif // no fog
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
@@ -127,16 +115,9 @@ void main()
                      tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
                      tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
 
-//  #if SHINING
-//     //eyeVec *= tangentBasis;
-//  #endif // no shining
 #else // NORMAL_MAPPING == 1
     transformedNormal = half3(gl_NormalMatrix * gl_Normal);
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
-
-// #if SHINING
-//     //eyeVec = normalize( eyeVec );
-// #endif // no shining
 }

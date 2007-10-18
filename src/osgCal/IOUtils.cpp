@@ -390,6 +390,18 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
         GLfloat* binormalBuffer = (GLfloat*) vbos->binormalBuffer->getDataPointer();
 #endif
 
+//         for ( int i = 0; i < vbos->getVertexCount(); i++ )
+//         {
+//             CalVector n( normalBuffer[i*3+0],
+//                          normalBuffer[i*3+1],
+//                          normalBuffer[i*3+2] );
+
+//             std::cout << "n  = " << n.x << '\t' << n.y << '\t' << n.z << '\t' << n.length() << '\n';
+//             n.normalize();
+//             std::cout << "n1 = " << n.x << '\t' << n.y << '\t' << n.z << '\t' << n.length() << '\n';
+//         }
+
+
         for ( int face = 0; face < calHardwareModel->getTotalFaceCount(); face++ )
         {
             for ( int j = 0; j < 3; j++ )

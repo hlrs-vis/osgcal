@@ -42,7 +42,10 @@
 #include <osgCal/CoreModel>
 
 
-// TODO: it seems that Robert also added this in latest OSG
+/**
+ * Same as osg::VertexBufferObject, but unref osg::Array after all
+ * GraphicsContexts are initialized.
+ */
 class VertexBufferObject : public osg::BufferObject
 {
     public:
@@ -122,18 +125,21 @@ class VertexBufferObject : public osg::BufferObject
 
 using namespace osgCal;
 
-#define SHADER_FLAG_BONES(_nbones)      ((_nbones) * 1024)
-#define SHADER_FLAG_DEPTH_ONLY          512
-#define DEPTH_ONLY_MASK                 ~511 // ignore aything except bones
-#define SHADER_FLAG_DONT_CALCULATE_VERTEX 256
-#define SHADER_FLAG_GL_FRONT_FACING     128
-#define SHADER_FLAG_BUMP_MAPPING        64
-#define SHADER_FLAG_FOG                 32
-#define SHADER_FLAG_RGBA                16 // enable blending of RGBA textures
-#define SHADER_FLAG_OPACITY             8
-#define SHADER_FLAG_TEXTURING           4
-#define SHADER_FLAG_NORMAL_MAPPING      2
-#define SHADER_FLAG_SHINING             1
+#define SHADER_FLAG_BONES(_nbones)      (0x10000 * (_nbones))
+#define SHADER_FLAG_DEPTH_ONLY            0x1000
+#define DEPTH_ONLY_MASK                  ~0x04FF // ignore aything except bones
+#define SHADER_FLAG_DONT_CALCULATE_VERTEX 0x0200
+#define SHADER_FLAG_GL_FRONT_FACING       0x0100
+#define SHADER_FLAG_BUMP_MAPPING          0x0080
+#define SHADER_FLAG_FOG_MODE_MASK        (0x0040 + 0x0020)
+#define SHADER_FLAG_FOG_MODE_LINEAR      (0x0040 + 0x0020)
+#define SHADER_FLAG_FOG_MODE_EXP2         0x0040
+#define SHADER_FLAG_FOG_MODE_EXP          0x0020
+#define SHADER_FLAG_RGBA                  0x0010 // enable blending of RGBA textures
+#define SHADER_FLAG_OPACITY               0x0008
+#define SHADER_FLAG_TEXTURING             0x0004
+#define SHADER_FLAG_NORMAL_MAPPING        0x0002
+#define SHADER_FLAG_SHINING               0x0001
 
 /**
  * Set of shaders with specific flags.
@@ -175,18 +181,20 @@ class SkeletalShadersSet : public osg::Referenced
             {
 #define PARSE_FLAGS                                                     \
                 int BONES_COUNT = flags / SHADER_FLAG_BONES(1);         \
-                int FOG = ( SHADER_FLAG_FOG & flags ) ? 1 : 0;          \
                 int RGBA = ( SHADER_FLAG_RGBA & flags ) ? 1 : 0;        \
+                int FOG_MODE = ( SHADER_FLAG_FOG_MODE_MASK & flags );   \
+                int FOG = FOG_MODE != 0;                                \
                 int OPACITY = ( SHADER_FLAG_OPACITY & flags ) ? 1 : 0;  \
                 int TEXTURING = ( SHADER_FLAG_TEXTURING & flags ) ? 1 : 0; \
                 int NORMAL_MAPPING = ( SHADER_FLAG_NORMAL_MAPPING & flags ) ? 1 : 0; \
                 int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
-                int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0; \
+                int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;  \
                 int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
                 int GL_FRONT_FACING = ( SHADER_FLAG_GL_FRONT_FACING & flags ) ? 1 : 0; \
-                int DONT_CALCULATE_VERTEX = ( SHADER_FLAG_DONT_CALCULATE_VERTEX & flags ) ? 1 : 0; \
+                int DONT_CALCULATE_VERTEX = ( SHADER_FLAG_DONT_CALCULATE_VERTEX & flags ) ? 1 : 0;
 
                 PARSE_FLAGS;
+                (void)FOG; // remove unused variable warning
                 
                 osg::Program* p = new osg::Program;
 
@@ -194,7 +202,9 @@ class SkeletalShadersSet : public osg::Referenced
                 sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s%s)",
                          BONES_COUNT,
                          DEPTH_ONLY ? ", depth_only" : "",
-                         FOG ? ", fog" : "",
+                         (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP ? ", fog_exp"
+                          : (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP2 ? ", fog_exp2"
+                             : (FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR ? ", fog_linear" : ""))),
                          RGBA ? ", rgba" : "",
                          OPACITY ? ", opacity" : "",
                          TEXTURING ? ", texturing" : "",
@@ -232,6 +242,12 @@ class SkeletalShadersSet : public osg::Referenced
                 & ~SHADER_FLAG_GL_FRONT_FACING;
             // remove irrelevant flags that can lead to
             // duplicate shaders in map
+            if ( flags & SHADER_FLAG_FOG_MODE_MASK )
+            {
+                flags |= SHADER_FLAG_FOG_MODE_MASK;
+                // ^ vertex shader only need to know that FOG is needed
+                // fog mode is irrelevant
+            }
 //             if ( flags &
 //                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
 //                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
@@ -252,7 +268,7 @@ class SkeletalShadersSet : public osg::Referenced
             else
             {                
                 PARSE_FLAGS;
-                (void)RGBA, (void)OPACITY, (void)SHINING, (void)GL_FRONT_FACING;
+                (void)RGBA, (void)OPACITY, (void)SHINING, (void)GL_FRONT_FACING, (void)FOG_MODE;
                 // remove unused variable warning
 
                 std::string shaderText;
@@ -1213,6 +1229,9 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
                                         ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
                                           ? SHADER_FLAG_DONT_CALCULATE_VERTEX
                                           : 0 )
+                                        +
+                                        ( flags & CoreModel::FOG_LINEAR ) / CoreModel::FOG_EXP
+                                        * SHADER_FLAG_FOG_MODE_EXP
                                         +
                                         rgba * SHADER_FLAG_RGBA ),
                                     osg::StateAttribute::ON );
