@@ -86,16 +86,16 @@ void main()
 
     half3 color = half3(globalAmbient);
 
-    int i = 0;
+    float i = 0.0;
      
     // -- Lights ambient --
-    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[i].ambient.rgb);
+    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[int(i)].ambient.rgb);
     color += ambient;
 
     // -- Lights diffuse --
-    vec3 lightDir = gl_LightSource[i].position.xyz;
+    vec3 lightDir = gl_LightSource[int(i)].position.xyz;
     half  NdotL = max( half(0.0), half(dot( normal, lightDir )) );
-    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[i].diffuse.rgb);
+    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[int(i)].diffuse.rgb);
     color += NdotL * diffuse;
 
     // -- Apply decal --
@@ -105,11 +105,11 @@ void main()
 
     // -- Specular --
 #if SHINING == 1
-    float NdotHV = dot( normal, gl_LightSource[i].halfVector.xyz );
+    float NdotHV = dot( normal, gl_LightSource[int(i)].halfVector.xyz );
     if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb) *
+        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[int(i)].specular.rgb) *
             half(pow( NdotHV, glossiness ));
         color += specular;
     }
