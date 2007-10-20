@@ -31,17 +31,12 @@ SubMeshHardware::SubMeshHardware( Model*                 _model,
     , model( _model )
     , mesh( _mesh )
 {   
-    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
+    if ( mesh->rigid || coreModel->getAnimationNames().empty() )
     {
-        setUseDisplayList( false/*true*/ );
-        setSupportsDisplayList( false/*true*/ ); // won't work otherwise ???
-        // faster (when true) but there are some errors (like not
-        // showing some meshes #84). Plus some meshes are erroneously
-        // modulated with material colors from other meshes
-        // (why???, bug in OSG?). Plus incorrect display of
-        // transparent meshes (only single first pass remembered).
-        // So currently we do not use display lists for static
-        // hardware meshes (but it works for software ones).
+        setUseDisplayList( true );
+        setSupportsDisplayList( true );
+//         setUseDisplayList( false );
+//         setSupportsDisplayList( false );
     }
     else
     {
@@ -82,7 +77,14 @@ SubMeshHardware::clone( const osg::CopyOp& ) const
 }
 
 void
-SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
+SubMeshHardware::drawImplementation( osg::RenderInfo& renderInfo ) const
+{
+    drawImplementation( renderInfo, getStateSet() );
+}
+
+void
+SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
+                                     const osg::StateSet* stateSet ) const
 {
     //std::cout << "SubMeshHardware::drawImplementation: start" << std::endl;
     osg::State& state = *renderInfo.getState();
@@ -91,10 +93,9 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     state.disableAllVertexArrays();
 
     const osg::Program* stateProgram =
-        static_cast< const osg::Program* >(
-//             getStateSet()->
-//             getAttribute( osg::StateAttribute::PROGRAM ) )->
-            state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM ) );
+        static_cast< const osg::Program* >
+        ( stateSet->getAttribute( osg::StateAttribute::PROGRAM ) );
+//        ( state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM ) ); <- don't work in display lists
 
     if ( stateProgram == 0 )
     {
@@ -102,7 +103,7 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     }
     
     const osg::Program::PerContextProgram* program =
-            stateProgram->getPCP( state.getContextID() );
+        stateProgram->getPCP( state.getContextID() );
 
 #define BIND(_type)                                                     \
     coreModel->getVbo(CoreModel::BI_##_type)->compileBuffer( state );   \
@@ -136,7 +137,7 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
 //                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
                                         4 , MATRIX_INDEX_TYPE, false, 0,0);         
         // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
-        // but conversion from float to int would be to expensive
+        // but conversion from float to int would be too expensive
         // when updating vertices on CPU.
     }
     
@@ -226,16 +227,10 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         }
     }
 
-    // -- Brute force fix of display list bug --
-    // when using display lists and we have two (or more) meshes with
-    // the same state sets (hand, legs) we get second mesh modulated
-    // with some other mesh diffuse (ambient?) color (red, green,
-    // black, gray). So we manually apply material state here
-//     const osg::Material* material = static_cast< const osg::Material* >
-//         ( getStateSet()->getAttribute( osg::StateAttribute::MATERIAL ) );
-
-//     material->apply( state );
-    // ^ it is also bad, since it kills any material overriding
+    // get mesh material to restore glColor after glDrawElements call
+    const osg::Material* material = static_cast< const osg::Material* >
+//        ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) ); <- don't work in display lists
+        ( stateSet->getAttribute( osg::StateAttribute::MATERIAL ) );
 
     // -- Draw our indexed triangles --
     BIND( INDEX ); 
@@ -250,7 +245,12 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
         glDrawElements( GL_TRIANGLES,                                   \
                         mesh->getIndexesCount(),                        \
                         GL_UNSIGNED_INT,                                \
-                        ((CalIndex *)NULL) + mesh->getIndexInVbo() );
+                        ((CalIndex *)NULL) + mesh->getIndexInVbo() );   \
+    if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    // TODO: ^ color restoring doesn't allow material overriding
+    // since we get mesh material color, not last applied one (there is
+    // no one when compiling display list). Maybe we can override Drawable::draw
+    // to get actual last applied material.
 
 #define glError()                                                       \
     {                                                                   \
@@ -263,56 +263,54 @@ SubMeshHardware::drawImplementation(osg::RenderInfo& renderInfo) const
     }
 
     GLint faceUniform = program->getUniformLocation( "face" );
+#define SET_FACE_UNIFORM(_fu) \
+    if ( faceUniform >= 0 ) gl2extensions->glUniform1f( faceUniform, _fu );
 
-    if ( faceUniform >= 0 )
+    if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
+         & osg::StateSet::TRANSPARENT_BIN )
     {
-        if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
-             & osg::StateSet::TRANSPARENT_BIN )
-        {
-            glCullFace( GL_FRONT ); // first draw only back faces
-            gl2extensions->glUniform1f( faceUniform, -1.0f );
-            DRAW;
-            gl2extensions->glUniform1f( faceUniform, 1.0f );
-            glCullFace( GL_BACK ); // then draw only front faces
-            DRAW;
-        }
-        else
-        {
-            if ( mesh->hwStateDesc.sides == 2 ) 
-            {
-                //glCullFace( GL_BACK ); // (already enabled) draw only front faces
-                gl2extensions->glUniform1f( faceUniform, 1.0f );
-                DRAW;
-                glCullFace( GL_FRONT ); // then draw only back faces
-                gl2extensions->glUniform1f( faceUniform, -1.0f );
-                DRAW;
-                glCullFace( GL_BACK ); // restore state
-            }
-            else // single sided (or undefined) -- simply draw it
-            {
-                gl2extensions->glUniform1f( faceUniform, 1.0f );
-                DRAW; // simple draw for single-sided non-transparent meshes
-            }
-        }
+        glCullFace( GL_FRONT ); // first draw only back faces
+        SET_FACE_UNIFORM( -1.0f );
+        DRAW;
+        SET_FACE_UNIFORM( 1.0f );
+        glCullFace( GL_BACK ); // then draw only front faces
+        DRAW;
     }
-    else
+    else if ( mesh->hwStateDesc.sides == 2 && faceUniform >= 0 )
     {
-        DRAW; // just draw if no face uniform available
+        //glCullFace( GL_BACK ); // (already enabled) draw only front faces
+        gl2extensions->glUniform1f( faceUniform, 1.0f );
+        DRAW;
+        glCullFace( GL_FRONT ); // then draw only back faces
+        gl2extensions->glUniform1f( faceUniform, -1.0f );
+        DRAW;
+        glCullFace( GL_BACK ); // restore state
+    }
+    else // single sided (or undefined) -- simply draw it
+    {
+        SET_FACE_UNIFORM( 1.0f );
+        DRAW; // simple draw for single-sided (or two-sided with gl_FrontFacing)
+              // non-transparent meshes
     }
     
     //glError();
 
-    state.disableVertexPointer();
-    state.disableTexCoordPointer( 0 );
-    state.disableNormalPointer();
-    if ( program->getAttribLocation( "weight" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "weight" ));
-    if ( program->getAttribLocation( "index" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "index" ));
-    if ( program->getAttribLocation( "binormal" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "binormal" ));
-    if ( program->getAttribLocation( "tangent" ) > 0 )
-        state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
+    state.disableAllVertexArrays();
+//     state.disableVertexPointer();
+//     if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
+//          || mesh->hwStateDesc.bumpMap != "" )
+//     {
+//         state.disableTexCoordPointer( 0 );
+//     }
+//     state.disableNormalPointer();
+//     if ( program->getAttribLocation( "weight" ) > 0 )
+//         state.disableVertexAttribPointer(program->getAttribLocation( "weight" ));
+//     if ( program->getAttribLocation( "index" ) > 0 )
+//         state.disableVertexAttribPointer(program->getAttribLocation( "index" ));
+//     if ( program->getAttribLocation( "binormal" ) > 0 )
+//         state.disableVertexAttribPointer(program->getAttribLocation( "binormal" ));
+//     if ( program->getAttribLocation( "tangent" ) > 0 )
+//         state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
 
 //    UNBIND( VERTEX );
     model->getVertexVbo()->unbindBuffer( state.getContextID() );
@@ -645,7 +643,7 @@ SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
 void
 SubMeshDepth::drawImplementation(osg::RenderInfo& renderInfo) const
 {
-    hwMesh->drawImplementation( renderInfo );
+    hwMesh->drawImplementation( renderInfo, getStateSet() );
 }
 
 void
