@@ -67,7 +67,15 @@ namespace osgCal
             SubMeshHardware( Model*                 model,
                              const CoreModel::Mesh* mesh );
 
-            virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
+            virtual void drawImplementation( osg::RenderInfo& renderInfo ) const;
+            /**
+             * Real draw implementation called from SubMeshHardware & SubMeshDepth.
+             * They differ in only in state sets so pass it explicitly.
+             * We can't use state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM )
+             * since it doesn't set when compiling display lists (BTW: why?)
+             */
+            void drawImplementation( osg::RenderInfo&     renderInfo,
+                                     const osg::StateSet* stateSet) const;
             void create();
             void update();
 

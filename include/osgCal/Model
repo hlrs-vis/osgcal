@@ -206,6 +206,8 @@ namespace osgCal {
              */
             std::map< osg::StateSet*, bool > usedStateSets;
 
+            bool modelHaveAnimations;
+
     };
 
 }; // namespace osgCal

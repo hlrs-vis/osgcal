@@ -390,6 +390,9 @@ Model::accept( osg::NodeVisitor& nv )
         }
 
         usedStateSets.clear();
+
+        osg::Group::accept( nv );
+        // ^ to compile display lists and (maybe) user assigned sub nodes
     }
     else
     {

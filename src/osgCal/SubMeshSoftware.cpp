@@ -31,7 +31,7 @@ SubMeshSoftware::SubMeshSoftware( Model*                 _model,
     , model( _model )
     , mesh( _mesh )
 {
-    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
+    if ( mesh->rigid || coreModel->getAnimationNames().empty() )
     {
         setUseDisplayList( true );
         setSupportsDisplayList( true ); 
