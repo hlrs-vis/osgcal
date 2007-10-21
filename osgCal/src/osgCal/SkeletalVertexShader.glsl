@@ -74,21 +74,23 @@ void main()
   #endif
 
 #if FOG
-    /*vec3*/ eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
-//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );
+    eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
 #endif // no fog
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-    mat3 tangentBasis =
-        gl_NormalMatrix * totalRotation * mat3( tangent, binormal, gl_Normal );
+    vec3 t = gl_NormalMatrix * (totalRotation * tangent);
+    vec3 b = gl_NormalMatrix * (totalRotation * binormal);
+    vec3 n = gl_NormalMatrix * (totalRotation * gl_Normal);
+    // vec3 b = cross( n, t );
+    // ^ does'n work for some of our meshes (no handedness)
+    // TODO: maybe save handedness in tangent alpha and remove binormals?:
+    //    vec3 b = cross( n, t ) * tangent.a;
 
-//    eyeBasis = transpose( tangentBasis );
-    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
-
+    eyeBasis = mat3( t[0], b[0], n[0],
+                     t[1], b[1], n[1],
+                     t[2], b[2], n[2] );
 #else // NORMAL_MAPPING == 1
-    transformedNormal = half3(gl_NormalMatrix * (totalRotation * gl_Normal));
+    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);
 #endif // NORMAL_MAPPING == 1
 
 #else // no bones
@@ -96,27 +98,19 @@ void main()
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
 #if FOG
-    /*vec3*/ eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
-//    gl_FogFragCoord = length( eyeVec ) * sign( eyeVec.z );
+    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #endif // no fog
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-//     mat3 tangentBasis =
-//         gl_NormalMatrix * mat3( tangent, binormal, gl_Normal );
-//  ^ why this give us incorrect results?
-    mat4 tangentBasis =
-        gl_ModelViewMatrix * mat4( vec4( tangent, 0.0 ),
-                                   vec4( binormal, 0.0 ),
-                                   vec4( gl_Normal, 0.0 ),
-                                   vec4( 0.0, 0.0, 0.0, 1.0 ) );
+    vec3 t = gl_NormalMatrix * tangent;
+    vec3 b = gl_NormalMatrix * binormal;
+    vec3 n = gl_NormalMatrix * gl_Normal;
 
-//    eyeBasis = transpose( tangentBasis );
-    eyeBasis = mat3( tangentBasis[0][0], tangentBasis[1][0], tangentBasis[2][0],
-                     tangentBasis[0][1], tangentBasis[1][1], tangentBasis[2][1],
-                     tangentBasis[0][2], tangentBasis[1][2], tangentBasis[2][2] );
-
+    eyeBasis = mat3( t[0], b[0], n[0],
+                     t[1], b[1], n[1],
+                     t[2], b[2], n[2] );
 #else // NORMAL_MAPPING == 1
-    transformedNormal = half3(gl_NormalMatrix * gl_Normal);
+    transformedNormal = gl_NormalMatrix * gl_Normal;
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
