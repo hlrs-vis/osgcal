@@ -44,6 +44,11 @@ namespace osgCal
 
             osg::BoundingBox computeBound() const;
 
+            /**
+             * See SubMeshHardware::supports() for the comments.
+             */
+            virtual bool supports( const AttributeFunctor& ) { return false; }
+
         private:
 
             SubMeshHardware* hwMesh;
@@ -87,6 +92,13 @@ namespace osgCal
              * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
              */
             SubMeshDepth* getDepthSubMesh() { return depthSubMesh.get(); }
+
+            /**
+             * We don't support osgUtil::TransformAttributeFunctor
+             * since for non-animated models we share the same vertex
+             * buffer that must not be transformed for each model.
+             */
+            virtual bool supports( const AttributeFunctor& ) { return false; }
 
         private:
 

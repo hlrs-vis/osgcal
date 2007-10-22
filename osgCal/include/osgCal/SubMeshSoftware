@@ -53,6 +53,11 @@ namespace osgCal {
 
             const CoreModel::Mesh* getCoreModelMesh() const { return mesh; }
 
+            /**
+             * See SubMeshHardware::supports() for the comments.
+             */
+            virtual bool supports( const AttributeFunctor& ) { return false; }
+
         private:
 
             CoreModel*                  coreModel;

@@ -18,6 +18,7 @@
 */
 #include <cal3d/model.h>
 
+#include <osg/Notify>
 #include <osg/BlendFunc>
 #include <osg/Image>
 #include <osg/Material>
@@ -160,6 +161,7 @@ Model::load( CoreModel* cm,
     calModel->update( 0 );
 
     setUpdateCallback( new CalUpdateCallback() );
+//    setUserData( cm ); // <- maybe this helps to not FLATTEN_STATIC_TRANSFORMS?
 
     vectorBone = &(calModel->getSkeleton()->getVectorBone());
 
@@ -369,6 +371,9 @@ Model::accept( osg::NodeVisitor& nv )
 
     if ( glv )
     {
+        osg::notify( osg::INFO )
+            << "compiling shaders and buffers" << std::endl;
+        
         osg::State* s = glv->getState();
 
         for ( int i = 0; i < CoreModel::BI_TOTAL_COUNT; i++ )
