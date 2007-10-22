@@ -7,7 +7,7 @@ shaderText += "  # define half    float\n";
 shaderText += "  # define half2   vec2\n";
 shaderText += "  # define half3   vec3\n";
 shaderText += "  # define half4   vec4\n";
-shaderText += "  # define half3x3 mat3\n";
+shaderText += "  # define half3x3 mat3  \n";
 shaderText += "# endif\n";
 shaderText += "\n";
 if ( TEXTURING == 1 ) {
@@ -71,8 +71,8 @@ shaderText += "    // We previously calculated lighting in half precision too, b
 shaderText += "    // precision errors on meshes with high glossiness, so we reverted to full precision.\n";
 }
 shaderText += "\n";
-shaderText += "    // -- Calculate decal (texture) color --\n";
 if ( TEXTURING == 1 ) {
+shaderText += "    // -- Calculate decal (texture) color --\n";
   if ( RGBA == 1 ) {
 shaderText += "    half4 decalColor4 = half4(texture2D(decalMap, gl_TexCoord[0].st).rgba);\n";
 shaderText += "    half3 decalColor = decalColor4.rgb;\n";
@@ -86,30 +86,38 @@ shaderText += "    half3 globalAmbient = half3(gl_FrontMaterial.ambient.rgb * gl
 shaderText += "\n";
 shaderText += "    half3 color = half3(globalAmbient);\n";
 shaderText += "\n";
-shaderText += "    float i = 0.0;\n";
+shaderText += "    # define i 0\n";
+shaderText += "    // ^ Strange but `int i=0;' or `float i=0.0;' & `gl_LightSource[int(i)]'\n";
+shaderText += "    // doesn't work on R300 (radeon 9600).\n";
+shaderText += "    // It says that 'available number of constants exceeded' for\n";
+shaderText += "    // fragment shader (? ? ?).\n";
+shaderText += "    // If `float i = 0.0' & `gl_LightSource[i]' used (`i' w/o cast to\n";
+shaderText += "    // int) all works ok on ATI (? ? ?). NVidia warns that implicit cast\n";
+shaderText += "    // is there. So now we just define i to be zero. Loop for several\n";
+shaderText += "    // lights must be tested on 9600.\n";
 shaderText += "     \n";
 shaderText += "    // -- Lights ambient --\n";
-shaderText += "    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[int(i)].ambient.rgb);\n";
+shaderText += "    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[i].ambient.rgb);\n";
 shaderText += "    color += ambient;\n";
 shaderText += "\n";
 shaderText += "    // -- Lights diffuse --\n";
-shaderText += "    vec3 lightDir = gl_LightSource[int(i)].position.xyz;\n";
+shaderText += "    vec3 lightDir = gl_LightSource[i].position.xyz;\n";
 shaderText += "    half  NdotL = max( half(0.0), half(dot( normal, lightDir )) );\n";
-shaderText += "    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[int(i)].diffuse.rgb);\n";
+shaderText += "    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[i].diffuse.rgb);\n";
 shaderText += "    color += NdotL * diffuse;\n";
 shaderText += "\n";
-shaderText += "    // -- Apply decal --\n";
 if ( TEXTURING == 1 ) {
+shaderText += "    // -- Apply decal --\n";
 shaderText += "    color *= decalColor;\n";
 }
 shaderText += "\n";
-shaderText += "    // -- Specular --\n";
 if ( SHINING == 1 ) {
-shaderText += "    float NdotHV = dot( normal, gl_LightSource[int(i)].halfVector.xyz );\n";
+shaderText += "    // -- Specular --\n";
+shaderText += "    float NdotHV = dot( normal, gl_LightSource[i].halfVector.xyz );\n";
 shaderText += "    if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)\n";
 shaderText += "        // I don't see difference if we remove this if\n";
 shaderText += "    {\n";
-shaderText += "        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[int(i)].specular.rgb) *\n";
+shaderText += "        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb) *\n";
 shaderText += "            half(pow( NdotHV, glossiness ));\n";
 shaderText += "        color += specular;\n";
 shaderText += "    }\n";
@@ -133,7 +141,7 @@ shaderText += "\n";
 if ( FOG ) {
 shaderText += "    float fogFragCoord = length( eyeVec );\n";
 shaderText += "\n";
-if ( FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR ) {
+    if ( FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR ) {
 shaderText += "    half fog = half((gl_Fog.end - fogFragCoord) * gl_Fog.scale);\n";
     }
 shaderText += "\n";

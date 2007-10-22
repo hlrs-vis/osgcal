@@ -62,6 +62,13 @@ SubMeshHardware::SubMeshHardware( Model*                 _model,
 //                                                  30 /*OSGCAL_MAX_BONES_PER_MESH*/ ) );
 //     getStateSet()->addUniform( new osg::Uniform( osg::Uniform::FLOAT_MAT3, "rotationMatrices",
 //                                                  30 /*OSGCAL_MAX_BONES_PER_MESH*/ ) );
+
+    setUserData( getStateSet() /*any referenced*/ );
+    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
+    // (with merging & flattening turned on some color artefacts arise)
+    // TODO: how to completely disable FLATTEN_STATIC_TRANSFORMS on models?
+    // it copies vertex buffer (which is per model) for each submesh
+    // which takes too much memory
 }
 
 osg::Object*
@@ -638,6 +645,9 @@ SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
     setUseVertexBufferObjects( false ); // false is default
     setStateSet( hwMesh->getCoreModelMesh()->staticDepthStateSet.get() );
     dirtyBound();
+
+    setUserData( getStateSet() /*any referenced*/ );
+    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
 }
 
 void

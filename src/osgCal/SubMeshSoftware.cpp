@@ -46,6 +46,9 @@ SubMeshSoftware::SubMeshSoftware( Model*                 _model,
     setStateSet( mesh->stateSet.get() );
 
     create();
+
+    setUserData( getStateSet() /*any referenced*/ );
+    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
 }
 
 SubMeshSoftware::SubMeshSoftware( const SubMeshSoftware&, const osg::CopyOp& )

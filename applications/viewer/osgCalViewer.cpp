@@ -20,6 +20,7 @@
 #include <osgGA/TrackballManipulator>
 #include <osgGA/KeySwitchMatrixManipulator>
 #include <osg/Texture2D>
+#include <osgUtil/GLObjectsVisitor>
 
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
@@ -449,6 +450,24 @@ main( int argc,
     viewer.setCameraManipulator(new osgGA::TrackballManipulator());
     viewer.realize();
 
+    // -- Compile model objects (shaders, textures, etc.) --
+    std::vector< osg::GraphicsContext* > contexts;
+    viewer.getContexts( contexts );
+
+    for ( size_t i = 0; i < contexts.size(); i++ )
+    {
+        osg::GraphicsContext* gc = contexts[i];
+
+        gc->makeCurrent();
+
+        osg::ref_ptr< osgUtil::GLObjectsVisitor > glov = new osgUtil::GLObjectsVisitor;
+        glov->setState( gc->getState() );
+        lightSource0->accept( *(glov.get()) );
+
+        gc->releaseContext();
+    }
+
+    // -- Main loop --
     osg::Timer_t startTick = osg::Timer::instance()->tick();
 
     enum PauseState { Unpaused, Paused };

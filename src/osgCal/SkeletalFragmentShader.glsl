@@ -7,7 +7,7 @@
   # define half2   vec2
   # define half3   vec3
   # define half4   vec4
-  # define half3x3 mat3
+  # define half3x3 mat3  
 # endif
 
 #if TEXTURING == 1
@@ -71,8 +71,8 @@ void main()
     // precision errors on meshes with high glossiness, so we reverted to full precision.
 #endif
 
-    // -- Calculate decal (texture) color --
 #if TEXTURING == 1
+    // -- Calculate decal (texture) color --
   #if RGBA == 1
     half4 decalColor4 = half4(texture2D(decalMap, gl_TexCoord[0].st).rgba);
     half3 decalColor = decalColor4.rgb;
@@ -86,30 +86,38 @@ void main()
 
     half3 color = half3(globalAmbient);
 
-    float i = 0.0;
+    # define i 0
+    // ^ Strange but `int i=0;' or `float i=0.0;' & `gl_LightSource[int(i)]'
+    // doesn't work on R300 (radeon 9600).
+    // It says that 'available number of constants exceeded' for
+    // fragment shader (? ? ?).
+    // If `float i = 0.0' & `gl_LightSource[i]' used (`i' w/o cast to
+    // int) all works ok on ATI (? ? ?). NVidia warns that implicit cast
+    // is there. So now we just define i to be zero. Loop for several
+    // lights must be tested on 9600.
      
     // -- Lights ambient --
-    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[int(i)].ambient.rgb);
+    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[i].ambient.rgb);
     color += ambient;
 
     // -- Lights diffuse --
-    vec3 lightDir = gl_LightSource[int(i)].position.xyz;
+    vec3 lightDir = gl_LightSource[i].position.xyz;
     half  NdotL = max( half(0.0), half(dot( normal, lightDir )) );
-    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[int(i)].diffuse.rgb);
+    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[i].diffuse.rgb);
     color += NdotL * diffuse;
 
-    // -- Apply decal --
 #if TEXTURING == 1
+    // -- Apply decal --
     color *= decalColor;
 #endif
 
-    // -- Specular --
 #if SHINING == 1
-    float NdotHV = dot( normal, gl_LightSource[int(i)].halfVector.xyz );
+    // -- Specular --
+    float NdotHV = dot( normal, gl_LightSource[i].halfVector.xyz );
     if ( NdotHV > 0.0 ) // faster than use max(0,...) by 5% (at least on normal mapped)
         // I don't see difference if we remove this if
     {
-        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[int(i)].specular.rgb) *
+        half3 specular = half3(gl_FrontMaterial.specular.rgb * gl_LightSource[i].specular.rgb) *
             half(pow( NdotHV, glossiness ));
         color += specular;
     }
@@ -133,7 +141,7 @@ void main()
 #if FOG
     float fogFragCoord = length( eyeVec );
 
-#if FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR
+    #if FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR
     half fog = half((gl_Fog.end - fogFragCoord) * gl_Fog.scale);
     #endif
 
