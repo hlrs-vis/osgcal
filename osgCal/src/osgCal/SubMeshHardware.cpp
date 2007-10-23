@@ -172,9 +172,17 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         state.setTexCoordPointer( 0, 2, GL_FLOAT, 0, 0 );
     }
 
-//    BIND( VERTEX );
-    model->getVertexVbo()->compileBuffer( state );
-    model->getVertexVbo()->bindBuffer( state.getContextID() );
+    if ( model->getVertexVbo() )
+    {
+        // model's VBO is only needed for models with
+        // DONT_CALCULATE_VERTEX_IN_SHADER flags
+        model->getVertexVbo()->compileBuffer( state );
+        model->getVertexVbo()->bindBuffer( state.getContextID() );
+    }
+    else
+    {
+        BIND( VERTEX );        
+    }
     state.setVertexPointer( 3, GL_FLOAT, 0, 0);
 
     // -- Calculate and bind rotation/translation uniforms --
@@ -319,8 +327,14 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
 //     if ( program->getAttribLocation( "tangent" ) > 0 )
 //         state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
 
-//    UNBIND( VERTEX );
-    model->getVertexVbo()->unbindBuffer( state.getContextID() );
+    if ( model->getVertexVbo() )
+    {
+        model->getVertexVbo()->unbindBuffer( state.getContextID() );
+    }
+    else
+    {
+        UNBIND( VERTEX );        
+    }
     UNBIND( INDEX );
 
     //std::cout << "SubMeshHardware::drawImplementation: end" << std::endl;
