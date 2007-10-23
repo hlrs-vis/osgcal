@@ -148,13 +148,23 @@ Model::load( CoreModel* cm,
     {
         vertexBuffer = (VertexBuffer*) cm->getVertexBuffer()->clone( osg::CopyOp::DEEP_COPY_ALL );
         vertexBuffer->setDataVariance( DYNAMIC );
-        vertexVbo = coreModel->makeVbo( vertexBuffer.get() );
     }
     else
     {
         vertexBuffer = const_cast< VertexBuffer* >( cm->getVertexBuffer() );
-        vertexVbo = coreModel->getVbo( CoreModel::BI_VERTEX );
-        // no need to clone, since it won't be mutated
+    }
+
+    if ( coreModel->getFlags() & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER )
+    {
+        if ( hasAnimations )
+        {
+            vertexVbo = coreModel->makeVbo( vertexBuffer.get() );
+        }
+        else
+        {
+            vertexVbo = coreModel->getVbo( CoreModel::BI_VERTEX );
+            // no need to clone, since it won't be mutated
+        }
     }
 
     calModel = new CalModel( coreModel->getCalCoreModel() );
@@ -385,8 +395,11 @@ Model::accept( osg::NodeVisitor& nv )
             }
         }
 
-        vertexVbo->compileBuffer( *s );
-        vertexVbo->unbindBuffer( s->getContextID() );
+        if ( vertexVbo.valid() )
+        {
+            vertexVbo->compileBuffer( *s );
+            vertexVbo->unbindBuffer( s->getContextID() );
+        }
 
         for ( std::map< osg::StateSet*, bool >::iterator s = usedStateSets.begin();
               s != usedStateSets.end(); ++s )
