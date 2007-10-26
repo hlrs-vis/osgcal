@@ -208,6 +208,30 @@ class ToggleHandler : public osgGA::GUIEventHandler
 };
 
 
+class CompileStateSets : public osg::Operation
+{
+    public:
+        CompileStateSets( osg::Node* node )
+            : osg::Operation( "CompileStateSets", false )
+            , node( node )
+        {}
+        
+        virtual void operator () ( osg::Object* object )
+        {
+            osg::GraphicsContext* context = dynamic_cast< osg::GraphicsContext* >( object );
+            
+            if ( context )
+            {
+                osg::ref_ptr< osgUtil::GLObjectsVisitor > glov = new osgUtil::GLObjectsVisitor;
+                glov->setState( context->getState() );
+                node->accept( *(glov.get()) );
+            }
+        }
+
+    private:
+        
+        osg::Node* node;
+};
 
 int
 main( int argc,
@@ -448,24 +472,8 @@ main( int argc,
 //    viewer.getEventHandlerList().push_back( new osgGA::TrackballManipulator() );
 
     viewer.setCameraManipulator(new osgGA::TrackballManipulator());
+    viewer.setRealizeOperation( new CompileStateSets( lightSource0 ) );
     viewer.realize();
-
-    // -- Compile model objects (shaders, textures, etc.) --
-    std::vector< osg::GraphicsContext* > contexts;
-    viewer.getContexts( contexts );
-
-    for ( size_t i = 0; i < contexts.size(); i++ )
-    {
-        osg::GraphicsContext* gc = contexts[i];
-
-        gc->makeCurrent();
-
-        osg::ref_ptr< osgUtil::GLObjectsVisitor > glov = new osgUtil::GLObjectsVisitor;
-        glov->setState( gc->getState() );
-        lightSource0->accept( *(glov.get()) );
-
-        gc->releaseContext();
-    }
 
     // -- Main loop --
     osg::Timer_t startTick = osg::Timer::instance()->tick();
