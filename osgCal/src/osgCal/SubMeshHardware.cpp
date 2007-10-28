@@ -30,21 +30,12 @@ SubMeshHardware::SubMeshHardware( Model*                 _model,
     : coreModel( _model->getCoreModel() )
     , model( _model )
     , mesh( _mesh )
+    , deformed( false )
 {   
-    if ( mesh->rigid || coreModel->getAnimationNames().empty() )
-    {
-        setUseDisplayList( true );
-        setSupportsDisplayList( true );
-//         setUseDisplayList( false );
-//         setSupportsDisplayList( false );
-    }
-    else
-    {
-        setUseDisplayList( false );
-        setSupportsDisplayList( false );
-        // when set to true and animating huge fps falloff due to
-        // continuous display list rebuilding
-    }
+    setUseDisplayList( false );
+    setSupportsDisplayList( false );
+    // ^ no display lists since we create them manually
+    
     setUseVertexBufferObjects( false ); // false is default
 
     setStateSet( mesh->staticHardwareStateSet.get() );
@@ -71,6 +62,11 @@ SubMeshHardware::SubMeshHardware( Model*                 _model,
     // which takes too much memory
 }
 
+SubMeshHardware::~SubMeshHardware()
+{
+    releaseGLObjects(); // destroy our display lists
+}
+
 osg::Object*
 SubMeshHardware::cloneType() const
 {
@@ -89,16 +85,11 @@ SubMeshHardware::drawImplementation( osg::RenderInfo& renderInfo ) const
     drawImplementation( renderInfo, getStateSet() );
 }
 
-void
-SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
-                                     const osg::StateSet* stateSet ) const
+static
+const osg::Program::PerContextProgram*
+getProgram( osg::State& state,
+            const osg::StateSet* stateSet )
 {
-    //std::cout << "SubMeshHardware::drawImplementation: start" << std::endl;
-    osg::State& state = *renderInfo.getState();
-    
-    // -- Bind our vertex buffers --
-    state.disableAllVertexArrays();
-
     const osg::Program* stateProgram =
         static_cast< const osg::Program* >
         ( stateSet->getAttribute( osg::StateAttribute::PROGRAM ) );
@@ -108,10 +99,172 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     {
         throw std::runtime_error( "SubMeshHardware::drawImplementation(): can't get program (shader compilation failed?" );
     }
-    
-    const osg::Program::PerContextProgram* program =
-        stateProgram->getPCP( state.getContextID() );
 
+    return stateProgram->getPCP( state.getContextID() );
+}
+
+void
+SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
+                                     const osg::StateSet* stateSet ) const
+{
+    osg::State& state = *renderInfo.getState();
+
+    // -- Setup rotation/translation uniforms --
+    if ( deformed )
+    {
+        const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
+        const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
+
+        // -- Calculate and bind rotation/translation uniforms --
+        GLint rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices" );
+        if ( rotationMatricesAttrib < 0 )
+        {
+            rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices[0]" );
+            // Why the hell on ATI it has uniforms for each
+            // elements? (nVidia has only one uniform for the whole array)
+        }
+    
+        GLint translationVectorsAttrib = program->getUniformLocation( "translationVectors" );
+        if ( translationVectorsAttrib < 0 )
+        {
+            translationVectorsAttrib = program->getUniformLocation( "translationVectors[0]" );
+        }
+
+        if ( rotationMatricesAttrib < 0 && translationVectorsAttrib < 0 )
+        {
+            throw std::runtime_error( "no rotation/translation uniforms in deformed mesh?" );
+        }
+
+        for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
+        {
+            int boneId = mesh->getBoneId( boneIndex );
+
+            GLfloat         rotation[9];
+            GLfloat         translation[3];
+
+            model->getBoneRotationTranslation( boneId, rotation, translation );
+
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
+                                               1, GL_TRUE, rotation );
+            if ( translationVectorsAttrib >= 0 )
+            {
+                gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
+                                             1, translation );
+            }
+//             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
+//                                                1, GL_FALSE,
+//                                                rotationTranslationMatrices[ boneIndex ].first.ptr() );
+//             gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
+//                                          1,
+//                                          rotationTranslationMatrices[ boneIndex ].second.ptr() );
+        }
+    
+        GLfloat translation[3] = {0,0,0};
+        GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
+        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
+        if ( translationVectorsAttrib >= 0 )
+        {
+            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
+        }
+    }
+
+    if ( model->getVertexVbo() )
+    {
+        // model's VBO is only needed for models with
+        // DONT_CALCULATE_VERTEX_IN_SHADER flags
+        model->getVertexVbo()->compileBuffer( state );
+    }
+
+    // -- Call or create display list --
+    unsigned int contextID = renderInfo.getContextID();
+
+    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+
+    if( dl != 0 )
+    {
+        glCallList( dl );
+    }
+    else
+    {
+        dl = generateDisplayList( contextID, getGLObjectSizeHint() );
+
+        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet );
+        glEndList();
+
+        glCallList( dl );
+    }
+}
+
+void
+SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
+{
+    compileGLObjects( renderInfo, mesh->staticHardwareStateSet.get() );
+
+    if ( !mesh->rigid && !coreModel->getAnimationNames().empty() )
+    {
+        compileGLObjects( renderInfo, mesh->hardwareStateSet.get() );        
+    }
+}
+
+void
+SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
+                                  const osg::StateSet* stateSet ) const
+{
+    Geometry::compileGLObjects( renderInfo );
+    unsigned int contextID = renderInfo.getContextID();
+
+    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+
+    if( dl == 0 )
+    {
+        dl = generateDisplayList( contextID, getGLObjectSizeHint() );
+
+        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet );
+        glEndList();
+    }
+}
+
+void
+SubMeshHardware::releaseGLObjects(osg::State* state) const
+{
+    Geometry::releaseGLObjects( state );
+
+    for ( DisplayListsMap::iterator dls = displayLists.begin(); dls != displayLists.end(); ++dls )
+    {
+        if ( state )
+        {
+            GLuint& dl = dls->second[ state->getContextID() ];
+            if( dl != 0 )
+            {
+                Drawable::deleteDisplayList( state->getContextID(), dl, getGLObjectSizeHint() );
+                dl = 0;
+            }    
+        }
+        else
+        {
+            for( size_t i = 0; i < dls->second.size(); i++ )
+            {
+                if ( dls->second[i] != 0 )
+                {
+                    Drawable::deleteDisplayList( i, dls->second[i], getGLObjectSizeHint() );
+                    dls->second[i] = 0;
+                }
+            }            
+        }
+    }
+}
+
+void
+SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
+                                          const osg::StateSet* stateSet ) const
+{   
+    osg::State& state = *renderInfo.getState();
+    const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
+    const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
+    
+    // -- Bind our vertex buffers --
 #define BIND(_type)                                                     \
     coreModel->getVbo(CoreModel::BI_##_type)->compileBuffer( state );   \
     coreModel->getVbo(CoreModel::BI_##_type)->bindBuffer( state.getContextID() )
@@ -174,9 +327,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
 
     if ( model->getVertexVbo() )
     {
-        // model's VBO is only needed for models with
-        // DONT_CALCULATE_VERTEX_IN_SHADER flags
-        model->getVertexVbo()->compileBuffer( state );
         model->getVertexVbo()->bindBuffer( state.getContextID() );
     }
     else
@@ -184,63 +334,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         BIND( VERTEX );        
     }
     state.setVertexPointer( 3, GL_FLOAT, 0, 0);
-
-    // -- Calculate and bind rotation/translation uniforms --
-    const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
-
-    GLint rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices" );
-    if ( rotationMatricesAttrib < 0 )
-    {
-        rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices[0]" );
-        // Why the hell on ATI it has uniforms for each
-        // elements? (nVidia has only one uniform for the whole array)
-    }
-    
-    GLint translationVectorsAttrib = program->getUniformLocation( "translationVectors" );
-    if ( translationVectorsAttrib < 0 )
-    {
-        translationVectorsAttrib = program->getUniformLocation( "translationVectors[0]" );
-    }
-
-    if ( rotationMatricesAttrib < 0 && translationVectorsAttrib < 0 )
-    {
-        ; // in static shader we can get no rotation/translation attributes
-    }
-    else
-    {
-        // otherwise setup uniforms
-        for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
-        {
-            int boneId = mesh->getBoneId( boneIndex );
-
-            GLfloat         rotation[9];
-            GLfloat         translation[3];
-
-            model->getBoneRotationTranslation( boneId, rotation, translation );
-
-            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
-                                               1, GL_TRUE, rotation );
-            if ( translationVectorsAttrib >= 0 )
-            {
-                gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
-                                             1, translation );
-            }
-//             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
-//                                                1, GL_FALSE,
-//                                                rotationTranslationMatrices[ boneIndex ].first.ptr() );
-//             gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
-//                                          1,
-//                                          rotationTranslationMatrices[ boneIndex ].second.ptr() );
-        }
-    
-        GLfloat translation[3] = {0,0,0};
-        GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
-        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
-        if ( translationVectorsAttrib >= 0 )
-        {
-            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
-        }
-    }
 
     // get mesh material to restore glColor after glDrawElements call
     const osg::Material* material = static_cast< const osg::Material* >
@@ -311,21 +404,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     //glError();
 
     state.disableAllVertexArrays();
-//     state.disableVertexPointer();
-//     if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
-//          || mesh->hwStateDesc.bumpMap != "" )
-//     {
-//         state.disableTexCoordPointer( 0 );
-//     }
-//     state.disableNormalPointer();
-//     if ( program->getAttribLocation( "weight" ) > 0 )
-//         state.disableVertexAttribPointer(program->getAttribLocation( "weight" ));
-//     if ( program->getAttribLocation( "index" ) > 0 )
-//         state.disableVertexAttribPointer(program->getAttribLocation( "index" ));
-//     if ( program->getAttribLocation( "binormal" ) > 0 )
-//         state.disableVertexAttribPointer(program->getAttribLocation( "binormal" ));
-//     if ( program->getAttribLocation( "tangent" ) > 0 )
-//         state.disableVertexAttribPointer(program->getAttribLocation( "tangent" ));
 
     if ( model->getVertexVbo() )
     {
@@ -336,8 +414,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         UNBIND( VERTEX );        
     }
     UNBIND( INDEX );
-
-    //std::cout << "SubMeshHardware::drawImplementation: end" << std::endl;
 }
 
 void
@@ -425,7 +501,7 @@ rtDistance( const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v1,
 void
 SubMeshHardware::update()
 {   
-    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
+    if ( mesh->rigid )
     {
         return; // no bones - no update
     }
@@ -433,7 +509,7 @@ SubMeshHardware::update()
     // -- Setup rotation matrices & translation vertices --
     std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
 
-    bool deformed = false;
+    deformed = false;
 
     for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
     {
@@ -668,6 +744,19 @@ void
 SubMeshDepth::drawImplementation(osg::RenderInfo& renderInfo) const
 {
     hwMesh->drawImplementation( renderInfo, getStateSet() );
+}
+
+void
+SubMeshDepth::compileGLObjects(osg::RenderInfo& renderInfo) const
+{
+    const CoreModel::Mesh* mesh = hwMesh->getCoreModelMesh();
+
+    hwMesh->compileGLObjects( renderInfo, mesh->staticDepthStateSet.get() );
+
+    if ( !mesh->rigid && !hwMesh->getCoreModel()->getAnimationNames().empty() )
+    {
+        hwMesh->compileGLObjects( renderInfo, mesh->depthStateSet.get() );
+    }
 }
 
 void

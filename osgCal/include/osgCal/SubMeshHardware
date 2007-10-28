@@ -42,6 +42,8 @@ namespace osgCal
             virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
             void update( bool deformed );
 
+            virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
+
             osg::BoundingBox computeBound() const;
 
             /**
@@ -59,7 +61,6 @@ namespace osgCal
     {
         public:
            
-//            SubMeshHardware();
             osg::Object* cloneType() const;
             osg::Object* clone( const osg::CopyOp& ) const;
             virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const SubMeshHardware *>(obj)!=NULL; }
@@ -71,21 +72,29 @@ namespace osgCal
              */
             SubMeshHardware( Model*                 model,
                              const CoreModel::Mesh* mesh );
+            ~SubMeshHardware();
+
 
             virtual void drawImplementation( osg::RenderInfo& renderInfo ) const;
             /**
              * Real draw implementation called from SubMeshHardware & SubMeshDepth.
              * They differ in only in state sets so pass it explicitly.
-             * We can't use state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM )
-             * since it doesn't set when compiling display lists (BTW: why?)
              */
             void drawImplementation( osg::RenderInfo&     renderInfo,
                                      const osg::StateSet* stateSet) const;
+
+            virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
+            virtual void compileGLObjects(osg::RenderInfo& renderInfo,
+                                          const osg::StateSet* stateSet ) const;
+            virtual void releaseGLObjects(osg::State* state=0) const;
+
+
             void create();
             void update();
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 
+            const CoreModel*       getCoreModel()     const { return coreModel; }
             const CoreModel::Mesh* getCoreModelMesh() const { return mesh; }
 
             /**
@@ -109,7 +118,26 @@ namespace osgCal
             std::vector< std::pair< osg::Matrix3, osg::Vec3f > >
                                         previousRotationTranslationMatrices;
             osg::ref_ptr< SubMeshDepth > depthSubMesh;
+            bool                        deformed;
 
+            typedef std::map< osg::StateSet*, GLObjectList > DisplayListsMap;
+            mutable DisplayListsMap displayLists;
+            // TODO: make it per CoreModel (move to CoreModel::Mesh)
+            // if we still support DONT_CALCULATE_VERTEX_IN_SHADER
+            // then we also need to index them per vertex VBO (and
+            // remove in ~Model), or make it per-model in this case
+            // (which is also PITA)
+            // TODO: merge SubMeshDepth & SubMeshHardware into one
+            // class and move all shared part into other structure.
+            
+            /**
+             * Draw implementation part which resides in the display
+             * list.
+             * It performs all the drawing related calls except
+             * rotation/translation uniforms setup (which is mesh dependent).
+             */
+            void innerDrawImplementation( osg::RenderInfo&     renderInfo,
+                                          const osg::StateSet* stateSet ) const;
     };
 
 }; //namespace osgCal
