@@ -386,6 +386,7 @@ Model::accept( osg::NodeVisitor& nv )
         
         osg::State* s = glv->getState();
 
+        // -- Compile all our buffers --
         for ( int i = 0; i < CoreModel::BI_TOTAL_COUNT; i++ )
         {
             if ( coreModel->getVbo( i ) )
@@ -401,6 +402,7 @@ Model::accept( osg::NodeVisitor& nv )
             vertexVbo->unbindBuffer( s->getContextID() );
         }
 
+        // -- Compile shaders --
         for ( std::map< osg::StateSet*, bool >::iterator s = usedStateSets.begin();
               s != usedStateSets.end(); ++s )
         {
@@ -409,8 +411,8 @@ Model::accept( osg::NodeVisitor& nv )
 
         usedStateSets.clear();
 
+        // -- Compile display lists and (maybe) user assigned sub-nodes --
         osg::Group::accept( nv );
-        // ^ to compile display lists and (maybe) user assigned sub nodes
     }
     else
     {

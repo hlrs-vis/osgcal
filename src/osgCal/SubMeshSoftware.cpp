@@ -145,7 +145,7 @@ mul3( const osg::Matrix3& m,
 void
 SubMeshSoftware::update()
 {
-    if ( mesh->maxBonesInfluence == 0 || mesh->rigid )
+    if ( mesh->rigid )
     {
         return; // no bones - no update
     }
