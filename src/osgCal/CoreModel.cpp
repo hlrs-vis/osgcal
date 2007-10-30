@@ -1081,13 +1081,11 @@ setupTransparentStateSet( osg::StateSet* stateSet )
 
     // enable blending
     stateSet->setAttributeAndModes( stateAttributes.blending.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
+                                    osg::StateAttribute::ON );
 
     // turn off depth writes
     stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
+                                    osg::StateAttribute::ON );
 }
 
 SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
@@ -1109,7 +1107,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
 
     // -- setup material --
     osg::Material* material = materialsCache->get( desc.material );
-    stateSet->setAttributeAndModes(material, osg::StateAttribute::ON);    
+    stateSet->setAttributeAndModes( material, osg::StateAttribute::ON );    
 
     // -- setup diffuse map --
     if ( desc.diffuseMap != "" )
