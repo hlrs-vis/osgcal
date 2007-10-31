@@ -137,7 +137,9 @@ namespace osgCal
              * rotation/translation uniforms setup (which is mesh dependent).
              */
             void innerDrawImplementation( osg::RenderInfo&     renderInfo,
-                                          const osg::StateSet* stateSet ) const;
+                                          const osg::StateSet* stateSet,
+                                          GLuint               displayList = 0
+                ) const;
     };
 
 }; //namespace osgCal

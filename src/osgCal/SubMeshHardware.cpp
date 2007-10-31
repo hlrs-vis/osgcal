@@ -188,9 +188,9 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-        glNewList( dl, GL_COMPILE );
-        innerDrawImplementation( renderInfo, stateSet );
-        glEndList();
+//        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet, dl );
+//        glEndList();
 
         glCallList( dl );
     }
@@ -220,9 +220,9 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-        glNewList( dl, GL_COMPILE );
-        innerDrawImplementation( renderInfo, stateSet );
-        glEndList();
+//        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet, dl );
+//        glEndList();
     }
 }
 
@@ -258,7 +258,8 @@ SubMeshHardware::releaseGLObjects(osg::State* state) const
 
 void
 SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
-                                          const osg::StateSet* stateSet ) const
+                                          const osg::StateSet* stateSet,
+                                          GLuint               displayList ) const
 {   
     osg::State& state = *renderInfo.getState();
     const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
@@ -374,6 +375,9 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 #define SET_FACE_UNIFORM(_fu) \
     if ( faceUniform >= 0 ) gl2extensions->glUniform1f( faceUniform, _fu );
 
+    if ( displayList != 0 )
+        glNewList( displayList, GL_COMPILE );
+
     if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
          & osg::StateSet::TRANSPARENT_BIN )
     {
@@ -400,6 +404,9 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         DRAW; // simple draw for single-sided (or two-sided with gl_FrontFacing)
               // non-transparent meshes
     }
+
+    if ( displayList != 0 )
+        glEndList();
     
     //glError();
 
