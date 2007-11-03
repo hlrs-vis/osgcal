@@ -13,9 +13,9 @@
 
 #if BONES_COUNT >= 1
 attribute vec4 weight;
-attribute ivec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec
-                          (but gl_FrontFacing is not used with 17.9)
-                          but it's not compatible with ATI cards */
+attribute vec4 index; /* ivec is not compatible with ATI cards and
+                       * strangely enough it doesn't work on 8600
+                       * (driver bug?), while working on 6600 */
 
 uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];
