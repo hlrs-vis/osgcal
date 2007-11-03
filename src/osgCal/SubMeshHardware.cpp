@@ -135,30 +135,25 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
             throw std::runtime_error( "no rotation/translation uniforms in deformed mesh?" );
         }
 
+        GLfloat rotationMatrices[9*31];
+        GLfloat translationVectors[3*31];
+        
+
         for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
         {
-            int boneId = mesh->getBoneId( boneIndex );
-
-            GLfloat         rotation[9];
-            GLfloat         translation[3];
-
-            model->getBoneRotationTranslation( boneId, rotation, translation );
-
-            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
-                                               1, GL_TRUE, rotation );
-            if ( translationVectorsAttrib >= 0 )
-            {
-                gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
-                                             1, translation );
-            }
-//             gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + boneIndex,
-//                                                1, GL_FALSE,
-//                                                rotationTranslationMatrices[ boneIndex ].first.ptr() );
-//             gl2extensions->glUniform3fv( translationVectorsAttrib + boneIndex,
-//                                          1,
-//                                          rotationTranslationMatrices[ boneIndex ].second.ptr() );
+            model->getBoneRotationTranslation( mesh->getBoneId( boneIndex ),
+                                               &rotationMatrices[boneIndex*9],
+                                               &translationVectors[boneIndex*3] );
         }
     
+        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
+                                           mesh->getBonesCount(), GL_TRUE, rotationMatrices );
+        if ( translationVectorsAttrib >= 0 )
+        {
+            gl2extensions->glUniform3fv( translationVectorsAttrib,
+                                         mesh->getBonesCount(), translationVectors );
+        }
+
         GLfloat translation[3] = {0,0,0};
         GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
@@ -194,11 +189,14 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
 
         glCallList( dl );
     }
+//     innerDrawImplementation( renderInfo, stateSet );
 }
 
 void
 SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
+    Geometry::compileGLObjects( renderInfo );
+
     compileGLObjects( renderInfo, mesh->staticHardwareStateSet.get() );
 
     if ( !mesh->rigid && !coreModel->getAnimationNames().empty() )
@@ -211,7 +209,6 @@ void
 SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
                                   const osg::StateSet* stateSet ) const
 {
-    Geometry::compileGLObjects( renderInfo );
     unsigned int contextID = renderInfo.getContextID();
 
     GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
