@@ -68,10 +68,13 @@ void main()
 
   #if !DONT_CALCULATE_VERTEX
     vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
   #else
-    gl_Position = ftransform();
+    vec3 transformedPosition = gl_Vertex.xyz;
   #endif
+    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
+//     # ifdef __GLSL_CG_DATA_TYPES
+//     gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
+//     # endif
 
 #if FOG
     eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -97,6 +100,9 @@ void main()
 
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
+//     # ifdef __GLSL_CG_DATA_TYPES
+//     gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
+//     # endif
 #if FOG
     eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #endif // no fog

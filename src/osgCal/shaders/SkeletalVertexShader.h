@@ -68,10 +68,13 @@ shaderText += "    totalTranslation += weight.w * translationVectors[int(index.w
 shaderText += "\n";
   if ( !DONT_CALCULATE_VERTEX ) {
 shaderText += "    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;\n";
-shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
   } else {
-shaderText += "    gl_Position = ftransform();\n";
+shaderText += "    vec3 transformedPosition = gl_Vertex.xyz;\n";
   }
+shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
+//shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
+shaderText += "//     gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);\n";
+//shaderText += "     # endif\n";
 shaderText += "\n";
 if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
@@ -97,6 +100,9 @@ shaderText += "\n";
 shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
 shaderText += "    gl_Position = ftransform();\n";
+//shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
+shaderText += "//     gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+//shaderText += "     # endif\n";
 if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 } // no fog
