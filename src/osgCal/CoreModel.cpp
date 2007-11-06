@@ -1084,8 +1084,9 @@ setupTransparentStateSet( osg::StateSet* stateSet )
                                     osg::StateAttribute::ON );
 
     // turn off depth writes
-    stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
-                                    osg::StateAttribute::ON );
+//     stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
+//                                     osg::StateAttribute::ON );
+    // ^ incorrect in cases when transparency is used as alpha test
 }
 
 SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
@@ -1298,6 +1299,12 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
         stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                         osg::StateAttribute::ON |
                                         osg::StateAttribute::PROTECTED );
+        // ^ need LEQUAL instead of LESS since depth values are
+        // already written, also there is no need to write depth
+        // values
+        // TODO: depth first meshes are incompatible with transparent
+        // ones, since they need to be drawn last (TRANSPARENT_BIN) in
+        // back to fron order.
     }
     
     return stateSet;
