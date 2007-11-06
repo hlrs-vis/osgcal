@@ -40,6 +40,16 @@ shaderText += "varying vec3 eyeVec;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
+shaderText += "//     if ( dot( eyeVec, gl_ClipPlane[0].xyz ) + gl_ClipPlane[0].w < 0.0 \n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[1].xyz ) + gl_ClipPlane[1].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[2].xyz ) + gl_ClipPlane[2].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[3].xyz ) + gl_ClipPlane[3].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[4].xyz ) + gl_ClipPlane[4].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[5].xyz ) + gl_ClipPlane[5].w < 0.0\n";
+shaderText += "//         )\n";
+shaderText += "//     {        \n";
+shaderText += "//         discard; // <- VERY SLOW, nearly twice slower\n";
+shaderText += "//     }\n";
 shaderText += "    // -- Calculate normal --\n";
 if ( GL_FRONT_FACING == 1 ) {
 shaderText += "    half face = gl_FrontFacing ? half(1.0) : half(-1.0);\n";
