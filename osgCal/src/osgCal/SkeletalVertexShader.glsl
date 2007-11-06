@@ -90,12 +90,31 @@ void main()
 // For not so hi-poly scenes gl_ClipVertex slowdown is 2-4%.
 // gl_ClipVertex slowdown is independent on whether glClipPlane is
 // used or not.
-// It's better to make separate shaders and determine at the draw time
-// which to use. But we can get too many shaders? And also clip planes
-// shader must be also compiled at the GLObjectsVisitor stage (but can
-// be not used). And what about ATI? People say it fails to software
-// mode when gl_ClipVertex is set. Is clipping performed w/o
-// gl_ClipVertex on ATI? Then separate shader would be unnecessary on ATI.
+//
+// For performance it's better to make separate shaders and determine
+// at the draw time which to use. But we can get too many shaders
+// (count of shaders is doubled with another option in vertex shader).
+// And also shader with clip planes support must be also compiled at
+// the GLObjectsVisitor stage (but can be not used).
+
+// ATI doesn't support programmable clipping, gl_ClipVertex assignment
+// in shaders throw it into software mode. ATI only support fixed
+// function clipping, when ftransform() is used. I.e. we can't get
+// correct clipping for our deformed meshes on ATI.
+//
+// R300/R400 ATI chips also doesn't support branching, so fragment
+// shader culling can be very slow?
+
+// Seems that we need separate shaders (with or w/o culling) and
+// switch culling shader only when it's necessary (since it also kills
+// speed-up at depth first pass). Also we can support only one
+// clipping plane for better performance.
+// To not make too many shaders when it not needed we may create
+// separate USE_CLIP_PLANES_CULLING flag.
+// `discard' in fragment shader is VERY slow. So for rigid meshes we
+// need turn on hardware culling, also we need two paths one for
+// NVidia with gl_ClipVertex used and one for ATI with discard.
+// Maybe not support clipping of dynamic meshes on ATI at all?
 
 #if FOG
     eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
