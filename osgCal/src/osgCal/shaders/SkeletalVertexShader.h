@@ -33,6 +33,8 @@ if ( FOG ) {
 shaderText += "varying vec3 eyeVec;\n";
 }
 shaderText += "\n";
+shaderText += "//uniform bool clipPlanesUsed;\n";
+shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
 if ( TEXTURING == 1 || NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
@@ -73,8 +75,27 @@ shaderText += "    vec3 transformedPosition = gl_Vertex.xyz;\n";
   }
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
 //shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
-shaderText += "//     gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);\n";
+shaderText += "//     if ( clipPlanesUsed )\n";
+shaderText += "//     {\n";
+shaderText += "//         gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);\n";
+shaderText += "//     } \n";
 //shaderText += "     # endif\n";
+shaderText += "//  8.5 -- no clip planes\n";
+shaderText += "// 10.2 -- gl_ClipVertex always set (20% slowdown, on both 6600 and 8600)\n";
+shaderText += "// 10.8 -- if ( clipPlanesUsed /* == true */  ) gl_ClipVertex = ...\n";
+shaderText += "//  9.2 -- if ( clipPlanesUsed /* == false */ ) gl_ClipVertex = ...\n";
+shaderText += "// i.e.:\n";
+shaderText += "//    if ( clipPlanesUsed )  ~ 0.6-0.7 ms (uniform brancing is not optimized!)\n";
+shaderText += "//    gl_ClipVertex = ...    ~ 1.6 ms\n";
+shaderText += "// For not so hi-poly scenes gl_ClipVertex slowdown is 2-4%.\n";
+shaderText += "// gl_ClipVertex slowdown is independent on whether glClipPlane is\n";
+shaderText += "// used or not.\n";
+shaderText += "// It's better to make separate shaders and determine at the draw time\n";
+shaderText += "// which to use. But we can get too many shaders? And also clip planes\n";
+shaderText += "// shader must be also compiled at the GLObjectsVisitor stage (but can\n";
+shaderText += "// be not used). And what about ATI? People say it fails to software\n";
+shaderText += "// mode when gl_ClipVertex is set. Is clipping performed w/o\n";
+shaderText += "// gl_ClipVertex on ATI? Then separate shader would be unnecessary on ATI.\n";
 shaderText += "\n";
 if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
@@ -101,7 +122,10 @@ shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
 shaderText += "    gl_Position = ftransform();\n";
 //shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
-shaderText += "//     gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+shaderText += "//     if ( clipPlanesUsed )\n";
+shaderText += "//     {\n";
+shaderText += "//         gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+shaderText += "//     }\n";
 //shaderText += "     # endif\n";
 if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";

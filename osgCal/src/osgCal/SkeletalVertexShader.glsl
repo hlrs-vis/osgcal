@@ -33,6 +33,8 @@ varying vec3 transformedNormal;
 varying vec3 eyeVec;
 #endif
 
+//uniform bool clipPlanesUsed;
+
 void main()
 {
 #if TEXTURING == 1 || NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
@@ -73,8 +75,27 @@ void main()
   #endif
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
 //     # ifdef __GLSL_CG_DATA_TYPES
-//     gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
+//     if ( clipPlanesUsed )
+//     {
+//         gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
+//     } 
 //     # endif
+//  8.5 -- no clip planes
+// 10.2 -- gl_ClipVertex always set (20% slowdown, on both 6600 and 8600)
+// 10.8 -- if ( clipPlanesUsed /* == true */  ) gl_ClipVertex = ...
+//  9.2 -- if ( clipPlanesUsed /* == false */ ) gl_ClipVertex = ...
+// i.e.:
+//    if ( clipPlanesUsed )  ~ 0.6-0.7 ms (uniform brancing is not optimized!)
+//    gl_ClipVertex = ...    ~ 1.6 ms
+// For not so hi-poly scenes gl_ClipVertex slowdown is 2-4%.
+// gl_ClipVertex slowdown is independent on whether glClipPlane is
+// used or not.
+// It's better to make separate shaders and determine at the draw time
+// which to use. But we can get too many shaders? And also clip planes
+// shader must be also compiled at the GLObjectsVisitor stage (but can
+// be not used). And what about ATI? People say it fails to software
+// mode when gl_ClipVertex is set. Is clipping performed w/o
+// gl_ClipVertex on ATI? Then separate shader would be unnecessary on ATI.
 
 #if FOG
     eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -101,7 +122,10 @@ void main()
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
 //     # ifdef __GLSL_CG_DATA_TYPES
-//     gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
+//     if ( clipPlanesUsed )
+//     {
+//         gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
+//     }
 //     # endif
 #if FOG
     eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;

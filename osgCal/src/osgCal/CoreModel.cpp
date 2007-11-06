@@ -159,6 +159,17 @@ class SkeletalShadersSet : public osg::Referenced
 
         osg::Program* get( int flags )
         {
+//             if ( flags &
+//                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
+//                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
+//             {
+//                 flags &= ~SHADER_FLAG_BONES(0)
+//                     & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
+//                     & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
+//                 flags |= SHADER_FLAG_BONES(4);
+//             }
+//           BTW, not so much difference between always 4 bone and per-bones count shaders
+
             if ( flags & SHADER_FLAG_DEPTH_ONLY )
             {
                 if ( flags & SHADER_FLAG_DONT_CALCULATE_VERTEX )
@@ -248,16 +259,6 @@ class SkeletalShadersSet : public osg::Referenced
                 // ^ vertex shader only need to know that FOG is needed
                 // fog mode is irrelevant
             }
-//             if ( flags &
-//                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
-//                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
-//             {
-//                 flags &= ~SHADER_FLAG_BONES(0)
-//                     & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-//                     & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
-//                 flags |= SHADER_FLAG_BONES(4);
-//             }
-//           BTW, not so much difference between always 4 bone and per-bones count shaders
 
             ShadersMap::const_iterator smi = vertexShaders.find( flags );
 
@@ -1307,6 +1308,10 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
         // back to fron order.
     }
     
+//     static osg::ref_ptr< osg::Uniform > clipPlanesUsed =
+//         new osg::Uniform( "clipPlanesUsed", false );
+//     stateSet->addUniform( clipPlanesUsed.get() );
+
     return stateSet;
 }
 
