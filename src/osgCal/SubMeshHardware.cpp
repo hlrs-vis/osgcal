@@ -15,6 +15,10 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+// #define GL_GLEXT_PROTOTYPES <- for glDrawRangeElements
+// #include <GL/gl.h>
+// #include <GL/glext.h>
+
 #include <osg/VertexProgram>
 #include <osg/GL2Extensions>
 #include <osg/CullFace>
@@ -319,17 +323,15 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         ( stateSet->getAttribute( osg::StateAttribute::MATERIAL ) );
 
     // -- Draw our indexed triangles --
+    // no visible speedup when using glDrawRangeElements
 #define DRAW                                                            \
-    if ( sizeof(CalIndex) == 2 )                                        \
-        glDrawElements( GL_TRIANGLES,                                   \
-                        mesh->getIndexesCount(),                        \
-                        GL_UNSIGNED_SHORT,                              \
-                        ((CalIndex *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() );   \
-    else                                                                \
-        glDrawElements( GL_TRIANGLES,                                   \
-                        mesh->getIndexesCount(),                        \
-                        GL_UNSIGNED_INT,                                \
-                        ((CalIndex *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() );   \
+    glDrawElements/*glDrawRangeElements*/(                              \
+        GL_TRIANGLES,                                                   \
+        /*mesh->hardwareMesh.baseVertexIndex,*/                         \
+        /*mesh->hardwareMesh.baseVertexIndex + mesh->hardwareMesh.vertexCount,*/ \
+        mesh->getIndexesCount(),                                        \
+        GL_UNSIGNED_INT,                                                \
+        ((GLuint *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() ); \
     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     // TODO: ^ color restoring doesn't allow material overriding
     // since we get mesh material color, not last applied one (there is
@@ -572,8 +574,8 @@ SubMeshHardware::update()
     const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
     const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
    
-    int baseIndex = mesh->hardwareMesh->baseVertexIndex;
-    int vertexCount = mesh->hardwareMesh->vertexCount;
+    int baseIndex = mesh->hardwareMesh.baseVertexIndex;
+    int vertexCount = mesh->hardwareMesh.vertexCount;
     
     osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
     const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   

@@ -188,8 +188,8 @@ SubMeshSoftware::update()
     const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
     const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
 
-    int baseIndex = mesh->hardwareMesh->baseVertexIndex;
-    int vertexCount = mesh->hardwareMesh->vertexCount;
+    int baseIndex = mesh->hardwareMesh.baseVertexIndex;
+    int vertexCount = mesh->hardwareMesh.vertexCount;
     
     osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
     osg::Vec3f*        n  = &nb.front()  + baseIndex; /* dest normal */   

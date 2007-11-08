@@ -270,7 +270,6 @@ static SkeletalShadersSet* skeletalShadersSet = NULL;
 
 CoreModel::CoreModel()
     : calCoreModel( 0 )
-    , calHardwareModel( 0 )
 {
 //     std::cout << "CoreModel::CoreModel()" << std::endl;
     texturesCache = new TexturesCache();
@@ -307,7 +306,6 @@ CoreModel::~CoreModel()
     meshes.clear();
     
     // cleanup of non-auto released resources
-    delete calHardwareModel;
     delete calCoreModel;
 
     depthMeshStateSetCache->unref();
@@ -374,6 +372,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 
     std::vector< std::string > meshNames;
     std::auto_ptr< VBOs > bos;
+    std::auto_ptr< CalHardwareModel > calHardwareModel;
 
     if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
          || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
@@ -381,8 +380,8 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         // -- Load model and hw model from model --
         calCoreModel = loadCoreModel( cfgFileName, scale );
 
-        calHardwareModel = new CalHardwareModel(calCoreModel);
-        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel ) );
+        calHardwareModel = std::auto_ptr< CalHardwareModel >( new CalHardwareModel( calCoreModel ) );
+        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel.get() ) );
         //saveVBOs( bos, dir + "/vbos.cache" );
         //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
         // ^ it's not loading task, cache preparation is export task
@@ -417,9 +416,10 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         //std::cout << "loaded from cache" << std::endl;
         //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
         //std::cout << "faceCount = "   << bos->faceCount << std::endl;
-        calHardwareModel = loadHardwareModel( calCoreModel,
-                                              HWModelCacheFileName( cfgFileName ),
-                                              meshNames );
+        calHardwareModel = std::auto_ptr< CalHardwareModel >(
+            loadHardwareModel( calCoreModel,
+                               HWModelCacheFileName( cfgFileName ),
+                               meshNames ) );
 //         }
 //         else
 //         {
@@ -438,11 +438,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         // -- Setup some fields --
         Mesh m;
 
-        m.hardwareMeshId = hardwareMeshId;
-        m.hardwareMesh   = &calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
+        //m.hardwareMeshId = hardwareMeshId;
+        m.hardwareMesh   = calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
         m.name           = meshNames[ hardwareMeshId ];
 
-        if ( m.hardwareMesh->faceCount == 0 )
+        if ( m.hardwareMesh.faceCount == 0 )
         {
             continue; // rare case, first reported by Ovidiu Sabou
                       // it not caused any bug on my machine,
@@ -501,7 +501,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
                 throw std::runtime_error( "must be one bone in this mesh" );
             }
 
-            m.rigidBoneId = m.hardwareMesh->m_vectorBonesIndices[ 0 ];
+            m.rigidBoneId = m.hardwareMesh.m_vectorBonesIndices[ 0 ];
         }
 
         if ( m.maxBonesInfluence == 0 ) // unrigged mesh
@@ -518,7 +518,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         }
 
         // -- Setup state sets --
-        m.hwStateDesc = HwStateDesc( m.hardwareMesh->pCoreMaterial, dir );
+        m.hwStateDesc = HwStateDesc( m.hardwareMesh.pCoreMaterial, dir );
         if ( !m.hwStateDesc.normalsMap.empty() || !m.hwStateDesc.bumpMap.empty() )
         {
             needTBN = true;
@@ -541,11 +541,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 
         osg::notify( osg::INFO )
             << "mesh: " << m.name << std::endl
-            << "material: " << m.hardwareMesh->pCoreMaterial->getName() << std::endl
+            << "material: " << m.hardwareMesh.pCoreMaterial->getName() << std::endl
             << m.hwStateDesc << std::endl
             << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
-            << "  m.hardwareMesh->meshId    = " << m.hardwareMesh->meshId << std::endl
-            << "  m.hardwareMesh->submeshId = " << m.hardwareMesh->submeshId << std::endl
+            << "  m.hardwareMesh.meshId     = " << m.hardwareMesh.meshId << std::endl
+            << "  m.hardwareMesh.submeshId  = " << m.hardwareMesh.submeshId << std::endl
             << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
             << "  m.indexesCount            = " << m.getIndexesCount() << std::endl
             << "  m.rigid                   = " << m.rigid << std::endl;

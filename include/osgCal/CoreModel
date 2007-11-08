@@ -297,7 +297,6 @@ namespace osgCal
                               int                flags = 0 ) throw ();
 
             CalCoreModel*       getCalCoreModel() const     { return calCoreModel; }
-            CalHardwareModel*   getCalHardwareModel() const { return calHardwareModel; }
 
             int getFlags() const { return flags; }
 
@@ -309,8 +308,6 @@ namespace osgCal
                         : maxBonesInfluence( 0 )
                         , rigid( false )
                         , rigidBoneId( -1 )
-                        , hardwareMeshId( -1 )
-                        , hardwareMesh( 0 )
                     {}
                     
                     std::string                   name;
@@ -330,21 +327,13 @@ namespace osgCal
                      */
                     int                           rigidBoneId;
                     
-                    int                           hardwareMeshId;
-                    /// corresponding hardware mesh, may be NULL ()
-                    // TODO: we must automatically determine which meshes are software,
-                    // i.e. used for picking, springs, collision, etc.
-                    // also some meshes may be invisible, but calculating (collision, picking)
-                    // some meshes may be visible only in some configurations
-                    // and finally some meshes can have more than one material set
-                    // for different skins
-                    CalHardwareModel::CalHardwareMesh*  hardwareMesh;
+                    CalHardwareModel::CalHardwareMesh  hardwareMesh;
 
-                    int getIndexInVbo() const   { return hardwareMesh->startIndex; }
-                    int getIndexesCount() const { return hardwareMesh->faceCount * 3; }
+                    int getIndexInVbo() const   { return hardwareMesh.startIndex; }
+                    int getIndexesCount() const { return hardwareMesh.faceCount * 3; }
 
-                    int getBonesCount() const { return hardwareMesh->m_vectorBonesIndices.size(); }
-                    int getBoneId( int index ) const { return hardwareMesh->m_vectorBonesIndices[ index ]; }
+                    int getBonesCount() const { return hardwareMesh.m_vectorBonesIndices.size(); }
+                    int getBoneId( int index ) const { return hardwareMesh.m_vectorBonesIndices[ index ]; }
                     CalBone* getBone( int index,
                                       CalSkeleton* skeleton ) const
                     {
@@ -389,7 +378,6 @@ namespace osgCal
             int                 flags;
             float               scale;
             CalCoreModel*       calCoreModel;
-            CalHardwareModel*   calHardwareModel;
 
             TexturesCache*              texturesCache;
             SwMeshStateSetCache*        swMeshStateSetCache;
