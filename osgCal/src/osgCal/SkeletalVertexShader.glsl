@@ -74,12 +74,12 @@ void main()
     vec3 transformedPosition = gl_Vertex.xyz;
   #endif
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
-//     # ifdef __GLSL_CG_DATA_TYPES
-//     if ( clipPlanesUsed )
-//     {
-//         gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
-//     } 
-//     # endif
+    # ifdef __GLSL_CG_DATA_TYPES
+//    if ( clipPlanesUsed )
+    {
+        gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
+    } 
+    # endif
 //  8.5 -- no clip planes
 // 10.2 -- gl_ClipVertex always set (20% slowdown, on both 6600 and 8600)
 // 10.8 -- if ( clipPlanesUsed /* == true */  ) gl_ClipVertex = ...
@@ -140,12 +140,12 @@ void main()
 
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
-//     # ifdef __GLSL_CG_DATA_TYPES
-//     if ( clipPlanesUsed )
-//     {
-//         gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
-//     }
-//     # endif
+    # ifdef __GLSL_CG_DATA_TYPES
+//    if ( clipPlanesUsed )
+    {
+        gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
+    }
+    # endif
 #if FOG
     eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #endif // no fog
