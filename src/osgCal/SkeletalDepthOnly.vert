@@ -1,10 +1,8 @@
 // -*-c++-*-
 
 #if BONES_COUNT >= 1
-attribute vec4 weight;
-attribute ivec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec
-                          (but gl_FrontFacing is not used with 17.9)
-                          but it's not compatible with ATI cards */
+# define weight gl_MultiTexCoord1
+# define index  gl_MultiTexCoord2
 
 uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];

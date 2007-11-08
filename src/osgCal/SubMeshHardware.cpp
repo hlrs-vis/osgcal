@@ -163,13 +163,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         }
     }
 
-    if ( model->getVertexVbo() )
-    {
-        // model's VBO is only needed for models with
-        // DONT_CALCULATE_VERTEX_IN_SHADER flags
-        model->getVertexVbo()->compileBuffer( state );
-    }
-
     // -- Call or create display list --
     // display lists are currently disabled, since they are not
     // compatible with VBOs on ATI.
@@ -178,7 +171,7 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     //
     unsigned int contextID = renderInfo.getContextID();
 
-    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+    GLuint& dl = displayLists[ NULL/*const_cast< osg::StateSet* >( stateSet )*/ ][ contextID ];
 
     if( dl != 0 )
     {
@@ -216,7 +209,7 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
 {
     unsigned int contextID = renderInfo.getContextID();
 
-    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+    GLuint& dl = displayLists[ NULL/*const_cast< osg::StateSet* >( stateSet )*/ ][ contextID ];
 
     if( dl == 0 )
     {
@@ -267,14 +260,9 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
     const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
     
-    // -- Bind our vertex buffers --
-#define BIND(_type)                                                     \
-    coreModel->getVbo(CoreModel::BI_##_type)->compileBuffer( state );   \
-    coreModel->getVbo(CoreModel::BI_##_type)->bindBuffer( state.getContextID() )
+    state.disableAllVertexArrays();
 
-#define UNBIND(_type)                                                   \
-    coreModel->getVbo(CoreModel::BI_##_type)->unbindBuffer( state.getContextID() )
-
+    // -- Setup vertex arrays --
 #ifdef OSG_CAL_BYTE_BUFFERS
     #define NORMAL_TYPE         GL_BYTE
     #define MATRIX_INDEX_TYPE   GL_UNSIGNED_BYTE
@@ -282,61 +270,48 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     #define NORMAL_TYPE         GL_FLOAT
     #define MATRIX_INDEX_TYPE   GL_SHORT
 #endif
-
-    if ( program->getAttribLocation( "weight" ) > 0 )
+    if ( !mesh->rigid
+//          &&
+//          stateSet != mesh->staticHardwareStateSet.get()
+//          &&
+//          stateSet != mesh->staticDepthStateSet.get()
+        )
     {
-        BIND( WEIGHT );
-        state.setVertexAttribPointer( program->getAttribLocation( "weight" ),
-                                      4 , GL_FLOAT, false, 0,0);
+        state.setTexCoordPointer( 1, 4, GL_FLOAT, 0,
+                                  coreModel->getWeightBuffer()->getDataPointer() );
+//         state.setVertexAttribPointer( program->getAttribLocation( "index" ),
+// //                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
+// //                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
+// //                                      4 , GL_FLOAT, false, 0,0); // dvorets - 53fps        
+// //                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
+//                                         4 , MATRIX_INDEX_TYPE, false, 0,0);         
+//         // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
+//         // but conversion from float to int would be too expensive
+//         // when updating vertices on CPU.
+        state.setTexCoordPointer( 2, 4, MATRIX_INDEX_TYPE, 0,
+                                  coreModel->getMatrixIndexBuffer()->getDataPointer() );
     }
 
-    if ( program->getAttribLocation( "index" ) > 0 )
+//     if ( stateSet != mesh->depthStateSet.get() &&
+//          stateSet != mesh->staticDepthStateSet.get() )
     {
-        BIND( MATRIX_INDEX );
-        state.setVertexAttribPointer( program->getAttribLocation( "index" ),
-//                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
-//                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
-//                                      4 , GL_FLOAT, false, 0,0); // dvorets - 53fps        
-//                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
-                                        4 , MATRIX_INDEX_TYPE, false, 0,0);         
-        // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
-        // but conversion from float to int would be too expensive
-        // when updating vertices on CPU.
-    }
-    
-    BIND( NORMAL );
-    state.setNormalPointer( NORMAL_TYPE, 0, 0 );
-
-    if ( program->getAttribLocation( "binormal" ) > 0 )
-    {
-        BIND( BINORMAL );
-        state.setVertexAttribPointer( program->getAttribLocation( "binormal" ),
-                                      3 , NORMAL_TYPE, false, 0,0);
-    }
-
-    if ( program->getAttribLocation( "tangent" ) > 0 )
-    {
-        BIND( TANGENT );
-        state.setVertexAttribPointer( program->getAttribLocation( "tangent" ),
-                                      3 , NORMAL_TYPE, false, 0,0);
-    }
+    state.setNormalPointer( NORMAL_TYPE, 0,
+                            coreModel->getNormalBuffer()->getDataPointer() );
 
     if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
          || mesh->hwStateDesc.bumpMap != "" )
     {
-        BIND( TEX_COORD );
-        state.setTexCoordPointer( 0, 2, GL_FLOAT, 0, 0 );
+        state.setTexCoordPointer( 0, 2, GL_FLOAT, 0,
+                                  coreModel->getTexCoordBuffer()->getDataPointer() );
+        state.setTexCoordPointer( 3, 3, NORMAL_TYPE, 0,
+                                  coreModel->getTangentBuffer()->getDataPointer() );
+        state.setTexCoordPointer( 4, 3, NORMAL_TYPE, 0,
+                                  coreModel->getBinormalBuffer()->getDataPointer() );
     }
-
-    if ( model->getVertexVbo() )
-    {
-        model->getVertexVbo()->bindBuffer( state.getContextID() );
     }
-    else
-    {
-        BIND( VERTEX );        
-    }
-    state.setVertexPointer( 3, GL_FLOAT, 0, 0);
+    
+    state.setVertexPointer( 3, GL_FLOAT, 0,
+                            coreModel->getVertexBuffer()->getDataPointer() );
 
     // get mesh material to restore glColor after glDrawElements call
     const osg::Material* material = static_cast< const osg::Material* >
@@ -344,19 +319,17 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         ( stateSet->getAttribute( osg::StateAttribute::MATERIAL ) );
 
     // -- Draw our indexed triangles --
-    BIND( INDEX ); 
-    
 #define DRAW                                                            \
     if ( sizeof(CalIndex) == 2 )                                        \
         glDrawElements( GL_TRIANGLES,                                   \
                         mesh->getIndexesCount(),                        \
                         GL_UNSIGNED_SHORT,                              \
-                        ((CalIndex *)NULL) + mesh->getIndexInVbo() );   \
+                        ((CalIndex *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() );   \
     else                                                                \
         glDrawElements( GL_TRIANGLES,                                   \
                         mesh->getIndexesCount(),                        \
                         GL_UNSIGNED_INT,                                \
-                        ((CalIndex *)NULL) + mesh->getIndexInVbo() );   \
+                        ((CalIndex *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() );   \
     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     // TODO: ^ color restoring doesn't allow material overriding
     // since we get mesh material color, not last applied one (there is
@@ -411,18 +384,7 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         glEndList();
     
     //glError();
-
     state.disableAllVertexArrays();
-
-    if ( model->getVertexVbo() )
-    {
-        model->getVertexVbo()->unbindBuffer( state.getContextID() );
-    }
-    else
-    {
-        UNBIND( VERTEX );        
-    }
-    UNBIND( INDEX );
 }
 
 void
@@ -723,14 +685,7 @@ SubMeshHardware::update()
             throw std::runtime_error( "maxBonesInfluence > 4 ???" );            
     }
 
-    if ( coreModel->getFlags() & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER )
-    {
-        model->getVertexVbo()->dirty();
-    }
     dirtyBound();
-
-//    dirtyDisplayList(); //<- no display list for deformable mesh?
-    // TODO: investigate display list stuff
 }
 
 

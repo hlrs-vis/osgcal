@@ -41,83 +41,6 @@
 
 #include <osgCal/CoreModel>
 
-
-/**
- * Same as osg::VertexBufferObject, but unref osg::Array after all
- * GraphicsContexts are initialized.
- */
-class VertexBufferObject : public osg::BufferObject
-{
-    public:
-
-        virtual osg::Object* cloneType() const
-        {
-            throw std::runtime_error( "VertexBufferObject::cloneType unsupported");
-        }
-        virtual osg::Object* clone(const osg::CopyOp&) const
-        {
-            throw std::runtime_error( "VertexBufferObject::clone unsupported");
-        }
-       
-        VertexBufferObject( GLenum      target,
-                            osg::Array* a,
-                            bool        unref = true )
-            : BufferObject()
-            , array( a )
-            , unrefAfterApply( unref )
-        {
-            _target = target;
-            _usage = GL_STATIC_DRAW_ARB;
-            _totalSize = a->getTotalDataSize();
-            //_target = GL_ARRAY_BUFFER_ARB;//GL_ELEMENT_ARRAY_BUFFER_ARB
-        }
-
-        virtual bool needsCompile( unsigned int contextID ) const
-        {
-            return ( buffer( contextID ) == 0 );
-        }
-
-        virtual void compileBuffer(osg::State& state) const
-        {
-            unsigned int contextID = state.getContextID();
-            if (!isDirty(contextID) && !needsCompile(contextID)) return;
-    
-            Extensions* extensions = getExtensions( contextID, true );
-
-            GLuint& vbo = buffer( contextID );
-
-            if ( vbo == 0 )
-            {
-                extensions->glGenBuffers(1, &vbo);
-            }
-            extensions->glBindBuffer(_target, vbo);
-            extensions->glBufferData(_target, _totalSize, array->getDataPointer(),
-                                     _usage);
-
-            _compiledList[contextID] = 1;
-
-            if ( unrefAfterApply && array->getDataVariance() == STATIC && areAllArraysLoaded() )
-            {
-                array = 0;
-            }
-        }
-
-    private:
-        bool areAllArraysLoaded() const
-        {
-            for(unsigned int i=0;i<osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();++i)
-            {
-                if ( buffer( i ) == 0 ) return false;
-            }
-            return true;
-        }
-
-        mutable osg::ref_ptr< osg::Array > array;
-        bool unrefAfterApply;
-};
-
-
-
 // -- Shader cache --
 
 #define OSGCAL_MAX_BONES_PER_MESH       30
@@ -202,7 +125,6 @@ class SkeletalShadersSet : public osg::Referenced
                 int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;  \
                 int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
                 int GL_FRONT_FACING = ( SHADER_FLAG_GL_FRONT_FACING & flags ) ? 1 : 0; \
-                int DONT_CALCULATE_VERTEX = ( SHADER_FLAG_DONT_CALCULATE_VERTEX & flags ) ? 1 : 0;
 
                 PARSE_FLAGS;
                 (void)FOG; // remove unused variable warning
@@ -210,7 +132,7 @@ class SkeletalShadersSet : public osg::Referenced
                 osg::Program* p = new osg::Program;
 
                 char name[ 256 ];
-                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s%s)",
+                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s)",
                          BONES_COUNT,
                          DEPTH_ONLY ? ", depth_only" : "",
                          (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP ? ", fog_exp"
@@ -222,8 +144,7 @@ class SkeletalShadersSet : public osg::Referenced
                          NORMAL_MAPPING ? ", normal mapping" : "",
                          BUMP_MAPPING ? ", bump mapping" : "",
                          SHINING ? ", shining" : "",
-                         GL_FRONT_FACING ? ", gl_FrontFacing" : "",
-                         DONT_CALCULATE_VERTEX ? ", no vertex" : ""
+                         GL_FRONT_FACING ? ", gl_FrontFacing" : ""
                     );
                             
                 p->setName( name );
@@ -308,7 +229,7 @@ class SkeletalShadersSet : public osg::Referenced
             else
             {                
                 PARSE_FLAGS;
-                (void)BONES_COUNT, (void)DONT_CALCULATE_VERTEX; // remove unused variable warning
+                (void)BONES_COUNT; // remove unused variable warning
 
                 std::string shaderText;
 
@@ -668,44 +589,18 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         matrixIndexBuffer   = bos->matrixIndexBuffer;
     }
 
-    if ( !(flags & NO_SOFTWARE_MESHES) )
+//    if ( !(flags & NO_SOFTWARE_MESHES) )
     {
         texCoordBuffer      = bos->texCoordBuffer;
         normalBuffer        = bos->normalBuffer;
     }
 
-    if ( flags & SHOW_TBN )
+//    if ( flags & SHOW_TBN )
     {
         tangentBuffer       = bos->tangentBuffer;
         binormalBuffer      = bos->binormalBuffer;
         normalBuffer        = bos->normalBuffer;
     }
-
-    // -- Create vertex buffer objects --
-    vbos.resize( 8 );
-
-    vbos[ BI_VERTEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                bos->vertexBuffer.get() );
-    if ( needWeights )
-    {
-        vbos[ BI_WEIGHT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                    bos->weightBuffer.get() );
-        vbos[ BI_MATRIX_INDEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                          bos->matrixIndexBuffer.get() );
-    }
-    vbos[ BI_NORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                bos->normalBuffer.get() );
-    if ( needTBN )
-    {
-        vbos[ BI_TANGENT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                     bos->tangentBuffer.get() );
-        vbos[ BI_BINORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                      bos->binormalBuffer.get() );
-    }
-    vbos[ BI_TEX_COORD ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                   bos->texCoordBuffer.get() );
-    vbos[ BI_INDEX ] = new VertexBufferObject( GL_ELEMENT_ARRAY_BUFFER_ARB,
-                                               bos->indexBuffer.get() );
 }
 
 bool
@@ -724,13 +619,6 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
         return false;
     }
 }
-
-osg::BufferObject*
-CoreModel::makeVbo( osg::Array* array )
-{
-    return new VertexBufferObject( GL_ARRAY_BUFFER_ARB, array );
-}
-
 
 // -- MaterialDesc --
 
@@ -1226,10 +1114,6 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
                                           ? SHADER_FLAG_GL_FRONT_FACING
                                           : 0 )
                                         +
-                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
-                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
-                                          : 0 )
-                                        +
                                         ( flags & CoreModel::FOG_LINEAR ) / CoreModel::FOG_EXP
                                         * SHADER_FLAG_FOG_MODE_EXP
                                         +
@@ -1330,10 +1214,6 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
 
     stateSet->setAttributeAndModes( skeletalShadersSet->get(
                                         boneAndSidesCount.first * SHADER_FLAG_BONES(1)
-                                        +
-                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
-                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
-                                          : 0 )
                                         +
                                         SHADER_FLAG_DEPTH_ONLY ),
                                     osg::StateAttribute::ON );

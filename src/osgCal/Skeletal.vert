@@ -12,18 +12,16 @@
 # endif
 
 #if BONES_COUNT >= 1
-attribute vec4 weight;
-attribute vec4 index; /* ivec is not compatible with ATI cards and
-                       * strangely enough it doesn't work on 8600
-                       * (driver bug?), while working on 6600 */
+# define weight gl_MultiTexCoord1
+# define index  gl_MultiTexCoord2
 
 uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];
 #endif
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-attribute vec3 tangent;
-attribute vec3 binormal;
+# define tangent  gl_MultiTexCoord3.xyz
+# define binormal gl_MultiTexCoord4.xyz
 varying mat3 eyeBasis; // in tangent space
 #else
 varying vec3 transformedNormal;
@@ -43,36 +41,24 @@ void main()
 
 #if BONES_COUNT >= 1
     mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];
-    #if !DONT_CALCULATE_VERTEX
     vec3 totalTranslation = weight.x * translationVectors[int(index.x)];
-    #endif
 
 #if BONES_COUNT >= 2
     totalRotation += weight.y * rotationMatrices[int(index.y)];
-    #if !DONT_CALCULATE_VERTEX
     totalTranslation += weight.y * translationVectors[int(index.y)];
-    #endif
 
 #if BONES_COUNT >= 3
     totalRotation += weight.z * rotationMatrices[int(index.z)];
-    #if !DONT_CALCULATE_VERTEX
     totalTranslation += weight.z * translationVectors[int(index.z)];
-    #endif
 
 #if BONES_COUNT >= 4
     totalRotation += weight.w * rotationMatrices[int(index.w)];
-    #if !DONT_CALCULATE_VERTEX
     totalTranslation += weight.w * translationVectors[int(index.w)];
-    #endif
 #endif // BONES_COUNT >= 4
 #endif // BONES_COUNT >= 3
 #endif // BONES_COUNT >= 2
 
-  #if !DONT_CALCULATE_VERTEX
     vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;
-  #else
-    vec3 transformedPosition = gl_Vertex.xyz;
-  #endif
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
     # ifdef __GLSL_CG_DATA_TYPES
 //    if ( clipPlanesUsed )

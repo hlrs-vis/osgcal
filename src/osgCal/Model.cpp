@@ -154,19 +154,6 @@ Model::load( CoreModel* cm,
         vertexBuffer = const_cast< VertexBuffer* >( cm->getVertexBuffer() );
     }
 
-    if ( coreModel->getFlags() & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER )
-    {
-        if ( hasAnimations )
-        {
-            vertexVbo = coreModel->makeVbo( vertexBuffer.get() );
-        }
-        else
-        {
-            vertexVbo = coreModel->getVbo( CoreModel::BI_VERTEX );
-            // no need to clone, since it won't be mutated
-        }
-    }
-
     calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
 
@@ -382,25 +369,7 @@ Model::accept( osg::NodeVisitor& nv )
     if ( glv )
     {
         osg::notify( osg::INFO )
-            << "compiling shaders and buffers" << std::endl;
-        
-        osg::State* s = glv->getState();
-
-        // -- Compile all our buffers --
-        for ( int i = 0; i < CoreModel::BI_TOTAL_COUNT; i++ )
-        {
-            if ( coreModel->getVbo( i ) )
-            {
-                coreModel->getVbo( i )->compileBuffer( *s );
-                coreModel->getVbo( i )->unbindBuffer( s->getContextID() );
-            }
-        }
-
-        if ( vertexVbo.valid() )
-        {
-            vertexVbo->compileBuffer( *s );
-            vertexVbo->unbindBuffer( s->getContextID() );
-        }
+            << "compiling shaders and display lists" << std::endl;
 
         // -- Compile shaders --
         for ( std::map< osg::StateSet*, bool >::iterator s = usedStateSets.begin();

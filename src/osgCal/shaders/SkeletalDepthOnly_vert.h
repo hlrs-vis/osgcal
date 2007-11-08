@@ -1,10 +1,8 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
-shaderText += "attribute vec4 weight;\n";
-shaderText += "attribute ivec4 index; /* ivec gives small speedup 17.7 vs 17.9 msec\n";
-shaderText += "                          (but gl_FrontFacing is not used with 17.9)\n";
-shaderText += "                          but it's not compatible with ATI cards */\n";
+shaderText += "# define weight gl_MultiTexCoord1\n";
+shaderText += "# define index  gl_MultiTexCoord2\n";
 shaderText += "\n";
 shaderText += "uniform mat3 rotationMatrices[31];\n";
 shaderText += "uniform vec3 translationVectors[31];\n";

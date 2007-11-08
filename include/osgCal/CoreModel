@@ -260,14 +260,8 @@ namespace osgCal
                  */
                 USE_DEPTH_FIRST_MESHES = 0x2,
 
-                /**
-                 * Send calculated vertex positions to shader instead
-                 * of calculation in it (for slow video boards? no
-                 * visible performance improvements, plus additional
-                 * vertex VBO is allocated for each model).
-                 * Normals are still calculated.
-                 */
-                DONT_CALCULATE_VERTEX_IN_SHADER = 0x4,
+                //DONT_CALCULATE_VERTEX_IN_SHADER = 0x4,
+                // ^ it doesn't supported in display lists
                 
                 /**
                  * Don't keep normals and texture coords for
@@ -306,26 +300,6 @@ namespace osgCal
             CalHardwareModel*   getCalHardwareModel() const { return calHardwareModel; }
 
             int getFlags() const { return flags; }
-
-            /**
-             * Indexes of corresponding buffers in vector returned by getVbos().
-             */
-            enum BufferIndex
-            {
-                BI_VERTEX           = 0,
-                BI_WEIGHT           = 1,
-                BI_NORMAL           = 2,
-                BI_MATRIX_INDEX     = 3,
-                BI_TEX_COORD        = 4,
-                BI_INDEX            = 5,
-                BI_TANGENT          = 6,
-                BI_BINORMAL         = 7,
-                BI_TOTAL_COUNT      = 8
-            };
-
-            
-            osg::BufferObject* getVbo( int index ) { return vbos[ index ].get(); }
-            osg::BufferObject* makeVbo( osg::Array* array );
 
             struct Mesh
             {
@@ -433,8 +407,6 @@ namespace osgCal
             osg::ref_ptr< NormalBuffer >        binormalBuffer;
             osg::ref_ptr< NormalBuffer >        tangentBuffer;
             osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
-
-            std::vector< osg::ref_ptr< osg::BufferObject > > vbos;
     };
 
 }; // namespace osgCal
