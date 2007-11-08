@@ -74,12 +74,12 @@ shaderText += "    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + to
 shaderText += "    vec3 transformedPosition = gl_Vertex.xyz;\n";
   }
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
-//shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
-shaderText += "//     if ( clipPlanesUsed )\n";
-shaderText += "//     {\n";
-shaderText += "//         gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);\n";
-shaderText += "//     } \n";
-//shaderText += "     # endif\n";
+shaderText += "    # ifdef __GLSL_CG_DATA_TYPES\n";
+shaderText += "//    if ( clipPlanesUsed )\n";
+shaderText += "    {\n";
+shaderText += "        gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);\n";
+shaderText += "    } \n";
+shaderText += "    # endif\n";
 shaderText += "//  8.5 -- no clip planes\n";
 shaderText += "// 10.2 -- gl_ClipVertex always set (20% slowdown, on both 6600 and 8600)\n";
 shaderText += "// 10.8 -- if ( clipPlanesUsed /* == true */  ) gl_ClipVertex = ...\n";
@@ -140,12 +140,12 @@ shaderText += "\n";
 shaderText += "\n";
 shaderText += "    // dont touch anything when no bones influence mesh\n";
 shaderText += "    gl_Position = ftransform();\n";
-//shaderText += "     # ifdef __GLSL_CG_DATA_TYPES\n";
-shaderText += "//     if ( clipPlanesUsed )\n";
-shaderText += "//     {\n";
-shaderText += "//         gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
-shaderText += "//     }\n";
-//shaderText += "     # endif\n";
+shaderText += "    # ifdef __GLSL_CG_DATA_TYPES\n";
+shaderText += "//    if ( clipPlanesUsed )\n";
+shaderText += "    {\n";
+shaderText += "        gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+shaderText += "    }\n";
+shaderText += "    # endif\n";
 if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 } // no fog
