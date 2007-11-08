@@ -22,35 +22,35 @@ LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
 include $(TOPDIR)/Make/makerules 
 
 CoreModel.cpp: \
-	shaders/SkeletalVertexShader.h \
-	shaders/SkeletalFragmentShader.h \
-	shaders/SkeletalVertexShaderDepthOnly.h \
-	shaders/SkeletalFragmentShaderDepthOnly.h
+	shaders/Skeletal_vert.h \
+	shaders/Skeletal_frag.h \
+	shaders/SkeletalDepthOnly_vert.h \
+	shaders/SkeletalDepthOnly_frag.h
 
-shaders/SkeletalVertexShader.h: SkeletalVertexShader.glsl
+shaders/Skeletal_vert.h: Skeletal.vert
 ifeq ($(OS),MINGW)
-	sed -f ../glsl2cpp.sed <../SkeletalVertexShader.glsl >../shaders/SkeletalVertexShader.h
+	sed -f ../glsl2cpp.sed <../Skeletal.vert >../shaders/Skeletal_vert.h
 else
-	sed -e s/\\r// <../SkeletalVertexShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShader.h
+	sed -e s/\\r// <../Skeletal.vert | sed -f ../glsl2cpp.sed >../shaders/Skeletal_vert.h
 endif
 
-shaders/SkeletalFragmentShader.h: SkeletalFragmentShader.glsl
+shaders/Skeletal_frag.h: Skeletal.frag
 ifeq ($(OS),MINGW)
-	sed -f ../glsl2cpp.sed <../SkeletalFragmentShader.glsl >../shaders/SkeletalFragmentShader.h
+	sed -f ../glsl2cpp.sed <../Skeletal.frag >../shaders/Skeletal_frag.h
 else
-	sed -e s/\\r// <../SkeletalFragmentShader.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShader.h
+	sed -e s/\\r// <../Skeletal.frag | sed -f ../glsl2cpp.sed >../shaders/Skeletal_frag.h
 endif
 
-shaders/SkeletalVertexShaderDepthOnly.h: SkeletalVertexShaderDepthOnly.glsl
+shaders/SkeletalDepthOnly_vert.h: SkeletalDepthOnly.vert
 ifeq ($(OS),MINGW)
-	sed -f ../glsl2cpp.sed <../SkeletalVertexShaderDepthOnly.glsl >../shaders/SkeletalVertexShaderDepthOnly.h
+	sed -f ../glsl2cpp.sed <../SkeletalDepthOnly.vert >../shaders/SkeletalDepthOnly_vert.h
 else
-	sed -e s/\\r// <../SkeletalVertexShaderDepthOnly.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalVertexShaderDepthOnly.h
+	sed -e s/\\r// <../SkeletalDepthOnly.vert | sed -f ../glsl2cpp.sed >../shaders/SkeletalDepthOnly_vert.h
 endif
 
-shaders/SkeletalFragmentShaderDepthOnly.h: SkeletalFragmentShaderDepthOnly.glsl
+shaders/SkeletalDepthOnly_frag.h: SkeletalDepthOnly.frag
 ifeq ($(OS),MINGW)
-	sed -f ../glsl2cpp.sed <../SkeletalFragmentShaderDepthOnly.glsl >../shaders/SkeletalFragmentShaderDepthOnly.h
+	sed -f ../glsl2cpp.sed <../SkeletalDepthOnly.frag >../shaders/SkeletalDepthOnly_frag.h
 else
-	sed -e s/\\r// <../SkeletalFragmentShaderDepthOnly.glsl | sed -f ../glsl2cpp.sed >../shaders/SkeletalFragmentShaderDepthOnly.h
+	sed -e s/\\r// <../SkeletalDepthOnly.frag | sed -f ../glsl2cpp.sed >../shaders/SkeletalDepthOnly_frag.h
 endif

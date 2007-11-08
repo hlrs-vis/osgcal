@@ -276,11 +276,11 @@ class SkeletalShadersSet : public osg::Referenced
 
                 if ( DEPTH_ONLY )
                 {
-                     #include "shaders/SkeletalVertexShaderDepthOnly.h"
+                     #include "shaders/SkeletalDepthOnly_vert.h"
                 }
                 else
                 {                    
-                     #include "shaders/SkeletalVertexShader.h"
+                     #include "shaders/Skeletal_vert.h"
                 }
 
                 osg::Shader* vs = new osg::Shader( osg::Shader::VERTEX,
@@ -314,11 +314,11 @@ class SkeletalShadersSet : public osg::Referenced
 
                 if ( DEPTH_ONLY )
                 {
-                     #include "shaders/SkeletalFragmentShaderDepthOnly.h"
+                     #include "shaders/SkeletalDepthOnly_frag.h"
                 }
                 else
                 {                    
-                     #include "shaders/SkeletalFragmentShader.h"
+                     #include "shaders/Skeletal_frag.h"
                 }
 
                 osg::Shader* fs = new osg::Shader( osg::Shader::FRAGMENT,

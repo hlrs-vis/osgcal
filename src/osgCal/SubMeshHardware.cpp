@@ -176,25 +176,25 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     // use experimental and unstable 0.3.0-dl branch for them
     //   svn co https://osgcal.svn.sourceforge.net/svnroot/osgcal/branches/0.3.0-dl
     //
-//     unsigned int contextID = renderInfo.getContextID();
+    unsigned int contextID = renderInfo.getContextID();
 
-//     GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
 
-//     if( dl != 0 )
-//     {
-//         glCallList( dl );
-//     }
-//     else
-//     {
-//         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
+    if( dl != 0 )
+    {
+        glCallList( dl );
+    }
+    else
+    {
+        dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-// //        glNewList( dl, GL_COMPILE );
-//         innerDrawImplementation( renderInfo, stateSet, dl );
-// //        glEndList();
+//        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet, dl );
+//        glEndList();
 
-//         glCallList( dl );
-//     }
-     innerDrawImplementation( renderInfo, stateSet );
+        glCallList( dl );
+    }
+//     innerDrawImplementation( renderInfo, stateSet );
 }
 
 void
@@ -211,21 +211,21 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 }
 
 void
-SubMeshHardware::compileGLObjects(osg::RenderInfo& /*renderInfo*/,
-                                  const osg::StateSet* /* stateSet */) const
+SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
+                                  const osg::StateSet* stateSet) const
 {
-//     unsigned int contextID = renderInfo.getContextID();
+    unsigned int contextID = renderInfo.getContextID();
 
-//     GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
+    GLuint& dl = displayLists[ const_cast< osg::StateSet* >( stateSet ) ][ contextID ];
 
-//     if( dl == 0 )
-//     {
-//         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
+    if( dl == 0 )
+    {
+        dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-// //        glNewList( dl, GL_COMPILE );
-//         innerDrawImplementation( renderInfo, stateSet, dl );
-// //        glEndList();
-//     }
+//        glNewList( dl, GL_COMPILE );
+        innerDrawImplementation( renderInfo, stateSet, dl );
+//        glEndList();
+    }
 }
 
 void
