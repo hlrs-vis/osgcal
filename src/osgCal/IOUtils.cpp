@@ -560,27 +560,6 @@ loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
         *tcy = 1.0f - *tcy;
     }
 
-    // prepare tangents and binormals
-//     for ( int i = 0; i < vbos->getVertexCount(); i++ )
-//     {
-// //        tmpTangentSpace[i].tangent.x = -tmpTangentSpace[i].tangent.x;
-//         // no flip tangent - looks like anisotropic lights
-//         // ATI NMF generated normals require x flip
-        
-//         vbos->tangentBuffer[i*3+0] = tmpTangentSpace[i].tangent.x; 
-//         vbos->tangentBuffer[i*3+1] = tmpTangentSpace[i].tangent.y;
-//         vbos->tangentBuffer[i*3+2] = tmpTangentSpace[i].tangent.z;
-
-//         CalVector binormal = (tmpTangentSpace[i].tangent % CalVector( vbos->normalBuffer[i*3+0],
-//                                          vbos->normalBuffer[i*3+1],
-//                                          vbos->normalBuffer[i*3+2] )
-//                               ) * tmpTangentSpace[i].crossFactor;
-
-//         vbos->binormalBuffer[i*3+0] = binormal.x;
-//         vbos->binormalBuffer[i*3+1] = binormal.y;
-//         vbos->binormalBuffer[i*3+2] = binormal.z;
-//     }
-
     return vbos.release();
 }
 
