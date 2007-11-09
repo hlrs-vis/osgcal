@@ -20,8 +20,8 @@ shaderText += "uniform vec3 translationVectors[31];\n";
 }
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "# define tangent  gl_MultiTexCoord3.xyz\n";
-shaderText += "# define binormal gl_MultiTexCoord4.xyz\n";
+shaderText += "# define tangent     gl_MultiTexCoord3.xyz\n";
+shaderText += "# define handedness  gl_MultiTexCoord3.w\n";
 shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 } else {
 shaderText += "varying vec3 transformedNormal;\n";
@@ -108,12 +108,8 @@ shaderText += "    eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    vec3 t = gl_NormalMatrix * (totalRotation * tangent);\n";
-shaderText += "    vec3 b = gl_NormalMatrix * (totalRotation * binormal);\n";
 shaderText += "    vec3 n = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
-shaderText += "    // vec3 b = cross( n, t );\n";
-shaderText += "    // ^ does'n work for some of our meshes (no handedness)\n";
-shaderText += "    // TODO: maybe save handedness in tangent alpha and remove binormals?:\n";
-shaderText += "    //    vec3 b = cross( n, t ) * tangent.a;\n";
+shaderText += "    vec3 b = cross( n, t ) * handedness;\n";
 shaderText += "\n";
 shaderText += "    eyeBasis = mat3( t[0], b[0], n[0],\n";
 shaderText += "                     t[1], b[1], n[1],\n";
@@ -138,8 +134,8 @@ shaderText += "    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    vec3 t = gl_NormalMatrix * tangent;\n";
-shaderText += "    vec3 b = gl_NormalMatrix * binormal;\n";
 shaderText += "    vec3 n = gl_NormalMatrix * gl_Normal;\n";
+shaderText += "    vec3 b = cross( n, t ) * handedness;\n";
 shaderText += "\n";
 shaderText += "    eyeBasis = mat3( t[0], b[0], n[0],\n";
 shaderText += "                     t[1], b[1], n[1],\n";

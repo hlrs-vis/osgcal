@@ -20,8 +20,8 @@ uniform vec3 translationVectors[31];
 #endif
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-# define tangent  gl_MultiTexCoord3.xyz
-# define binormal gl_MultiTexCoord4.xyz
+# define tangent     gl_MultiTexCoord3.xyz
+# define handedness  gl_MultiTexCoord3.w
 varying mat3 eyeBasis; // in tangent space
 #else
 varying vec3 transformedNormal;
@@ -108,12 +108,8 @@ void main()
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     vec3 t = gl_NormalMatrix * (totalRotation * tangent);
-    vec3 b = gl_NormalMatrix * (totalRotation * binormal);
     vec3 n = gl_NormalMatrix * (totalRotation * gl_Normal);
-    // vec3 b = cross( n, t );
-    // ^ does'n work for some of our meshes (no handedness)
-    // TODO: maybe save handedness in tangent alpha and remove binormals?:
-    //    vec3 b = cross( n, t ) * tangent.a;
+    vec3 b = cross( n, t ) * handedness;
 
     eyeBasis = mat3( t[0], b[0], n[0],
                      t[1], b[1], n[1],
@@ -138,8 +134,8 @@ void main()
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     vec3 t = gl_NormalMatrix * tangent;
-    vec3 b = gl_NormalMatrix * binormal;
     vec3 n = gl_NormalMatrix * gl_Normal;
+    vec3 b = cross( n, t ) * handedness;
 
     eyeBasis = mat3( t[0], b[0], n[0],
                      t[1], b[1], n[1],

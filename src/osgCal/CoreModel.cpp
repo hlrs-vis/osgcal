@@ -316,7 +316,9 @@ CoreModel::~CoreModel()
     // delete skeletalShadersSet when no references left
     if ( skeletalShadersSet->referenceCount() == 1 )
     {
-        skeletalShadersSet->unref();
+        // TODO: there is some error with access to already destroyed shader
+        // when exiting multithreaded application with model w/o animations
+        skeletalShadersSet->unref(); 
         skeletalShadersSet = NULL;
     }
 //     std::cout << "CoreModel::~CoreModel()" << std::endl;
@@ -326,16 +328,16 @@ std::ostream&
 operator << ( std::ostream& os,
               osgCal::HwStateDesc sd )
 {
-    os << "ambientColor     : " << sd.material.ambientColor << std::endl
-       << "diffuseColor     : " << sd.material.diffuseColor << std::endl
-       << "specularColor    : " << sd.material.specularColor << std::endl
-       << "glossiness       : " << sd.material.glossiness << std::endl
-       << "duffuseMap       : " << sd.diffuseMap << std::endl
-       << "normalsMap       : " << sd.normalsMap << std::endl
-//       << "normalsMapAmount : " << sd.normalsMapAmount << std::endl
-       << "bumpMap          : " << sd.bumpMap << std::endl
-       << "bumpMapAmount    : " << sd.bumpMapAmount << std::endl
-       << "sides            : " << sd.sides << std::endl;
+    os << "ambientColor      : " << sd.material.ambientColor << std::endl
+       << "diffuseColor      : " << sd.material.diffuseColor << std::endl
+       << "specularColor     : " << sd.material.specularColor << std::endl
+       << "glossiness        : " << sd.material.glossiness << std::endl
+       << "duffuseMap        : " << sd.diffuseMap << std::endl
+       << "normalsMap        : " << sd.normalsMap << std::endl
+//       << "normalsMapAmount  : " << sd.normalsMapAmount << std::endl
+       << "bumpMap           : " << sd.bumpMap << std::endl
+       << "bumpMapAmount     : " << sd.bumpMapAmount << std::endl
+       << "sides             : " << sd.sides << std::endl;
     return os;
 }
 
@@ -370,236 +372,113 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         cfgFileName = cfgFileNameOriginal;
     }
 
-    std::vector< std::string > meshNames;
-    std::auto_ptr< VBOs > bos;
-    std::auto_ptr< CalHardwareModel > calHardwareModel;
+    calCoreModel = loadCoreModel( cfgFileName, scale );
 
-    if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
-         || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
-    {
-        // -- Load model and hw model from model --
-        calCoreModel = loadCoreModel( cfgFileName, scale );
+    MeshesVector meshesData;
 
-        calHardwareModel = std::auto_ptr< CalHardwareModel >( new CalHardwareModel( calCoreModel ) );
-        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel.get() ) );
-        //saveVBOs( bos, dir + "/vbos.cache" );
-        //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
-        // ^ it's not loading task, cache preparation is export task
-        // see `applications/preparer' for this.
+    loadMeshes( calCoreModel, meshesData );
+    
+//     std::vector< std::string > meshNames;
+//     std::auto_ptr< VBOs > bos;
+//     std::auto_ptr< CalHardwareModel > calHardwareModel;
 
-        // -- Fill meshNames array --
-        for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-            hardwareMeshId++)
-        {
-            meshNames.push_back(
-                calCoreModel->
-                getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
-                getName() );
-        }
-    }
-    else
-    {
-        // -- Load cached hardware model --
-        if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 && Cal::LIBRARY_VERSION != 1200 )
-        {
-            throw std::runtime_error( "caching was only tested on cal3d 0.10.0, 0.11.0 and 0.12.0" );
-        }
+//     if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
+//          || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
+//     {
+//         // -- Load model and hw model from model --
+//         calCoreModel = loadCoreModel( cfgFileName, scale );
+
+//         calHardwareModel = std::auto_ptr< CalHardwareModel >( new CalHardwareModel( calCoreModel ) );
+//         bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel.get() ) );
+//         //saveVBOs( bos, dir + "/vbos.cache" );
+//         //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
+//         // ^ it's not loading task, cache preparation is export task
+//         // see `applications/preparer' for this.
+
+//         // -- Fill meshNames array --
+//         for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
+//             hardwareMeshId++)
+//         {
+//             meshNames.push_back(
+//                 calCoreModel->
+//                 getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
+//                 getName() );
+//         }
+//     }
+//     else
+//     {
+//         // -- Load cached hardware model --
+//         if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 && Cal::LIBRARY_VERSION != 1200 )
+//         {
+//             throw std::runtime_error( "caching was only tested on cal3d 0.10.0, 0.11.0 and 0.12.0" );
+//         }
         
-        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
+//         calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
 
-//         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
-//         {
-        // We don't check file dates, since after `svn up' they can be
-        // in any order. So, yes, if cache file doesn't correspond to
-        // model we can SIGSEGV.
-        bos = std::auto_ptr< VBOs >( loadVBOs( VBOsCacheFileName( cfgFileName ) ) );
-        //std::cout << "loaded from cache" << std::endl;
-        //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
-        //std::cout << "faceCount = "   << bos->faceCount << std::endl;
-        calHardwareModel = std::auto_ptr< CalHardwareModel >(
-            loadHardwareModel( calCoreModel,
-                               HWModelCacheFileName( cfgFileName ),
-                               meshNames ) );
-//         }
-//         else
-//         {
-//             throw std::runtime_error( "cache is older than .cfg" );
-//         }
-    }
+// //         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
+// //         {
+//         // We don't check file dates, since after `svn up' they can be
+//         // in any order. So, yes, if cache file doesn't correspond to
+//         // model we can SIGSEGV.
+//         bos = std::auto_ptr< VBOs >( loadVBOs( VBOsCacheFileName( cfgFileName ) ) );
+//         //std::cout << "loaded from cache" << std::endl;
+//         //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
+//         //std::cout << "faceCount = "   << bos->faceCount << std::endl;
+//         calHardwareModel = std::auto_ptr< CalHardwareModel >(
+//             loadHardwareModel( calCoreModel,
+//                                HWModelCacheFileName( cfgFileName ),
+//                                meshNames ) );
+// //         }
+// //         else
+// //         {
+// //             throw std::runtime_error( "cache is older than .cfg" );
+// //         }
+//     }
 
     // -- Preparing meshes and materials for fast Model creation --
-    bool needTBN = false; // TBN for normals map or bump map
-    bool needWeights = false; // weight and matrix index buffer for deformation
-    // ^ TODO: make per mesh buffer management to remove unnecessary buffer parts.
-    
-    for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-        hardwareMeshId++)
+    for ( MeshesVector::iterator
+              meshData = meshesData.begin(),
+              meshDataEnd = meshesData.end();
+          meshData != meshDataEnd; ++meshData )
     {
         // -- Setup some fields --
-        Mesh m;
+        Mesh* m = new Mesh;
 
-        //m.hardwareMeshId = hardwareMeshId;
-        m.hardwareMesh   = calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
-        m.name           = meshNames[ hardwareMeshId ];
-
-        if ( m.hardwareMesh.faceCount == 0 )
-        {
-            continue; // rare case, first reported by Ovidiu Sabou
-                      // it not caused any bug on my machine,
-                      // but Ovidiu had osgCalViewer crash
-        }
-
-        // -- Calculate maxBonesInfluence & rigidness --
-        GLfloat* vertexBuffer = (GLfloat*) bos->vertexBuffer->getDataPointer();
-        MatrixIndexBuffer::value_type::value_type*
-            matrixIndexBuffer = (MatrixIndexBuffer::value_type::value_type*)
-            bos->matrixIndexBuffer->getDataPointer();
-        GLfloat* weightBuffer = (GLfloat*) bos->weightBuffer->getDataPointer();
-        GLuint*  indexBuffer = (GLuint*) bos->indexBuffer->getDataPointer();
-
-        GLuint* begin = &indexBuffer[ m.getIndexInVbo() ];
-        GLuint* end   = begin + m.getIndexesCount();
-
-        m.maxBonesInfluence = 0;
-        m.rigid = true;
-        
-        for ( ; begin < end; ++begin )
-        {
-            float* v = &vertexBuffer[ *begin * 3 ];
-            m.boundingBox.expandBy( v[0], v[1], v[2] );
-
-            if ( !( matrixIndexBuffer[ *begin * 4 ] == 0
-                    &&
-                    weightBuffer[ *begin * 4 ] == 1.0f ) )
-            {
-                m.rigid = false;
-            }
-
-            if ( m.maxBonesInfluence < 1 && weightBuffer[ *begin * 4 + 0 ] > 0.0 )
-                m.maxBonesInfluence = 1;
-            if ( m.maxBonesInfluence < 2 && weightBuffer[ *begin * 4 + 1 ] > 0.0 )
-                m.maxBonesInfluence = 2;
-            if ( m.maxBonesInfluence < 3 && weightBuffer[ *begin * 4 + 2 ] > 0.0 )
-                m.maxBonesInfluence = 3;
-            if ( m.maxBonesInfluence < 4 && weightBuffer[ *begin * 4 + 3 ] > 0.0 )
-                m.maxBonesInfluence = 4;
-
-//             std::cout << matrixIndexBuffer[ *begin * 4 + 0 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 1 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 2 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 3 ] << "\t\t"
-//                       << weightBuffer[ *begin * 4 + 0 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 1 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 2 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 3 ] << std::endl;
-        }
-
-        if ( m.rigid )
-        {
-            if ( m.getBonesCount() != 1 )
-            {
-                throw std::runtime_error( "must be one bone in this mesh" );
-            }
-
-            m.rigidBoneId = m.hardwareMesh.m_vectorBonesIndices[ 0 ];
-        }
-
-        if ( m.maxBonesInfluence == 0 ) // unrigged mesh
-        {
-            m.rigid = true; // mesh is rigid when all its vertices are
-                            // rigged to one bone with weight = 1.0,
-                            // or when no one vertex is rigged at all
-            m.rigidBoneId = -1; // no bone
-        }
-
-        if ( !m.rigid )
-        {
-            needWeights = true;
-        }
+        m->data = meshData->get();
 
         // -- Setup state sets --
-        m.hwStateDesc = HwStateDesc( m.hardwareMesh.pCoreMaterial, dir );
-        if ( !m.hwStateDesc.normalsMap.empty() || !m.hwStateDesc.bumpMap.empty() )
-        {
-            needTBN = true;
-        }
-//         calCoreModel->getCoreMaterial( m.coreSubMesh->getCoreMaterialThreadId() );
+        m->hwStateDesc = HwStateDesc( m->data->coreMaterial, dir );
+//         calCoreModel->getCoreMaterial( m->coreSubMesh->getCoreMaterialThreadId() );
 //         coreMaterialId == coreMaterialThreadId - we made them equal on load phase
         
-        m.stateSet = swMeshStateSetCache->get( static_cast< SwStateDesc >( m.hwStateDesc ) );
+        m->stateSet = swMeshStateSetCache->get( static_cast< SwStateDesc >( m->hwStateDesc ) );
 
-        m.staticHardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
-        m.staticDepthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
+        m->staticHardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
+        m->staticDepthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
 
-        m.hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m.maxBonesInfluence );
+        m->hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m->data->maxBonesInfluence );
 
-        m.hardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
-        m.depthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
+        m->hardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
+        m->depthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
 
         // -- Done with mesh --
         meshes.push_back( m );
 
         osg::notify( osg::INFO )
-            << "mesh: " << m.name << std::endl
-            << "material: " << m.hardwareMesh.pCoreMaterial->getName() << std::endl
-            << m.hwStateDesc << std::endl
-            << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
-            << "  m.hardwareMesh.meshId     = " << m.hardwareMesh.meshId << std::endl
-            << "  m.hardwareMesh.submeshId  = " << m.hardwareMesh.submeshId << std::endl
-            << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
-            << "  m.indexesCount            = " << m.getIndexesCount() << std::endl
-            << "  m.rigid                   = " << m.rigid << std::endl;
-    }
-
-    // -- Check zero weight bones --
-    {
-        MatrixIndexBuffer::iterator mi = bos->matrixIndexBuffer->begin();
-        WeightBuffer::iterator      w  = bos->weightBuffer->begin();
-
-        while ( mi < bos->matrixIndexBuffer->end() )
-        {
-            if ( (*w)[0] <= 0.0 ) // no influences at all
-            {
-                (*w)[0] = 1.0;
-                (*mi)[0] = 30;
-                // last+1 bone in shader is always identity matrix.
-                // we need this hack for meshes where some vertexes
-                // are rigged and some are not (so we create
-                // non-movable bone for them) (see #68)
-            }
-            
-            ++mi;
-            ++w;
-        }
+            << "mesh              : " << m->data->name << std::endl
+            << "maxBonesInfluence : " << m->data->maxBonesInfluence << std::endl
+            << "trianglesCount    : " << m->data->getIndexesCount() / 3 << std::endl
+            << "vertexCount       : " << m->data->vertexBuffer->size() << std::endl
+            << "rigid             : " << m->data->rigid << std::endl
+            << "rigidBoneId       : " << m->data->rigidBoneId << std::endl //<< std::endl
+//            << "-- material: " << m->data->coreMaterial->getName() << " --" << std::endl
+            << m->hwStateDesc << std::endl;
     }
 
     // -- Collecting animation names --
     for ( int i = 0; i < calCoreModel->getCoreAnimationCount(); i++ )
     {
         animationNames.push_back( calCoreModel->getCoreAnimation( i )->getName() );
-    }
-    
-    // -- Save some buffers --
-    vertexBuffer        = bos->vertexBuffer;
-    indexBuffer         = bos->indexBuffer;
-
-    if ( needWeights )
-    {
-        weightBuffer        = bos->weightBuffer;
-        matrixIndexBuffer   = bos->matrixIndexBuffer;
-    }
-
-//    if ( !(flags & NO_SOFTWARE_MESHES) )
-    {
-        texCoordBuffer      = bos->texCoordBuffer;
-        normalBuffer        = bos->normalBuffer;
-    }
-
-//    if ( flags & SHOW_TBN )
-    {
-        tangentBuffer       = bos->tangentBuffer;
-        binormalBuffer      = bos->binormalBuffer;
-        normalBuffer        = bos->normalBuffer;
     }
 }
 

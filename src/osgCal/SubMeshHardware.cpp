@@ -15,9 +15,9 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-// #define GL_GLEXT_PROTOTYPES <- for glDrawRangeElements
-// #include <GL/gl.h>
-// #include <GL/glext.h>
+//#define GL_GLEXT_PROTOTYPES <- for glDrawRangeElements
+#include <GL/gl.h>
+#include <GL/glu.h>
 
 #include <osg/VertexProgram>
 #include <osg/GL2Extensions>
@@ -29,10 +29,9 @@ using namespace osgCal;
 
 
 
-SubMeshHardware::SubMeshHardware( Model*                 _model,
+SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh )
-    : coreModel( _model->getCoreModel() )
-    , model( _model )
+    : modelData( _modelData )
     , mesh( _mesh )
     , deformed( false )
 {   
@@ -143,19 +142,19 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         GLfloat translationVectors[3*31];
         
 
-        for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
+        for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
         {
-            model->getBoneRotationTranslation( mesh->getBoneId( boneIndex ),
-                                               &rotationMatrices[boneIndex*9],
-                                               &translationVectors[boneIndex*3] );
+            modelData->getBoneRotationTranslation( mesh->data->getBoneId( boneIndex ),
+                                                   &rotationMatrices[boneIndex*9],
+                                                   &translationVectors[boneIndex*3] );
         }
     
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
-                                           mesh->getBonesCount(), GL_TRUE, rotationMatrices );
+                                           mesh->data->getBonesCount(), GL_TRUE, rotationMatrices );
         if ( translationVectorsAttrib >= 0 )
         {
             gl2extensions->glUniform3fv( translationVectorsAttrib,
-                                         mesh->getBonesCount(), translationVectors );
+                                         mesh->data->getBonesCount(), translationVectors );
         }
 
         GLfloat translation[3] = {0,0,0};
@@ -201,7 +200,7 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 
     compileGLObjects( renderInfo, mesh->staticHardwareStateSet.get() );
 
-    if ( !mesh->rigid && !coreModel->getAnimationNames().empty() )
+    if ( !mesh->data->rigid )
     {
         compileGLObjects( renderInfo, mesh->hardwareStateSet.get() );        
     }
@@ -260,6 +259,16 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
                                           const osg::StateSet* stateSet,
                                           GLuint               displayList ) const
 {   
+#define glError()                                                       \
+    {                                                                   \
+        GLenum err = glGetError();                                      \
+        while (err != GL_NO_ERROR) {                                    \
+            fprintf(stderr, "glError: %s caught at %s:%u\n",            \
+                    (char *)gluErrorString(err), __FILE__, __LINE__);   \
+            err = glGetError();                                         \
+        }                                                               \
+    }
+
     osg::State& state = *renderInfo.getState();
     const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
     const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
@@ -274,7 +283,7 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     #define NORMAL_TYPE         GL_FLOAT
     #define MATRIX_INDEX_TYPE   GL_SHORT
 #endif
-    if ( !mesh->rigid
+    if ( !mesh->data->rigid
 //          &&
 //          stateSet != mesh->staticHardwareStateSet.get()
 //          &&
@@ -282,7 +291,7 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         )
     {
         state.setTexCoordPointer( 1, 4, GL_FLOAT, 0,
-                                  coreModel->getWeightBuffer()->getDataPointer() );
+                                  mesh->data->weightBuffer->getDataPointer() );
 //         state.setVertexAttribPointer( program->getAttribLocation( "index" ),
 // //                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
 // //                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
@@ -293,29 +302,26 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 //         // but conversion from float to int would be too expensive
 //         // when updating vertices on CPU.
         state.setTexCoordPointer( 2, 4, MATRIX_INDEX_TYPE, 0,
-                                  coreModel->getMatrixIndexBuffer()->getDataPointer() );
+                                  mesh->data->matrixIndexBuffer->getDataPointer() );
     }
 
 //     if ( stateSet != mesh->depthStateSet.get() &&
 //          stateSet != mesh->staticDepthStateSet.get() )
     {
     state.setNormalPointer( NORMAL_TYPE, 0,
-                            coreModel->getNormalBuffer()->getDataPointer() );
+                            mesh->data->normalBuffer->getDataPointer() );
 
-    if ( mesh->hwStateDesc.diffuseMap != "" || mesh->hwStateDesc.normalsMap != ""
-         || mesh->hwStateDesc.bumpMap != "" )
+    if ( mesh->data->texCoordBuffer.valid() )
     {
         state.setTexCoordPointer( 0, 2, GL_FLOAT, 0,
-                                  coreModel->getTexCoordBuffer()->getDataPointer() );
-        state.setTexCoordPointer( 3, 3, NORMAL_TYPE, 0,
-                                  coreModel->getTangentBuffer()->getDataPointer() );
-        state.setTexCoordPointer( 4, 3, NORMAL_TYPE, 0,
-                                  coreModel->getBinormalBuffer()->getDataPointer() );
+                                  mesh->data->texCoordBuffer->getDataPointer() );
+        state.setTexCoordPointer( 3, 4, NORMAL_TYPE, 0,
+                                  mesh->data->tangentAndHandednessBuffer->getDataPointer() );
     }
     }
     
     state.setVertexPointer( 3, GL_FLOAT, 0,
-                            coreModel->getVertexBuffer()->getDataPointer() );
+                            mesh->data->vertexBuffer->getDataPointer() );
 
     // get mesh material to restore glColor after glDrawElements call
     const osg::Material* material = static_cast< const osg::Material* >
@@ -329,24 +335,14 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         GL_TRIANGLES,                                                   \
         /*mesh->hardwareMesh.baseVertexIndex,*/                         \
         /*mesh->hardwareMesh.baseVertexIndex + mesh->hardwareMesh.vertexCount,*/ \
-        mesh->getIndexesCount(),                                        \
+        mesh->data->indexBuffer->size(),                                \
         GL_UNSIGNED_INT,                                                \
-        ((GLuint *)coreModel->getIndexBuffer()->getDataPointer()) + mesh->getIndexInVbo() ); \
+        (GLuint *)mesh->data->indexBuffer->getDataPointer() );          \
     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     // TODO: ^ color restoring doesn't allow material overriding
     // since we get mesh material color, not last applied one (there is
     // no one when compiling display list). Maybe we can override Drawable::draw
     // to get actual last applied material.
-
-#define glError()                                                       \
-    {                                                                   \
-        GLenum err = glGetError();                                      \
-        while (err != GL_NO_ERROR) {                                    \
-            fprintf(stderr, "glError: %s caught at %s:%u\n",            \
-                    (char *)gluErrorString(err), __FILE__, __LINE__);   \
-            err = glGetError();                                         \
-        }                                                               \
-    }
 
     GLint faceUniform = program->getUniformLocation( "face" );
 #define SET_FACE_UNIFORM(_fu) \
@@ -392,32 +388,28 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 void
 SubMeshHardware::create()
 {
-    setVertexArray( model->getVertexBuffer() );
+    if ( mesh->data->rigid )
+    {
+        setVertexArray( mesh->data->vertexBuffer.get() );
+    }
+    else
+    {
+        setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+    }
 
-    osg::DrawElementsUInt* de = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES,
-                                                           mesh->getIndexesCount() );
-    memcpy( &de->front(),
-            (GLuint*)&coreModel->getIndexBuffer()->front()
-            + mesh->getIndexInVbo(),
-            mesh->getIndexesCount() * sizeof ( GLuint ) );
-    addPrimitiveSet( de );
+    addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
 
-// draw arrays works slower for picking than draw elements.
-//     setVertexIndices( const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::TRIANGLES,
-//                                           mesh->getIndexInVbo(),
-//                                           mesh->getIndexesCount() ) );
-
-    boundingBox = mesh->boundingBox;
+    boundingBox = mesh->data->boundingBox;
 
     // create depth submesh for non-transparent meshes
-    if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
-         &&
-         !(mesh->staticHardwareStateSet.get()->getRenderingHint()
-           & osg::StateSet::TRANSPARENT_BIN) )
-    {
-        depthSubMesh = new SubMeshDepth( this ); 
-    }
+    // TODO: restore depth meshes support
+//     if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
+//          &&
+//          !(mesh->staticHardwareStateSet.get()->getRenderingHint()
+//            & osg::StateSet::TRANSPARENT_BIN) )
+//     {
+//         depthSubMesh = new SubMeshDepth( this ); 
+//     }
 }
 
 static
@@ -474,7 +466,7 @@ rtDistance( const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v1,
 void
 SubMeshHardware::update()
 {   
-    if ( mesh->rigid )
+    if ( mesh->data->rigid )
     {
         return; // no bones - no update
     }
@@ -484,13 +476,13 @@ SubMeshHardware::update()
 
     deformed = false;
 
-    for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
+    for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
     {
-        int boneId = mesh->getBoneId( boneIndex );
+        int boneId = mesh->data->getBoneId( boneIndex );
 
-        rotationTranslationMatrices.push_back( model->getBoneRotationTranslation( boneId ) );
-        osg::Vec3 translation = model->getBoneTranslation( boneId );
-        osg::Quat rotation    = model->getBoneRotation( boneId );
+        rotationTranslationMatrices.push_back( modelData->getBoneRotationTranslation( boneId ) );
+        osg::Vec3 translation = modelData->getBoneTranslation( boneId );
+        osg::Quat rotation    = modelData->getBoneRotation( boneId );
 
         if ( // cal3d reports nonzero translations for non-animated models
             // and non zero quaternions (seems like some FP round-off error). 
@@ -556,7 +548,7 @@ SubMeshHardware::update()
 //    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
     if ( rtDistance( rotationTranslationMatrices,
                      previousRotationTranslationMatrices,
-                     mesh->getBonesCount() ) < 1e-7 ) // usually 1e-8..1e-10
+                     mesh->data->getBonesCount() ) < 1e-7 ) // usually 1e-8..1e-10
     {
 //        std::cout << "didn't changed" << std::endl;
         return; // no changes
@@ -569,20 +561,17 @@ SubMeshHardware::update()
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();
     
-    VertexBuffer&               vb  = *model->getVertexBuffer();
-    const VertexBuffer&         svb = *coreModel->getVertexBuffer();
-    const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
-    const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
+    VertexBuffer&               vb  = *(VertexBuffer*)getVertexArray();
+    const VertexBuffer&         svb = *mesh->data->vertexBuffer.get();
+    const WeightBuffer&         wb  = *mesh->data->weightBuffer.get();
+    const MatrixIndexBuffer&    mib = *mesh->data->matrixIndexBuffer.get();
    
-    int baseIndex = mesh->hardwareMesh.baseVertexIndex;
-    int vertexCount = mesh->hardwareMesh.vertexCount;
-    
-    osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
-    const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
-    const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
+    osg::Vec3f*        v  = &vb.front();      /* dest vector */   
+    const osg::Vec3f*  sv = &svb.front();     /* source vector */   
+    const osg::Vec4f*  w  = &wb.front();      /* weights */         
     const MatrixIndexBuffer::value_type*
-                       mi = &mib.front() + baseIndex; /* bone indexes */
-    osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
+                       mi = &mib.front();     /* bone indexes */
+    osg::Vec3f*        vEnd = v + vb.size();  /* dest vector end */   
     
 #define ITERATE( _f )                           \
     while ( v < vEnd )                          \
@@ -658,7 +647,7 @@ SubMeshHardware::update()
 
 #define STOP
 
-    switch ( mesh->maxBonesInfluence )
+    switch ( mesh->data->maxBonesInfluence )
     {
         case 1:
 	  //#pragma omp parallel for -
@@ -719,7 +708,7 @@ SubMeshDepth::compileGLObjects(osg::RenderInfo& renderInfo) const
 
     hwMesh->compileGLObjects( renderInfo, mesh->staticDepthStateSet.get() );
 
-    if ( !mesh->rigid && !hwMesh->getCoreModel()->getAnimationNames().empty() )
+    if ( !mesh->data->rigid )
     {
         hwMesh->compileGLObjects( renderInfo, mesh->depthStateSet.get() );
     }

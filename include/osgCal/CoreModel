@@ -258,7 +258,7 @@ namespace osgCal
                  * with pixel shaders (useful if pixel shading is a
                  * bottleneck).
                  */
-                USE_DEPTH_FIRST_MESHES = 0x2,
+                USE_DEPTH_FIRST_MESHES = 0x2, // TODO: commented
 
                 //DONT_CALCULATE_VERTEX_IN_SHADER = 0x4,
                 // ^ it doesn't supported in display lists
@@ -267,12 +267,12 @@ namespace osgCal
                  * Don't keep normals and texture coords for
                  * software meshes (free them after VBOs are applied).
                  */
-                NO_SOFTWARE_MESHES = 0x8,
+                NO_SOFTWARE_MESHES = 0x8, // TODO: does not free memory
 
                 /**
                  * Show Tangent-Binormal-Normal basis.
                  */
-                SHOW_TBN = 0x10,
+                SHOW_TBN = 0x10, // TODO: commented
 
                 /**
                  * Enable fog in shader (exp, exp2 or linear mode)
@@ -296,50 +296,17 @@ namespace osgCal
                               std::string&       errorText,
                               int                flags = 0 ) throw ();
 
-            CalCoreModel*       getCalCoreModel() const     { return calCoreModel; }
+            CalCoreModel* getCalCoreModel() const  { return calCoreModel; }
 
-            int getFlags() const { return flags; }
+            int           getFlags()        const  { return flags; }
 
-            struct Mesh
+            struct Mesh : public osg::Referenced
             {
                 public:
 
-                    Mesh()
-                        : maxBonesInfluence( 0 )
-                        , rigid( false )
-                        , rigidBoneId( -1 )
-                    {}
-                    
-                    std::string                   name;
-                    HwStateDesc                   hwStateDesc;
+                    osg::ref_ptr< MeshData >            data;
 
-                    int                           maxBonesInfluence;
-
-                    /**
-                     * Is mesh rigid?
-                     * Mesh is rigid when all its vertices are
-                     * rigged to one bone with weight = 1.0,
-                     * or when no one vertex is rigged at all.
-                     */
-                    bool                          rigid;
-                    /**
-                     * Rigid mesh bone id, or -1 when mesh is not rigged at all.
-                     */
-                    int                           rigidBoneId;
-                    
-                    CalHardwareModel::CalHardwareMesh  hardwareMesh;
-
-                    int getIndexInVbo() const   { return hardwareMesh.startIndex; }
-                    int getIndexesCount() const { return hardwareMesh.faceCount * 3; }
-
-                    int getBonesCount() const { return hardwareMesh.m_vectorBonesIndices.size(); }
-                    int getBoneId( int index ) const { return hardwareMesh.m_vectorBonesIndices[ index ]; }
-                    CalBone* getBone( int index,
-                                      CalSkeleton* skeleton ) const
-                    {
-                        const std::vector<CalBone *>& vectorBone = skeleton->getVectorBone();
-                        return vectorBone[ getBoneId( index ) ];
-                    }
+                    HwStateDesc                         hwStateDesc;
 
                     /**
                      * Mesh state set. Contain material, textures and also
@@ -351,24 +318,14 @@ namespace osgCal
 
                     osg::ref_ptr< osg::StateSet >       depthStateSet; ///< depth only hw state ste
                     osg::ref_ptr< osg::StateSet >       staticDepthStateSet; ///< zero bones state set
-
-                    osg::BoundingBox                    boundingBox;
             };
 
             float getScale() const { return scale; }
-            const std::vector< Mesh >&          getMeshes()         const { return meshes; }
+
+            typedef std::vector< osg::ref_ptr< Mesh > > MeshVector;
+            
+            const MeshVector&                   getMeshes()         const { return meshes; }
             const std::vector< std::string >&   getAnimationNames() const { return animationNames; }
-
-
-            //osg::Program* getSkeletalProgram() const;
-            const VertexBuffer* getVertexBuffer() const { return vertexBuffer.get(); }
-            const WeightBuffer* getWeightBuffer() const { return weightBuffer.get(); }
-            const MatrixIndexBuffer* getMatrixIndexBuffer() const { return matrixIndexBuffer.get(); }
-            const IndexBuffer* getIndexBuffer() const { return indexBuffer.get(); }
-            const NormalBuffer* getNormalBuffer() const { return normalBuffer.get(); }            
-            const NormalBuffer* getBinormalBuffer() const { return binormalBuffer.get(); }            
-            const NormalBuffer* getTangentBuffer() const { return tangentBuffer.get(); }            
-            const TexCoordBuffer* getTexCoordBuffer() const { return texCoordBuffer.get(); }
 
         private:
 
@@ -384,17 +341,8 @@ namespace osgCal
             HwMeshStateSetCache*        hwMeshStateSetCache;
             DepthMeshStateSetCache*     depthMeshStateSetCache;
 
-            std::vector< Mesh >         meshes;
+            MeshVector                  meshes;
             std::vector< std::string >  animationNames;
-
-            osg::ref_ptr< VertexBuffer >        vertexBuffer;
-            osg::ref_ptr< WeightBuffer >        weightBuffer;
-            osg::ref_ptr< MatrixIndexBuffer >   matrixIndexBuffer;
-            osg::ref_ptr< IndexBuffer >         indexBuffer;
-            osg::ref_ptr< NormalBuffer >        normalBuffer;
-            osg::ref_ptr< NormalBuffer >        binormalBuffer;
-            osg::ref_ptr< NormalBuffer >        tangentBuffer;
-            osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
     };
 
 }; // namespace osgCal

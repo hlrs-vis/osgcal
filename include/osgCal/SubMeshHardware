@@ -70,7 +70,7 @@ namespace osgCal
             /**
              * Creates a submesh for one model given the mesh and submesh of this mesh
              */
-            SubMeshHardware( Model*                 model,
+            SubMeshHardware( ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
             ~SubMeshHardware();
 
@@ -94,8 +94,7 @@ namespace osgCal
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 
-            const CoreModel*       getCoreModel()     const { return coreModel; }
-            const CoreModel::Mesh* getCoreModelMesh() const { return mesh; }
+            const CoreModel::Mesh* getCoreModelMesh() const { return mesh.get(); }
 
             /**
              * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
@@ -111,10 +110,9 @@ namespace osgCal
 
         private:
 
-            CoreModel*                  coreModel;
-            Model*                      model;
-            const CoreModel::Mesh*      mesh;
-            osg::BoundingBox            boundingBox;
+            osg::ref_ptr< ModelData >             modelData;
+            osg::ref_ptr< const CoreModel::Mesh > mesh;
+            osg::BoundingBox                      boundingBox;
             std::vector< std::pair< osg::Matrix3, osg::Vec3f > >
                                         previousRotationTranslationMatrices;
             osg::ref_ptr< SubMeshDepth > depthSubMesh;

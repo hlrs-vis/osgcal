@@ -101,9 +101,10 @@ class AnimationToggleHandler : public osgGA::GUIEventHandler
 {
     public: 
 
-        AnimationToggleHandler( osgCal::Model* m )
+        AnimationToggleHandler( osgCal::Model* m,
+                                const std::vector< std::string >& an )
             : model( m )
-            , animationNames( m->getCoreModel()->getAnimationNames() )
+            , animationNames( an )
             , currentAnimation( -1 )
         {
         }
@@ -299,6 +300,7 @@ main( int argc,
     }
 
     osg::Group* root = new osg::Group();
+    std::vector< std::string > animationNames;
     
     // -- Load model --
     { // scope for model ref_ptr
@@ -377,6 +379,8 @@ main( int argc,
                                    meshTyper.get(),
                                    meshFilter.get(),
                                    animNum ) );
+
+        animationNames = coreModel->getAnimationNames();
     } // end of model's ref_ptr scope
 
     // -- Setup viewer --
@@ -400,10 +404,10 @@ main( int argc,
     viewer.addEventHandler( new osgViewer::StatsHandler );
 
     // add the help handler
-    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
+    viewer.addEventHandler(new osgViewer::HelpHandler( arguments.getApplicationUsage() ) );
 
     // add the animation toggle handler
-    viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0) ) );
+    viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0), animationNames ) );
     
     // add the pause handler
     bool paused = false;

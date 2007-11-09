@@ -25,13 +25,12 @@
 
 using namespace osgCal;
 
-SubMeshSoftware::SubMeshSoftware( Model*                 _model,
+SubMeshSoftware::SubMeshSoftware( ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh )
-    : coreModel( _model->getCoreModel() )
-    , model( _model )
+    : modelData( _modelData )
     , mesh( _mesh )
 {
-    if ( mesh->rigid || coreModel->getAnimationNames().empty() )
+    if ( mesh->data->rigid )
     {
         setUseDisplayList( true );
         setSupportsDisplayList( true ); 
@@ -76,29 +75,23 @@ SubMeshSoftware::~SubMeshSoftware()
 void
 SubMeshSoftware::create()
 {
-    setVertexArray( model->getVertexBuffer() );
-    setNormalArray( model->getNormalBuffer() );
+    if ( mesh->data->rigid )
+    {
+        setVertexArray( mesh->data->vertexBuffer.get() );
+        setNormalArray( mesh->data->normalBuffer.get() );
+    }
+    else
+    {
+        setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+        setNormalArray( (NormalBuffer*)mesh->data->normalBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+        getNormalData().normalize = GL_TRUE;
+    }
     setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
-    getNormalData().normalize = GL_TRUE;
-    setTexCoordArray( 0, const_cast< TexCoordBuffer* >( coreModel->getTexCoordBuffer() ) );
+    setTexCoordArray( 0, const_cast< TexCoordBuffer* >( mesh->data->texCoordBuffer.get() ) );
 
-    osg::DrawElementsUInt* de = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES,
-                                                           mesh->getIndexesCount() );
-    memcpy( &de->front(),
-            (GLuint*)&coreModel->getIndexBuffer()->front()
-            + mesh->getIndexInVbo(),
-            mesh->getIndexesCount() * sizeof ( GLuint ) );
-    addPrimitiveSet( de );
+    addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
 
-// draw arrays are MORE slow than draw elements (at least twice)
-//     setVertexIndices( const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     setNormalIndices( const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     setTexCoordIndices( 0, const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::TRIANGLES,
-//                                           mesh->getIndexInVbo(),
-//                                           mesh->getIndexesCount() ) );
-    
-    boundingBox = mesh->boundingBox;
+    boundingBox = mesh->data->boundingBox;
 }
 
 namespace osg {
@@ -145,7 +138,7 @@ mul3( const osg::Matrix3& m,
 void
 SubMeshSoftware::update()
 {
-    if ( mesh->rigid )
+    if ( mesh->data->rigid )
     {
         return; // no bones - no update
     }
@@ -154,11 +147,11 @@ SubMeshSoftware::update()
     // -- Setup rotation matrices & translation vertices --
     std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
 
-    for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
+    for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
     {
-        int boneId = mesh->getBoneId( boneIndex );
+        int boneId = mesh->data->getBoneId( boneIndex );
 
-        rotationTranslationMatrices.push_back( model->getBoneRotationTranslation( boneId ) );
+        rotationTranslationMatrices.push_back( modelData->getBoneRotationTranslation( boneId ) );
     }
 
     rotationTranslationMatrices.resize( 31 );
@@ -181,26 +174,23 @@ SubMeshSoftware::update()
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();
     
-    VertexBuffer&               vb  = *model->getVertexBuffer();
-    Model::SwNormalBuffer&      nb  = *model->getNormalBuffer();
-    const VertexBuffer&         svb = *coreModel->getVertexBuffer();
-    const NormalBuffer&         snb = *coreModel->getNormalBuffer();
-    const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
-    const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
+    VertexBuffer&               vb  = *(VertexBuffer*)getVertexArray();
+    NormalBuffer&               nb  = *(NormalBuffer*)getNormalArray();
+    const VertexBuffer&         svb = *mesh->data->vertexBuffer.get();
+    const NormalBuffer&         snb = *mesh->data->normalBuffer.get();
+    const WeightBuffer&         wb  = *mesh->data->weightBuffer.get();
+    const MatrixIndexBuffer&    mib = *mesh->data->matrixIndexBuffer.get();
 
-    int baseIndex = mesh->hardwareMesh.baseVertexIndex;
-    int vertexCount = mesh->hardwareMesh.vertexCount;
-    
-    osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
-    osg::Vec3f*        n  = &nb.front()  + baseIndex; /* dest normal */   
-    const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
+    osg::Vec3f*        v  = &vb.front()  ; /* dest vector */   
+    osg::Vec3f*        n  = &nb.front()  ; /* dest normal */   
+    const osg::Vec3f*  sv = &svb.front() ; /* source vector */   
     const NormalBuffer::value_type*
-                       sn = &snb.front() + baseIndex; /* source normal */   
-    const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
+                       sn = &snb.front() ; /* source normal */   
+    const osg::Vec4f*  w  = &wb.front()  ; /* weights */         
     const MatrixIndexBuffer::value_type*
-                       mi = &mib.front() + baseIndex; /* bone indexes */		
+                       mi = &mib.front() ; /* bone indexes */		
 
-    osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
+    osg::Vec3f*        vEnd = v + vb.size(); /* dest vector end */   
     
 #define ITERATE( _f )                           \
     while ( v < vEnd )                          \
@@ -273,7 +263,7 @@ SubMeshSoftware::update()
 
 #define STOP
 
-    switch ( mesh->maxBonesInfluence )
+    switch ( mesh->data->maxBonesInfluence )
     {
         case 1:
             ITERATE( PROCESS_X( STOP ) );

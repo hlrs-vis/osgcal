@@ -728,34 +728,6 @@ saveHardwareModel( const CalHardwareModel* calHardwareModel,
 // -- Mesh data --
 
 static
-TangentAndHandednessBuffer*
-makeTangentAndHandednessBuffer( const osg::ref_ptr< TangentBuffer >  tb,
-                                const osg::ref_ptr< BinormalBuffer > bb,
-                                const osg::ref_ptr< NormalBuffer >   nb )
-// ^ ref_ptr to remove them after use
-{
-    TangentAndHandednessBuffer* r = new TangentAndHandednessBuffer;
-
-    for ( TangentBuffer::const_iterator
-              t = tb->begin(),
-              tEnd = tb->end(),
-              b = bb->begin(),
-              n = nb->begin();
-          t != tEnd; ++t, ++b, ++n )
-    {        
-        TangentBuffer::value_type crossnt = *n ^ *t;
-
-        TangentAndHandednessBuffer::value_type::value_type handedness =
-            crossnt * (*b) < 0.0 ? -1.0 : 1.0;
-
-        r->push_back( TangentAndHandednessBuffer::value_type(
-                          t->x(), t->y(), t->z(), handedness ) );
-    }
-
-    return r;
-}
-
-static
 osg::BoundingBox
 calculateBoundingBox( const VertexBuffer* vb )
 {
@@ -826,6 +798,28 @@ checkRigidness( osgCal::MeshData* m )
         m->matrixIndexBuffer = 0;
         m->bonesIndices.clear();
     }
+    else
+    // -- Check zero weight bones --
+    {
+        MatrixIndexBuffer::iterator mi = m->matrixIndexBuffer->begin();
+        WeightBuffer::iterator      w  = m->weightBuffer->begin();
+
+        while ( mi < m->matrixIndexBuffer->end() )
+        {
+            if ( (*w)[0] <= 0.0 ) // no influences at all
+            {
+                (*w)[0] = 1.0;
+                (*mi)[0] = 30;
+                // last+1 bone in shader is always identity matrix.
+                // we need this hack for meshes where some vertexes
+                // are rigged and some are not (so we create
+                // non-movable bone for them) (see #68)
+            }
+            
+            ++mi;
+            ++w;
+        }
+    }
 }
 
 static
@@ -845,8 +839,175 @@ checkForEmptyTexCoord( osgCal::MeshData* m )
     }
 
     // -- Remove unused texture coordinates and tangents --
+//    std::cout << "empty tex coord: " << m->name << std::endl;
     m->texCoordBuffer = 0;
     m->tangentAndHandednessBuffer = 0;
+}
+
+static
+void
+generateTangentAndHandednessBuffer( osgCal::MeshData* m )
+{
+    if ( !m->texCoordBuffer.valid() )
+    {
+        return;
+    }
+
+    int vertexCount = m->vertexBuffer->size();
+    int faceCount   = m->indexBuffer->size() / 3;    
+
+    m->tangentAndHandednessBuffer = new TangentAndHandednessBuffer( vertexCount );
+
+    CalVector* tan1 = new CalVector[vertexCount];
+    CalVector* tan2 = new CalVector[vertexCount];
+
+    const GLfloat* texCoordBufferData = (GLfloat*) m->texCoordBuffer->getDataPointer();
+
+    const GLuint*  ib = (GLuint*) m->indexBuffer->getDataPointer();
+    const GLfloat* vb = (GLfloat*) m->vertexBuffer->getDataPointer();
+#ifdef OSG_CAL_BYTE_BUFFERS
+    GLfloat* thb = new GLfloat[ vertexCount*4 ];
+    const GLfloat* nb = floatNormalBuffer;
+#else
+    GLfloat* thb = (GLfloat*) m->tangentAndHandednessBuffer->getDataPointer();
+    const GLfloat* nb = (GLfloat*) m->normalBuffer->getDataPointer();
+#endif
+
+    for ( int face = 0; face < faceCount; face++ )
+    {
+        for ( int j = 0; j < 3; j++ )
+        {
+            // there seems to be no visual difference in calculating
+            // tangent per vertex (as is tan1[i1] += spos(j=0,1,2))
+            // or per face (tan1[i1,i2,i3] += spos)
+            GLuint i1 = ib[face*3+(j+0)%3];
+            GLuint i2 = ib[face*3+(j+1)%3];
+            GLuint i3 = ib[face*3+(j+2)%3];
+        
+            const float* v1 = &vb[i1*3];
+            const float* v2 = &vb[i2*3];
+            const float* v3 = &vb[i3*3];
+
+            const float* w1 = &texCoordBufferData[i1*2];
+            const float* w2 = &texCoordBufferData[i2*2];
+            const float* w3 = &texCoordBufferData[i3*2];
+
+#define x(_a) (_a[0])
+#define y(_a) (_a[1])
+#define z(_a) (_a[2])
+        
+            float x1 = x(v2) - x(v1);
+            float x2 = x(v3) - x(v1);
+            float y1 = y(v2) - y(v1);
+            float y2 = y(v3) - y(v1);
+            float z1 = z(v2) - z(v1);
+            float z2 = z(v3) - z(v1);
+        
+            float s1 = x(w2) - x(w1);
+            float s2 = x(w3) - x(w1);
+            float t1 = y(w2) - y(w1);
+            float t2 = y(w3) - y(w1);
+
+#undef x
+#undef y
+#undef z
+        
+            //float r = 1.0F / (s1 * t2 - s2 * t1);
+            float r = (s1 * t2 - s2 * t1) < 0 ? -1.0 : 1.0;
+            CalVector sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
+                           (t2 * z1 - t1 * z2) * r);
+            CalVector tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
+                           (s1 * z2 - s2 * z1) * r);
+
+            // sdir & tdir can be 0 (when UV unwrap doesn't exists
+            // or has errors like coincide points)
+            // we ignore them
+            if ( sdir.length() > 0 )
+            {
+                sdir.normalize(); 
+
+                tan1[i1] += sdir;
+                //tan1[i2] += sdir;
+                //tan1[i3] += sdir;
+            }
+
+            if ( tdir.length() > 0 )
+            {
+                tdir.normalize();
+
+                tan2[i1] += tdir;
+                //tan2[i2] += tdir;
+                //tan2[i3] += tdir;
+            }
+        }
+    }
+    
+    for (long a = 0; a < vertexCount; a++)
+    {
+        CalVector tangent;
+        CalVector binormal;
+        CalVector t = tan1[a];
+        CalVector b = tan2[a];
+        CalVector n = CalVector( nb[a*3+0],
+                                 nb[a*3+1],
+                                 nb[a*3+2] );
+
+        // tangent & bitangent can be zero when UV unwrap doesn't exists
+        // or has errors like coincide points
+        if ( t.length() > 0 )
+        {
+            t.normalize();
+        
+            // Gram-Schmidt orthogonalize
+            tangent = t - n * (n*t);
+            tangent.normalize();
+
+            // Calculate handedness
+            binormal = CalVector(n % tangent) *
+                ((((n % t) * b) < 0.0F) ? -1.0f : 1.0f);
+            binormal.normalize();
+        }
+        else if ( b.length() > 0 )
+        {
+            b.normalize();
+        
+            // Gram-Schmidt orthogonalize
+            binormal = b - n * (n*b);
+            binormal.normalize();
+
+            // Calculate handedness
+            tangent = CalVector(n % binormal) *
+                ((((n % b) * t) < 0.0F) ? -1.0f : 1.0f);
+            tangent.normalize();
+        }
+
+//         std::cout << "t = " << tangent.x  << '\t' << tangent.y  << '\t' << tangent.z  << '\n';
+//         std::cout << "b = " << binormal.x << '\t' << binormal.y << '\t' << binormal.z << '\n';
+//            std::cout << "n = " << n.x        << '\t' << n.y        << '\t' << n.z        << '\n';
+
+        thb[a*4+0] = tangent.x; 
+        thb[a*4+1] = tangent.y;
+        thb[a*4+2] = tangent.z;
+        thb[a*4+3] = ((((n % tangent) * binormal) > 0.0F) ? -1.0f : 1.0f); // handedness
+    }
+    
+    delete[] tan1;
+    delete[] tan2;
+
+#ifdef OSG_CAL_BYTE_BUFFERS
+    GLbyte* tangents = (GLbyte*) tangentBuffer->getDataPointer();
+    GLbyte* binormals = (GLbyte*) binormalBuffer->getDataPointer();
+
+    for ( int i = 0; i < vertexCount*3; i++ )
+    {
+        tangents[i]  = static_cast< GLbyte >( tangentBuffer[i]*127.0 );
+        binormals[i] = static_cast< GLbyte >( binormalBuffer[i]*127.0 );
+        //std::cout << (int)tangents[i] << '\n';
+    }
+
+    delete[] tangentBuffer;
+    delete[] binormalBuffer;
+#endif
 }
 
 void
@@ -897,10 +1058,10 @@ loadMeshes( CalCoreModel* calCoreModel,
     //std::cout << "calHardwareModel->load ok" << std::endl;
 
     int vertexCount = calHardwareModel->getTotalVertexCount();
-    //int faceCount   = calHardwareModel->getTotalFaceCount();
-    
-    GLfloat* texCoordBufferData = (GLfloat*) texCoordBuffer->getDataPointer();
+//    int faceCount   = calHardwareModel->getTotalFaceCount();
 
+//    std::cout << "vertexCount = " << vertexCount << "; faceCount = " << faceCount << std::endl;
+    
 #ifdef OSG_CAL_BYTE_BUFFERS
     typedef GLubyte MatrixIndex;
 #else
@@ -915,162 +1076,6 @@ loadMeshes( CalCoreModel* calCoreModel,
 
     delete[] floatMatrixIndexBuffer;
 
-    // Generate tangents for whole model.
-    {
-        CalVector* tan1 = new CalVector[vertexCount];
-        CalVector* tan2 = new CalVector[vertexCount];
-
-        GLuint*  ib = (GLuint*) indexBuffer->getDataPointer();
-        GLfloat* vb = (GLfloat*) vertexBuffer->getDataPointer();
-#ifdef OSG_CAL_BYTE_BUFFERS
-        GLfloat* tb = new GLfloat[ vertexCount*3 ];
-        GLfloat* nb = floatNormalBuffer;
-        GLfloat* bb = new GLfloat[ vertexCount*3 ];;
-#else
-        GLfloat* tb = (GLfloat*) tangentBuffer->getDataPointer();
-        GLfloat* nb = (GLfloat*) normalBuffer->getDataPointer();
-        GLfloat* bb = (GLfloat*) binormalBuffer->getDataPointer();
-#endif
-
-        for ( int face = 0; face < calHardwareModel->getTotalFaceCount(); face++ )
-        {
-            for ( int j = 0; j < 3; j++ )
-            {
-                // there seems to be no visual difference in calculating
-                // tangent per vertex (as is tan1[i1] += spos(j=0,1,2))
-                // or per face (tan1[i1,i2,i3] += spos)
-                GLuint i1 = ib[face*3+(j+0)%3];
-                GLuint i2 = ib[face*3+(j+1)%3];
-                GLuint i3 = ib[face*3+(j+2)%3];
-        
-                const float* v1 = &vb[i1*3];
-                const float* v2 = &vb[i2*3];
-                const float* v3 = &vb[i3*3];
-
-                const float* w1 = &texCoordBufferData[i1*2];
-                const float* w2 = &texCoordBufferData[i2*2];
-                const float* w3 = &texCoordBufferData[i3*2];
-
-#define x(_a) (_a[0])
-#define y(_a) (_a[1])
-#define z(_a) (_a[2])
-        
-                float x1 = x(v2) - x(v1);
-                float x2 = x(v3) - x(v1);
-                float y1 = y(v2) - y(v1);
-                float y2 = y(v3) - y(v1);
-                float z1 = z(v2) - z(v1);
-                float z2 = z(v3) - z(v1);
-        
-                float s1 = x(w2) - x(w1);
-                float s2 = x(w3) - x(w1);
-                float t1 = y(w2) - y(w1);
-                float t2 = y(w3) - y(w1);
-
-#undef x
-#undef y
-#undef z
-        
-                //float r = 1.0F / (s1 * t2 - s2 * t1);
-                float r = (s1 * t2 - s2 * t1) < 0 ? -1.0 : 1.0;
-                CalVector sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
-                               (t2 * z1 - t1 * z2) * r);
-                CalVector tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
-                               (s1 * z2 - s2 * z1) * r);
-
-                // sdir & tdir can be 0 (when UV unwrap doesn't exists
-                // or has errors like coincide points)
-                // we ignore them
-                if ( sdir.length() > 0 )
-                {
-                    sdir.normalize(); 
-
-                    tan1[i1] += sdir;
-                    //tan1[i2] += sdir;
-                    //tan1[i3] += sdir;
-                }
-
-                if ( tdir.length() > 0 )
-                {
-                    tdir.normalize();
-
-                    tan2[i1] += tdir;
-                    //tan2[i2] += tdir;
-                    //tan2[i3] += tdir;
-                }
-            }
-        }
-    
-        for (long a = 0; a < vertexCount; a++)
-        {
-            CalVector tangent;
-            CalVector binormal;
-            CalVector t = tan1[a];
-            CalVector b = tan2[a];
-            CalVector n = CalVector( nb[a*3+0],
-                                     nb[a*3+1],
-                                     nb[a*3+2] );
-
-            // tangent & bitangent can be zero when UV unwrap doesn't exists
-            // or has errors like coincide points
-            if ( t.length() > 0 )
-            {
-                t.normalize();
-        
-                // Gram-Schmidt orthogonalize
-                tangent = t - n * (n*t);
-                tangent.normalize();
-
-                // Calculate handedness
-                binormal = CalVector(n % tangent) *
-                    ((((n % t) * b) < 0.0F) ? -1.0f : 1.0f);
-                binormal.normalize();
-            }
-            else if ( b.length() > 0 )
-            {
-                b.normalize();
-        
-                // Gram-Schmidt orthogonalize
-                binormal = b - n * (n*b);
-                binormal.normalize();
-
-                // Calculate handedness
-                tangent = CalVector(n % binormal) *
-                    ((((n % b) * t) < 0.0F) ? -1.0f : 1.0f);
-                tangent.normalize();
-            }
-
-//             std::cout << "t = " << tangent.x  << '\t' << tangent.y  << '\t' << tangent.z << '\n' ;
-//             std::cout << "b = " << binormal.x << '\t' << binormal.y << '\t' << binormal.z << '\n';;
-
-            tb[a*3+0] = tangent.x; 
-            tb[a*3+1] = tangent.y;
-            tb[a*3+2] = tangent.z;
-        
-            bb[a*3+0] = binormal.x;
-            bb[a*3+1] = binormal.y;
-            bb[a*3+2] = binormal.z;
-        }
-    
-        delete[] tan1;
-        delete[] tan2;
-
-#ifdef OSG_CAL_BYTE_BUFFERS
-        GLbyte* tangents = (GLbyte*) tangentBuffer->getDataPointer();
-        GLbyte* binormals = (GLbyte*) binormalBuffer->getDataPointer();
-
-        for ( int i = 0; i < vertexCount*3; i++ )
-        {
-            tangents[i]  = static_cast< GLbyte >( tangentBuffer[i]*127.0 );
-            binormals[i] = static_cast< GLbyte >( binormalBuffer[i]*127.0 );
-            //std::cout << (int)tangents[i] << '\n';
-        }
-
-        delete[] tangentBuffer;
-        delete[] binormalBuffer;
-#endif
-    }
-
 #ifdef OSG_CAL_BYTE_BUFFERS
     GLbyte* normals = (GLbyte*) normalBuffer->getDataPointer();
 
@@ -1083,6 +1088,8 @@ loadMeshes( CalCoreModel* calCoreModel,
 #endif
 
     // invert UVs for OpenGL (textures are inverted otherwise - for example, see abdulla/klinok)
+    GLfloat* texCoordBufferData = (GLfloat*) texCoordBuffer->getDataPointer();
+
     for ( float* tcy = texCoordBufferData + 1;
           tcy < texCoordBufferData + 2*vertexCount;
           tcy += 2 )
@@ -1107,6 +1114,7 @@ loadMeshes( CalCoreModel* calCoreModel,
         MeshData* m = new MeshData;
         
         m->name = calCoreModel->getCoreMesh( hardwareMesh->meshId )->getName();
+        m->coreMaterial = hardwareMesh->pCoreMaterial;
 
         int indexesCount = faceCount * 3;
         int startIndex = calHardwareModel->getStartIndex();
@@ -1129,10 +1137,6 @@ loadMeshes( CalCoreModel* calCoreModel,
         m->matrixIndexBuffer = SUB_BUFFER( MatrixIndexBuffer, matrixIndexBuffer );
         m->normalBuffer = SUB_BUFFER( NormalBuffer, normalBuffer );
         m->texCoordBuffer = SUB_BUFFER( TexCoordBuffer, texCoordBuffer );
-        m->tangentAndHandednessBuffer = makeTangentAndHandednessBuffer(
-            SUB_BUFFER( TangentBuffer, tangentBuffer ),
-            SUB_BUFFER( BinormalBuffer, binormalBuffer ),
-            m->normalBuffer );
 
         m->boundingBox = calculateBoundingBox( m->vertexBuffer.get() );
 
@@ -1140,6 +1144,7 @@ loadMeshes( CalCoreModel* calCoreModel,
 
         checkRigidness( m );
         checkForEmptyTexCoord( m );
+        generateTangentAndHandednessBuffer( m );
 
         meshes.push_back( m );
     }

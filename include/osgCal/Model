@@ -82,12 +82,51 @@ namespace osgCal {
                 : meshName( mn )
             {}
 
-            bool filter( const CoreModel::Mesh& mesh ) { return mesh.name == meshName; }
+            bool filter( const CoreModel::Mesh& mesh ) { return mesh.data->name == meshName; }
     };
 
-    // -- Model --
+    // -- Model data --
+
+    /**
+     * Contains CalModel and som utility functions. It is separated
+     * from Model to remove circular references from submeshes to
+     * model.
+     */
+    class ModelData : public osg::Referenced
+    {
+        public:
+
+            ModelData( CalModel* cm ) : calModel( cm )
+            {
+                vectorBone = &(calModel->getSkeleton()->getVectorBone());
+            }
+            ~ModelData() { delete calModel; }
+
+            CalModel* getCalModel() { return calModel; }
+
+            osg::Quat getBoneRotation( int boneId ) const;
+            osg::Vec3 getBoneTranslation( int boneId ) const;
+
+            /**
+             * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
+             * Remark that you must pass not local bone index in mesh,
+             * but bone id (using CoreModel::Mesh::getBoneId(index)).
+             */
+            void getBoneRotationTranslation( int boneId,
+                                             GLfloat* rotation,
+                                             GLfloat* translation ) const;
+            osg::Matrixf getBoneMatrix( int boneId ) const;
+            std::pair< osg::Matrix3, osg::Vec3 > getBoneRotationTranslation( int boneId ) const;
+
+        private:
+            
+            CalModel*                   calModel;
+            const std::vector<CalBone *>* vectorBone;
+    };
     
-    class OSGCAL_EXPORT Model: public osg::Group//osg::Geode
+    // -- Model --    
+    
+    class OSGCAL_EXPORT Model : public osg::Group//osg::Geode
     {
 
         public:
@@ -111,22 +150,6 @@ namespace osgCal {
              */
             void update( double deltaTime );
 
-            CalModel*  getCalModel() { return calModel; }
-            CoreModel* getCoreModel() { return coreModel.get(); }
-            VertexBuffer* getVertexBuffer() { return vertexBuffer.get(); }
-
-#ifdef OSG_CAL_BYTE_BUFFERS
-            typedef osg::Vec3Array SwNormalBuffer;
-#else
-            typedef NormalBuffer   SwNormalBuffer;
-#endif
-
-            /**
-             * Return local model's normals buffer. It exists only
-             * when there are some software meshes. Otherwise it's NULL.
-             */
-            SwNormalBuffer* getNormalBuffer() { return normalBuffer.get(); }
-
             /**
              * Blend animation cycle to the specified weight
              * in specified time.
@@ -142,24 +165,10 @@ namespace osgCal {
                              float delay );
 
             osg::Geometry* getMesh( const std::string& name ) const throw (std::runtime_error);
-
-
-            osg::Quat getBoneRotation( int boneId ) const;
-            osg::Vec3 getBoneTranslation( int boneId ) const;
+            // TODO: return list of geometries
 
             /**
-             * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
-             * Remark that you must pass not local bone index in mesh,
-             * but bone id (using CoreModel::Mesh::getBoneId(index)).
-             */
-            void getBoneRotationTranslation( int boneId,
-                                             GLfloat* rotation,
-                                             GLfloat* translation ) const;
-            osg::Matrixf getBoneMatrix( int boneId ) const;
-            std::pair< osg::Matrix3, osg::Vec3 > getBoneRotationTranslation( int boneId ) const;
-
-            /**
-             * For compiling of vertex buffers when accept osgUtil::GLObjectsVisitor.
+             * For compiling display lists when accept osgUtil::GLObjectsVisitor.
              */
             virtual void accept( osg::NodeVisitor& nv );
 
@@ -173,33 +182,21 @@ namespace osgCal {
 
             void updateNode( osg::Node* node );
 
-            osg::ref_ptr< CoreModel >   coreModel;
-            CalModel*                   calModel;
+            /**
+             * Needed to not destroy animations and caches while model exists.
+             */
+            osg::ref_ptr< CoreModel >   coreModelReference;
+            osg::ref_ptr< ModelData >   modelData;
 
             typedef std::map< std::string, osg::ref_ptr< osg::Geometry > > MeshMap;
 
-            MeshMap                     meshes;
-
-            /**
-             * Local model's vertex buffer.
-             */
-            osg::ref_ptr< VertexBuffer >        vertexBuffer;
-
-            /**
-             * Local model's normals buffer.
-             * Used only in software mode.
-             */
-            osg::ref_ptr< SwNormalBuffer >        normalBuffer;
-
-            const std::vector<CalBone *>* vectorBone;
+            MeshMap                     meshes;            
 
             /**
              * Map of used state sets for compilation when
              * GLObjectsVisitor is applied to model.
              */
             std::map< osg::StateSet*, bool > usedStateSets;
-
-            bool modelHaveAnimations;
 
     };
 

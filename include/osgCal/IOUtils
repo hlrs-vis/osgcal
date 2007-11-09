@@ -25,6 +25,7 @@
 #include <osgCal/Export>
 #include <osg/Array>
 #include <osg/PrimitiveSet>
+#include <osg/BoundingBox>
 
 namespace osgCal
 {
@@ -139,15 +140,17 @@ namespace osgCal
 
     /**
      * Mesh data that is loaded from external file or created using
-     * CalHardwareModel. This structure contains only geometry part of
-     * mesh, materials are managed in Model/CoreModel
+     * CalHardwareModel. This structure contains geometry part of
+     * mesh and material pointer. State sets and display lists are
+     * managed in Model/CoreModel.
      */
     struct MeshData : public osg::Referenced
     {
         public:
 
             MeshData()
-                : rigid( false )
+                : coreMaterial( 0 )
+                , rigid( false )
                 , rigidBoneId( -1 )
                 , maxBonesInfluence( 0 )
             {}
@@ -157,6 +160,8 @@ namespace osgCal
              * CalCoreMesh there can be more than one hardware mesh.
              */
             std::string                   name;
+
+            CalCoreMaterial*              coreMaterial;
 
             /**
              * Is mesh rigid?
