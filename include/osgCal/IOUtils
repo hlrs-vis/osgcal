@@ -24,6 +24,7 @@
 
 #include <osgCal/Export>
 #include <osg/Array>
+#include <osg/PrimitiveSet>
 
 namespace osgCal
 {
@@ -76,6 +77,7 @@ namespace osgCal
 #else
     typedef osg::Vec3Array      NormalBuffer;
     typedef osg::Vec3Array      TangentBuffer;
+    typedef osg::Vec4Array      TangentAndHandednessBuffer;
     typedef osg::Vec3Array      BinormalBuffer;
     typedef osg::Vec4sArray     MatrixIndexBuffer;
 #endif
@@ -133,6 +135,114 @@ namespace osgCal
     OSGCAL_EXPORT VBOs* loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error);
 
 
+    // -- Mesh data --
+
+    /**
+     * Mesh data that is loaded from external file or created using
+     * CalHardwareModel. This structure contains only geometry part of
+     * mesh, materials are managed in Model/CoreModel
+     */
+    struct MeshData : public osg::Referenced
+    {
+        public:
+
+            MeshData()
+                : rigid( false )
+                , rigidBoneId( -1 )
+                , maxBonesInfluence( 0 )
+            {}
+
+            /**
+             * Mesh name, may duplicate since for one source
+             * CalCoreMesh there can be more than one hardware mesh.
+             */
+            std::string                   name;
+
+            /**
+             * Is mesh rigid?
+             * Mesh is rigid when all its vertices are
+             * rigged to one bone with weight = 1.0,
+             * or when no one vertex is rigged at all.
+             */
+            bool                          rigid;
+
+            /**
+             * Rigid mesh bone id, or -1 when mesh is not rigged at all.
+             */
+            int                           rigidBoneId;
+
+            /**
+             * Max influencing bones used to select shader. Zero for
+             * rigid meshes.
+             */
+            int                           maxBonesInfluence;
+            
+            /**
+             * Map between indices in matrix index buffer and indices
+             * of bones in CalSkeleton, exists only for non-rigid meshes
+             */
+            std::vector< int >            bonesIndices;
+
+            /**
+             * Bounding box in non-deformed state.
+             */
+            osg::BoundingBox              boundingBox;
+
+            /**
+             * DrawElementsUInt osg::PrimitiveSet is used as index
+             * buffer to share it between meshes and use for picking.
+             */
+            osg::ref_ptr< osg::DrawElementsUInt >       indexBuffer;
+            osg::ref_ptr< VertexBuffer >                vertexBuffer;
+
+            /**
+             * weight and matrixIndex buffers exists only for
+             * non-rigid meshes.
+             */
+            osg::ref_ptr< WeightBuffer >                weightBuffer;
+            osg::ref_ptr< MatrixIndexBuffer >           matrixIndexBuffer;
+
+            osg::ref_ptr< NormalBuffer >                normalBuffer;
+
+            /**
+             * texCoordBuffer & tangentAndHandednessBuffer exists only
+             * for meshes with 
+             */
+            osg::ref_ptr< TexCoordBuffer >              texCoordBuffer;
+            osg::ref_ptr< TangentAndHandednessBuffer >  tangentAndHandednessBuffer;
+
+            int getIndexesCount() const { return indexBuffer->size(); }
+
+            int getBonesCount() const { return bonesIndices.size(); }
+            int getBoneId( int index ) const { return bonesIndices[ index ]; }
+            CalBone* getBone( int index,
+                              CalSkeleton* skeleton ) const
+            {
+                const std::vector< CalBone* >& vectorBone = skeleton->getVectorBone();
+                return vectorBone[ getBoneId( index ) ];
+            }
+
+    };
+
+    typedef std::vector< osg::ref_ptr< MeshData > > MeshesVector;
+
+    /**
+     * Name of file with preprocessed meshes.
+     */
+    OSGCAL_EXPORT std::string meshesDataFileName( const std::string& cfgFileName );
+
+    OSGCAL_EXPORT void loadMeshes( const std::string& fileName,
+                                   MeshesVector& meshes )
+        throw (std::runtime_error);
+
+    OSGCAL_EXPORT void saveMeshes( const MeshesVector& meshes,
+                                   const std::string&  fileName )
+        throw (std::runtime_error);
+
+    OSGCAL_EXPORT void loadMeshes( CalCoreModel* calCoreModel,
+                                   MeshesVector& meshes )
+        throw (std::runtime_error);
+    
     // -- CalHardwareModel I/O --
 
     OSGCAL_EXPORT CalHardwareModel* loadHardwareModel( const CalCoreModel* calCoreModel,
