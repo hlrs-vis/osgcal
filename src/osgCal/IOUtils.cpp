@@ -82,647 +82,11 @@ prefixEquals( const std::string& str,
 }
 
 bool
-isFileOlder( const std::string& f1,
-             const std::string& f2 )
-{
-    struct stat stat1;
-    struct stat stat2;
-
-    if ( stat( f1.c_str(), &stat1 ) != 0 )
-    {
-        throw std::runtime_error( "isFileOlder: stat error for " + f1 );
-    }
-
-    if ( stat( f2.c_str(), &stat2 ) != 0 )
-    {
-        throw std::runtime_error( "isFileOlder: stat error for " + f2 );
-    }
-
-    return ( stat1.st_mtime < stat2.st_mtime );
-}
-
-bool
 isFileExists( const std::string& f )
 {
     struct stat st;
 
     return ( stat( f.c_str(), &st ) == 0 );
-}
-
-std::string
-VBOsCacheFileName( const std::string& cfgFileName )
-{
-    return cfgFileName + ".vbos.cache";
-}
-
-std::string
-HWModelCacheFileName( const std::string& cfgFileName )
-{
-    return cfgFileName + ".hwmodel.cache";
-}
-
-std::string
-meshesDataFileName( const std::string& cfgFileName )
-{
-    return cfgFileName + ".meshes.cache";
-}
-
-// -- VBOs data type & I/O --
-
-VBOs::VBOs( int maxVertices,
-            int maxFaces )
-    : vertexBuffer( new VertexBuffer( maxVertices ) )
-    , weightBuffer( new WeightBuffer( maxVertices ) )
-    , matrixIndexBuffer( new MatrixIndexBuffer( maxVertices ) )
-    , normalBuffer( new NormalBuffer( maxVertices ) )
-    , tangentBuffer( new TangentBuffer( maxVertices ) )
-    , binormalBuffer( new BinormalBuffer( maxVertices ) )
-    , texCoordBuffer( new TexCoordBuffer( maxVertices ) )
-    , indexBuffer( new IndexBuffer( maxFaces*3 ) )
-    , vertexCount( maxVertices )
-    , faceCount( maxFaces )
-{
-    vertexBuffer->setDataVariance( osg::Object::STATIC );
-    weightBuffer->setDataVariance( osg::Object::STATIC );
-    matrixIndexBuffer->setDataVariance( osg::Object::STATIC );
-    normalBuffer->setDataVariance( osg::Object::STATIC );
-    tangentBuffer->setDataVariance( osg::Object::STATIC );
-    binormalBuffer->setDataVariance( osg::Object::STATIC );
-    texCoordBuffer->setDataVariance( osg::Object::STATIC );
-    indexBuffer->setDataVariance( osg::Object::STATIC );
-}
-
-VBOs::~VBOs()
-{}
-
-int
-VBOs::getVertexCount() const
-{
-    return vertexCount;
-}
-
-int
-VBOs::getFaceCount() const
-{
-    return faceCount;
-}
-
-template < typename T >
-void
-resize( osg::ref_ptr< T >& v,
-        int                size )
-{
-    v = new T( v->begin(), v->begin() + size );
-    v->setDataVariance( osg::Object::STATIC );
-    // STL vector doesn't cut memory on resize
-    // so we manually recreate one of necessary size
-}
-
-void
-VBOs::setVertexCount( int vc )
-{
-    vertexCount = vc;
-    resize( vertexBuffer, vc );
-    resize( weightBuffer, vc );
-    resize( matrixIndexBuffer, vc );
-    resize( normalBuffer, vc );
-    resize( tangentBuffer, vc );
-    resize( binormalBuffer, vc );
-    resize( texCoordBuffer, vc );
-}
-
-void
-VBOs::setFaceCount( int fc )
-{
-    faceCount = fc;
-    resize( indexBuffer, fc*3 );
-}
-
-
-#if defined(_MSC_VER)
-    typedef int int32_t;
-#endif
-    
-VBOs*
-loadVBOs( const std::string& fn ) throw (std::runtime_error)
-{
-    FILE* f = fopen( fn.c_str(), "rb" );
-
-    if ( f == NULL )
-    {
-        throw std::runtime_error( "Can't open " + fn );
-    }
-
-    int32_t vertexCount;
-    int32_t faceCount;
-
-#define READ_( _buf, _size )                                                        \
-    if ( fread( _buf, _size, 1, f ) != 1 )                                          \
-    {                                                                               \
-        throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn );\
-    }
-
-#define READ( _buf )                                                    \
-    if ( fread( (void*)_buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
-    {                                                                   \
-        throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn ); \
-    }
-
-    READ_( &vertexCount, 4 );
-    READ_( &faceCount, 4 );
-
-    std::auto_ptr< VBOs > vbos( new VBOs( vertexCount, faceCount ) );
-
-    READ( vbos->vertexBuffer );
-    READ( vbos->weightBuffer );
-    READ( vbos->matrixIndexBuffer );
-    READ( vbos->normalBuffer );
-    READ( vbos->tangentBuffer );
-    READ( vbos->binormalBuffer );
-    READ( vbos->texCoordBuffer );
-    READ( vbos->indexBuffer );
-
-//#undef READ
-    
-    fclose( f );
-
-    return vbos.release();
-}
-
-void
-saveVBOs( VBOs* vbos,
-          const std::string& fn ) throw (std::runtime_error)
-{
-    FILE* f = fopen( fn.c_str(), "wb" );
-
-    if ( f == NULL )
-    {
-        throw std::runtime_error( "Can't create " + fn );
-    }
-
-    int32_t vertexCount = vbos->getVertexCount();
-    int32_t faceCount   = vbos->getFaceCount();
-
-#define WRITE_( _buf, _size )                                                       \
-    if ( fwrite( _buf, _size, 1, f ) != 1 )                                         \
-    {                                                                               \
-        throw std::runtime_error( "Can't write "#_buf + std::string(" to ") + fn ); \
-    }
-
-#define WRITE( _buf )                                                   \
-    if ( fwrite( _buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
-    {                                                                   \
-        throw std::runtime_error( "Can't write "#_buf + std::string(" to ") + fn ); \
-    }
-
-    WRITE_( &vertexCount, 4 );
-    WRITE_( &faceCount, 4 );
-
-    WRITE( vbos->vertexBuffer );
-    WRITE( vbos->weightBuffer );
-    WRITE( vbos->matrixIndexBuffer );
-    WRITE( vbos->normalBuffer );
-    WRITE( vbos->tangentBuffer );
-    WRITE( vbos->binormalBuffer );
-    WRITE( vbos->texCoordBuffer );
-    WRITE( vbos->indexBuffer );
-
-//#undef WRITE
-    
-    fclose( f );
-}
-
-VBOs*
-loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error)
-{
-    std::auto_ptr< VBOs > vbos( new VBOs() );
-    float* floatMatrixIndexBuffer = new float[vbos->getVertexCount()*4];
-
-    calHardwareModel->setVertexBuffer((char*)vbos->vertexBuffer->getDataPointer(),
-                                      3*sizeof(float));
-#ifdef OSG_CAL_BYTE_BUFFERS
-    float* floatNormalBuffer = new float[vbos->getVertexCount()*3];
-    calHardwareModel->setNormalBuffer((char*)floatNormalBuffer,
-                                      3*sizeof(float));
-#else
-    calHardwareModel->setNormalBuffer((char*)vbos->normalBuffer->getDataPointer(),
-                                      3*sizeof(float));
-#endif
-    calHardwareModel->setWeightBuffer((char*)vbos->weightBuffer->getDataPointer(),
-                                      4*sizeof(float));
-    calHardwareModel->setMatrixIndexBuffer((char*)floatMatrixIndexBuffer,
-                                           4*sizeof(float));
-    calHardwareModel->setTextureCoordNum(1);
-    calHardwareModel->setTextureCoordBuffer(0, // texture stage #
-                                            (char*)vbos->texCoordBuffer->getDataPointer(),
-                                            2*sizeof(float));
-    GLuint*  indexBuffer = (GLuint*)vbos->indexBuffer->getDataPointer();
-    calHardwareModel->setIndexBuffer((CalIndex*)indexBuffer);
-    // calHardwareModel->setCoreMeshIds(_activeMeshes);
-    // if ids not set all meshes will be used at load() time
-
-    //std::cout << "calHardwareModel->load" << std::endl;
-    calHardwareModel->load( 0, 0, OSGCAL_MAX_BONES_PER_MESH );
-    //std::cout << "calHardwareModel->load ok" << std::endl;
-
-    // the index index in pIndexBuffer are relative to the begining of the hardware mesh,
-    // we make them relative to the begining of the buffer.
-    for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount(); hardwareMeshId++)
-    {
-        calHardwareModel->selectHardwareMesh(hardwareMeshId);
-
-        for(int faceId = 0; faceId < calHardwareModel->getFaceCount(); faceId++)
-        {
-            indexBuffer[faceId*3+0+ calHardwareModel->getStartIndex()]
-                += calHardwareModel->getBaseVertexIndex();
-            indexBuffer[faceId*3+1+ calHardwareModel->getStartIndex()]
-                += calHardwareModel->getBaseVertexIndex();
-            indexBuffer[faceId*3+2+ calHardwareModel->getStartIndex()]
-                += calHardwareModel->getBaseVertexIndex();
-        }
-    }
-
-    vbos->setVertexCount( calHardwareModel->getTotalVertexCount() );
-    vbos->setFaceCount( calHardwareModel->getTotalFaceCount() );
-    // set{Vertex/Face}Count also resizes VBOs from default 1000000 size
-    // to their real size.
-    //
-    // BTW: that was an "Out of memory" error on some ATI cards
-    // (first reported by Jan Ciger)
-    //
-    // TODO: Interesting -- ATI doesn't support VBOs of a 1 million elements?
-    // The one buffer (and the total sum) is smaller than available
-    // memory, why these "Out of memory" errors?
-    //
-
-    indexBuffer = (GLuint*)vbos->indexBuffer->getDataPointer();
-    // reinitialize index buffer after resize
-    
-    GLfloat* texCoordBuffer = (GLfloat*) vbos->texCoordBuffer->getDataPointer();
-
-#ifdef OSG_CAL_BYTE_BUFFERS
-    typedef GLubyte MatrixIndex;
-#else
-    typedef GLshort MatrixIndex;
-#endif
-    MatrixIndex* matrixIndexBuffer = (MatrixIndex*) vbos->matrixIndexBuffer->getDataPointer();
-
-    for ( int i = 0; i < vbos->getVertexCount()*4; i++ )
-    {
-        matrixIndexBuffer[i] = static_cast< MatrixIndex >( floatMatrixIndexBuffer[i] );
-    }
-
-    delete[] floatMatrixIndexBuffer;
-
-    //std::cout << "Total vertex count : " << vbos->getVertexCount() << std::endl;
-    //std::cout << "Total face count   : " << vbos->faceCount << std::endl;
-   
-    // Generate tangents for whole model.
-    // We can do this only for normal mapped meshes, but in future
-    // we will make all VBOs cached in separate file, so this calculation
-    // will be necessary only one time
-    {
-        CalVector* tan1 = new CalVector[vbos->getVertexCount()];
-        CalVector* tan2 = new CalVector[vbos->getVertexCount()];
-
-        GLfloat* vertexBuffer = (GLfloat*) vbos->vertexBuffer->getDataPointer();
-#ifdef OSG_CAL_BYTE_BUFFERS
-        GLfloat* tangentBuffer = new GLfloat[ vbos->getVertexCount()*3 ];
-        GLfloat* normalBuffer = floatNormalBuffer;
-        GLfloat* binormalBuffer = new GLfloat[ vbos->getVertexCount()*3 ];;
-#else
-        GLfloat* tangentBuffer = (GLfloat*) vbos->tangentBuffer->getDataPointer();
-        GLfloat* normalBuffer = (GLfloat*) vbos->normalBuffer->getDataPointer();
-        GLfloat* binormalBuffer = (GLfloat*) vbos->binormalBuffer->getDataPointer();
-#endif
-
-//         for ( int i = 0; i < vbos->getVertexCount(); i++ )
-//         {
-//             CalVector n( normalBuffer[i*3+0],
-//                          normalBuffer[i*3+1],
-//                          normalBuffer[i*3+2] );
-
-//             std::cout << "n  = " << n.x << '\t' << n.y << '\t' << n.z << '\t' << n.length() << '\n';
-//             n.normalize();
-//             std::cout << "n1 = " << n.x << '\t' << n.y << '\t' << n.z << '\t' << n.length() << '\n';
-//         }
-
-
-        for ( int face = 0; face < calHardwareModel->getTotalFaceCount(); face++ )
-        {
-            for ( int j = 0; j < 3; j++ )
-            {
-                // there seems to be no visual difference in calculating
-                // tangent per vertex (as is tan1[i1] += spos(j=0,1,2))
-                // or per face (tan1[i1,i2,i3] += spos)
-                GLuint i1 = indexBuffer[face*3+(j+0)%3];
-                GLuint i2 = indexBuffer[face*3+(j+1)%3];
-                GLuint i3 = indexBuffer[face*3+(j+2)%3];
-        
-                const float* v1 = &vertexBuffer[i1*3];
-                const float* v2 = &vertexBuffer[i2*3];
-                const float* v3 = &vertexBuffer[i3*3];
-
-                const float* w1 = &texCoordBuffer[i1*2];
-                const float* w2 = &texCoordBuffer[i2*2];
-                const float* w3 = &texCoordBuffer[i3*2];
-
-#define x(_a) (_a[0])
-#define y(_a) (_a[1])
-#define z(_a) (_a[2])
-        
-                float x1 = x(v2) - x(v1);
-                float x2 = x(v3) - x(v1);
-                float y1 = y(v2) - y(v1);
-                float y2 = y(v3) - y(v1);
-                float z1 = z(v2) - z(v1);
-                float z2 = z(v3) - z(v1);
-        
-                float s1 = x(w2) - x(w1);
-                float s2 = x(w3) - x(w1);
-                float t1 = y(w2) - y(w1);
-                float t2 = y(w3) - y(w1);
-
-#undef x
-#undef y
-#undef z
-        
-                //float r = 1.0F / (s1 * t2 - s2 * t1);
-                float r = (s1 * t2 - s2 * t1) < 0 ? -1.0 : 1.0;
-                CalVector sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
-                               (t2 * z1 - t1 * z2) * r);
-                CalVector tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
-                               (s1 * z2 - s2 * z1) * r);
-
-                // sdir & tdir can be 0 (when UV unwrap doesn't exists
-                // or has errors like coincide points)
-                // we ignore them
-                if ( sdir.length() > 0 )
-                {
-                    sdir.normalize(); 
-
-                    tan1[i1] += sdir;
-                    //tan1[i2] += sdir;
-                    //tan1[i3] += sdir;
-                }
-
-                if ( tdir.length() > 0 )
-                {
-                    tdir.normalize();
-
-                    tan2[i1] += tdir;
-                    //tan2[i2] += tdir;
-                    //tan2[i3] += tdir;
-                }
-            }
-        }
-    
-        for (long a = 0; a < vbos->getVertexCount(); a++)
-        {
-            CalVector tangent;
-            CalVector binormal;
-            CalVector t = tan1[a];
-            CalVector b = tan2[a];
-            CalVector n = CalVector( normalBuffer[a*3+0],
-                                     normalBuffer[a*3+1],
-                                     normalBuffer[a*3+2] );
-
-            // tangent & bitangent can be zero when UV unwrap doesn't exists
-            // or has errors like coincide points
-            if ( t.length() > 0 )
-            {
-                t.normalize();
-        
-                // Gram-Schmidt orthogonalize
-                tangent = t - n * (n*t);
-                tangent.normalize();
-
-                // Calculate handedness
-                binormal = CalVector(n % tangent) *
-                    ((((n % t) * b) < 0.0F) ? -1.0f : 1.0f);
-                binormal.normalize();
-            }
-            else if ( b.length() > 0 )
-            {
-                b.normalize();
-        
-                // Gram-Schmidt orthogonalize
-                binormal = b - n * (n*b);
-                binormal.normalize();
-
-                // Calculate handedness
-                tangent = CalVector(n % binormal) *
-                    ((((n % b) * t) < 0.0F) ? -1.0f : 1.0f);
-                tangent.normalize();
-            }
-
-//             std::cout << "t = " << tangent.x  << '\t' << tangent.y  << '\t' << tangent.z << '\n' ;
-//             std::cout << "b = " << binormal.x << '\t' << binormal.y << '\t' << binormal.z << '\n';;
-
-            tangentBuffer[a*3+0] = tangent.x; 
-            tangentBuffer[a*3+1] = tangent.y;
-            tangentBuffer[a*3+2] = tangent.z;
-        
-            binormalBuffer[a*3+0] = binormal.x;
-            binormalBuffer[a*3+1] = binormal.y;
-            binormalBuffer[a*3+2] = binormal.z;
-        }
-    
-        delete[] tan1;
-        delete[] tan2;
-
-#ifdef OSG_CAL_BYTE_BUFFERS
-        GLbyte* tangents = (GLbyte*) vbos->tangentBuffer->getDataPointer();
-        GLbyte* binormals = (GLbyte*) vbos->binormalBuffer->getDataPointer();
-
-        for ( int i = 0; i < vbos->getVertexCount()*3; i++ )
-        {
-            tangents[i]  = static_cast< GLbyte >( tangentBuffer[i]*127.0 );
-            binormals[i] = static_cast< GLbyte >( binormalBuffer[i]*127.0 );
-            //std::cout << (int)tangents[i] << '\n';
-        }
-
-        delete[] tangentBuffer;
-        delete[] binormalBuffer;
-#endif
-    }
-
-#ifdef OSG_CAL_BYTE_BUFFERS
-    GLbyte* normals = (GLbyte*) vbos->normalBuffer->getDataPointer();
-
-    for ( int i = 0; i < vbos->getVertexCount()*3; i++ )
-    {
-        normals[i]  = static_cast< GLbyte >( floatNormalBuffer[i]*127.0 );
-    }
-
-    delete[] floatNormalBuffer;
-#endif
-
-    // invert UVs for OpenGL (textures are inverted otherwise - for example, see abdulla/klinok)
-    for ( float* tcy = texCoordBuffer + 1;
-          tcy < texCoordBuffer + 2*vbos->getVertexCount();
-          tcy += 2 )
-    {
-        *tcy = 1.0f - *tcy;
-    }
-
-    return vbos.release();
-}
-
-static const int HW_MODEL_FILE_VERSION = 0xCA3D0001;
-    
-CalHardwareModel*
-loadHardwareModel( const CalCoreModel* calCoreModel,
-                   const std::string& fn,
-                   std::vector< std::string >& meshNames )
-    throw (std::runtime_error)
-{
-    FILE* f = fopen( fn.c_str(), "rb" );
-
-    if ( f == NULL )
-    {
-        throw std::runtime_error( "Can't open " + fn );
-    }
-
-#define READ_I32( _i ) { int32_t _i32_tmp = 0; READ_( &_i32_tmp, 4 ); _i = _i32_tmp; }
-
-    int version;
-
-    READ_I32( version );
-    if ( version != HW_MODEL_FILE_VERSION )
-    {
-        fclose( f );
-        throw std::runtime_error( "Incorrect file version " + fn + ". Try rerun osgCalPreparer." );
-    }
-
-    std::auto_ptr< CalHardwareModel > calHardwareModel(
-        new CalHardwareModel(const_cast< CalCoreModel* >( calCoreModel ) ) );
-    
-    std::vector< CalHardwareModel::CalHardwareMesh >& hwMeshes =
-        calHardwareModel->getVectorHardwareMesh();
-
-    int size = 0;
-
-    READ_I32( size );
-    hwMeshes.resize( size );
-
-    for ( int i = 0; i < size; i++ )
-    {
-        CalHardwareModel::CalHardwareMesh& mesh = hwMeshes[i];
-
-        int biSize = 0;
-        READ_I32( biSize );
-        mesh.m_vectorBonesIndices.resize( biSize );
-        for ( size_t j = 0; j < mesh.m_vectorBonesIndices.size(); j++ )
-        {
-            READ_I32( mesh.m_vectorBonesIndices[j] );
-        }
-        READ_I32( mesh.baseVertexIndex );
-        READ_I32( mesh.vertexCount );
-        READ_I32( mesh.startIndex );
-        READ_I32( mesh.faceCount );
-        READ_I32( mesh.meshId );
-        READ_I32( mesh.submeshId );
-
-        int coreMaterialThreadId;
-        READ_I32( coreMaterialThreadId );
-
-//         CalCoreMesh*    calCoreMesh = calCoreModel->getCoreMesh( mesh.meshId );
-//         CalCoreSubmesh* calCoreSubmesh = calCoreMesh->getCoreSubmesh( mesh.submeshId );
-
-//         mesh.pCoreMaterial =
-//             calCoreModel->getCoreMaterial( calCoreSubmesh->getCoreMaterialThreadId() );
-        mesh.pCoreMaterial = const_cast< CalCoreModel* >( calCoreModel )->
-            getCoreMaterial( coreMaterialThreadId );
-
-        int nameBufSize;
-        READ_I32( nameBufSize );
-        if ( nameBufSize > 1024 )
-        {
-            fclose( f );
-            throw std::runtime_error( "Too long mesh name (incorrect hwmodel.cache file?)." );
-        }
-        char name[ 1024 ];
-        READ_( name, nameBufSize );
-        meshNames.push_back( std::string( &name[0], &name[ nameBufSize ] ) );
-    }
-
-    fclose( f );
-    
-    return calHardwareModel.release();
-}
-
-int
-getCoreMaterialThreadId( CalCoreModel* model,
-                         const CalCoreMaterial* material )
-{
-    for ( int i = 0; i < model->getCoreMaterialCount(); i++ )
-    {
-        if ( model->getCoreMaterial( i ) == material )
-        {
-            return i;
-        }
-    }
-    return (-1);
-}
-
-void
-saveHardwareModel( const CalHardwareModel* calHardwareModel,
-                   const CalCoreModel*     calCoreModel,
-                   const std::vector< std::string >& meshNames,
-                   const std::string& fn ) throw (std::runtime_error)
-{
-    const std::vector< CalHardwareModel::CalHardwareMesh >& hwMeshes =
-        const_cast< CalHardwareModel* >( calHardwareModel )->getVectorHardwareMesh();
-
-    if ( meshNames.size() != hwMeshes.size() )
-    {
-        throw std::runtime_error( "meshNames.size() != hwMeshes.size()" );
-    }
-
-    FILE* f = fopen( fn.c_str(), "wb" );
-
-    if ( f == NULL )
-    {
-        throw std::runtime_error( "Can't create " + fn );
-    }
-
-#define WRITE_I32( _i ) { int32_t _i32_tmp = _i; WRITE_( &_i32_tmp, 4 ); }
-
-    WRITE_I32( HW_MODEL_FILE_VERSION );
-
-    WRITE_I32( hwMeshes.size() );
-
-    for ( size_t i = 0; i < hwMeshes.size(); i++ )
-    {
-        const CalHardwareModel::CalHardwareMesh& mesh = hwMeshes[i];
-        WRITE_I32( mesh.m_vectorBonesIndices.size() );
-        for ( size_t j = 0; j < mesh.m_vectorBonesIndices.size(); j++ )
-        {
-            WRITE_I32( mesh.m_vectorBonesIndices[j] );
-        }
-        WRITE_I32( mesh.baseVertexIndex );
-        WRITE_I32( mesh.vertexCount );
-        WRITE_I32( mesh.startIndex );
-        WRITE_I32( mesh.faceCount );
-        WRITE_I32( mesh.meshId );
-        WRITE_I32( mesh.submeshId );
-
-        int coreMaterialThreadId = getCoreMaterialThreadId(
-            const_cast< CalCoreModel* >( calCoreModel ), mesh.pCoreMaterial );
-        if ( coreMaterialThreadId < 0 )
-        {
-            fclose( f );
-            throw std::runtime_error( "Can't get coreMaterialThreadId (mesh.pCoreMaterial not found in coreModel?" );            
-        }
-        WRITE_I32( coreMaterialThreadId );
-
-        const std::string& name = meshNames[ i ];
-        WRITE_I32( name.size() );
-        WRITE_( name.data(), name.size() );
-    }
-
-    fclose( f );
 }
 
 // -- Mesh data --
@@ -1027,7 +391,7 @@ loadMeshes( CalCoreModel* calCoreModel,
     osg::ref_ptr< TangentBuffer >     tangentBuffer( new TangentBuffer( maxVertices ) );
     osg::ref_ptr< BinormalBuffer >    binormalBuffer( new BinormalBuffer( maxVertices ) );
     osg::ref_ptr< TexCoordBuffer >    texCoordBuffer( new TexCoordBuffer( maxVertices ) );
-    osg::ref_ptr< IndexBuffer >       indexBuffer( new IndexBuffer( maxFaces*3 ) );
+    osg::ref_ptr< osg::UIntArray >    indexBuffer( new osg::UIntArray( maxFaces*3 ) );
 
     float* floatMatrixIndexBuffer = new float[maxVertices*4];
 
@@ -1149,6 +513,363 @@ loadMeshes( CalCoreModel* calCoreModel,
         meshes.push_back( m );
     }
 }
+
+// -- Meshes I/O --
+
+std::string
+meshesCacheFileName( const std::string& cfgFileName )
+{
+    return cfgFileName + ".meshes.cache";
+}
+
+#if defined(_MSC_VER)
+    typedef int int32_t;
+#endif
+    
+#define READ_( _name, _buf, _size )                                                  \
+    if ( fread( _buf, _size, 1, f ) != 1 )                                           \
+    {                                                                                \
+        throw std::runtime_error( "Can't read "#_name + std::string(" from ") + fn );\
+    }
+
+#define READ( _buf )                                                    \
+    if ( fread( (void*)_buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
+    {                                                                   \
+        throw std::runtime_error( "Can't read "#_buf + std::string(" from ") + fn ); \
+    }
+
+#define READ_I32( _i )   { int32_t _i32_tmp = 0; READ_( _i, &_i32_tmp, 4 ); _i = _i32_tmp; }
+#define READ_STRUCT( _s ) READ_( _s, &_s, sizeof ( _s ) )
+
+#define WRITE_( _name, _buf, _size )                                                 \
+    if ( fwrite( _buf, _size, 1, f ) != 1 )                                          \
+    {                                                                                \
+        throw std::runtime_error( "Can't write "#_name + std::string(" to ") + fn ); \
+    }
+
+#define WRITE( _buf )                                                   \
+    if ( fwrite( _buf->getDataPointer(), _buf->getTotalDataSize(), 1, f ) != 1 ) \
+    {                                                                   \
+        throw std::runtime_error( "Can't write "#_buf + std::string(" to ") + fn ); \
+    }
+
+#define WRITE_I32( _i ) { int32_t _i32_tmp = _i; WRITE_( _i, &_i32_tmp, 4 ); }
+#define WRITE_STRUCT( _s ) WRITE_( _s, &_s, sizeof ( _s ) )
+
+/**
+ * Simpe FILE wrapper, needed to call fclose() on exception.
+ */
+struct FileCloser
+{       
+        FILE*  f;
+
+        FileCloser( FILE* f )
+            : f( f )
+        {}
+        ~FileCloser()
+        {
+            fclose( f );
+        }
+};
+
+/**
+ * Set file I/O buffer to the specified size and free buffer on exit
+ * from scope.
+ * No file reads must be performed after FileBuffer exit its scope.
+ */
+struct FileBuffer
+{
+        char*  buf;
+        
+        FileBuffer( FILE* f,
+                    int   size )
+            : buf( (char*)malloc( size ) )
+        {
+            setvbuf( f, buf, _IOFBF, size );            
+        }
+        
+        ~FileBuffer()
+        {
+            free( buf );
+        }
+};
+
+/**
+ * Type of buffer in meshes.cache file.
+ *
+ * We keep buffers separately from mesh descriptions for two reasons:
+ *  - meshes can have variable number of buffers and I don't want to
+ *    bother with detection of buffers end and next mesh start
+ *  - we free some buffers after display list is created for all
+ *    contexts and it's much better to keep these buffer in contiguous
+ *    memory block to reduce memory fragmentation, so we place 
+ *    index/vertex/weight/matrixIndex buffers first (they are needed
+ *    for picking and vertex position calculation) and then
+ *    normal/texCoord/tangent buffers for all meshes (these ones will
+ *    be freed)
+ */
+enum BufferType
+{
+    BT_INDEX,
+    BT_VERTEX,
+    BT_WEIGHT,
+    BT_MATRIX_INDEX,
+    BT_NORMAL,
+    BT_TEX_COORD,
+    BT_TANGENT_AND_HANDEDNESS
+};
+
+static
+void
+readBuffer( MeshesVector& meshes,
+            FILE*     f,
+            const std::string& fn )
+{
+    int32_t meshIndex;
+//    READ_I32( meshIndex );
+    if ( fread( &meshIndex, 4, 1, f ) != 1 )
+    {
+        if ( feof( f ) )
+        {
+            return; // no error, file ended
+        }
+        else
+        {
+            throw std::runtime_error( "Can't read meshIndex" + std::string(" from ") + fn );
+        }
+    }
+
+    MeshData* m = meshes[ meshIndex ].get();
+
+    int bufferType;
+    int bufferSize;
+
+    READ_I32( bufferType );
+    READ_I32( bufferSize );
+
+#define CASE( _type, _name, _data_type )                \
+        case BT_##_type:                                \
+            m->_name = new _data_type( bufferSize );    \
+            READ( m->_name );                           \
+            break
+
+//     printf( "reading %d mesh, buffer type = %d, buffer size = %d\n",
+//             meshIndex, bufferType, bufferSize );
+//     fflush( stdout );
+    
+    switch ( bufferType )
+    {
+        case BT_INDEX:
+            m->indexBuffer = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES, bufferSize );
+            READ( m->indexBuffer );
+            break;
+
+        CASE( VERTEX, vertexBuffer, VertexBuffer );
+        CASE( WEIGHT, weightBuffer, WeightBuffer );
+        CASE( MATRIX_INDEX, matrixIndexBuffer, MatrixIndexBuffer );
+        CASE( NORMAL, normalBuffer, NormalBuffer );
+        CASE( TEX_COORD, texCoordBuffer, TexCoordBuffer );
+        CASE( TANGENT_AND_HANDEDNESS, tangentAndHandednessBuffer, TangentAndHandednessBuffer );
+
+        default:
+        {
+            char err[ 1024 ];
+            sprintf( err, "Unknown buffer type %d (0x%08X)", bufferType, bufferType );
+            throw std::runtime_error( err );
+        }
+    }
+
+#undef CASE
+}
+
+static const int HW_MODEL_FILE_VERSION = 0xCA3D0002;
+
+void
+loadMeshes( const std::string&  fn,
+            const CalCoreModel* calCoreModel,
+            MeshesVector& meshes )
+    throw (std::runtime_error)
+{
+    FILE* f = fopen( fn.c_str(), "rb" );
+
+    if ( f == NULL )
+    {
+        throw std::runtime_error( "Can't open " + fn );
+    }
+
+    FileCloser closeOnExit( f );
+    FileBuffer setReadBufferOfSize( f, 1*1024*1024 );
+
+    // -- Check version --
+    int version;
+
+    READ_I32( version );
+    if ( version != HW_MODEL_FILE_VERSION )
+    {
+        fclose( f );
+        throw std::runtime_error( "Incorrect file version " + fn + ". Try rerun osgCalPreparer." );
+    }
+
+    // -- Read mesh descriptions --
+    int meshesCount = 0;
+
+    READ_I32( meshesCount );
+    meshes.resize( meshesCount );
+
+    for ( int i = 0; i < meshesCount; i++ )
+    {
+        MeshData* m = new MeshData;
+        meshes[i] = m;
+
+        // -- Read name --
+        int nameBufSize;
+        READ_I32( nameBufSize );
+        if ( nameBufSize > 1024 )
+        {
+            throw std::runtime_error( "Too long mesh name (incorrect meshes.cache file?)." );
+        }
+        char name[ 1024 ];
+        READ_( m->name, name, nameBufSize );
+        m->name = std::string( &name[0], &name[ nameBufSize ] );
+
+        // -- Read material --
+        int coreMaterialThreadId;
+        READ_I32( coreMaterialThreadId );
+
+        m->coreMaterial = const_cast< CalCoreModel* >( calCoreModel )->
+            getCoreMaterial( coreMaterialThreadId );
+
+        // -- Read bone parameters --
+        READ_I32( m->rigid );
+        READ_I32( m->rigidBoneId );
+        READ_I32( m->maxBonesInfluence );
+
+        // -- Read bonesIndices --
+        int biSize = 0;
+        READ_I32( biSize );
+        m->bonesIndices.resize( biSize );
+        for ( int bi = 0; bi < biSize; bi++ )
+        {
+            READ_I32( m->bonesIndices[ bi ] );
+        }
+
+        // -- Read boundingBox --
+        assert( sizeof ( m->boundingBox ) == 6 * 4 ); // must be 6 floats
+        READ_STRUCT( m->boundingBox );
+    }
+
+    // -- Read meshes buffers --
+    while ( !feof( f ) )
+    {
+        readBuffer( meshes, f, fn );
+    }
+}
+
+
+int
+getCoreMaterialThreadId( CalCoreModel* model,
+                         const CalCoreMaterial* material )
+{
+    for ( int i = 0; i < model->getCoreMaterialCount(); i++ )
+    {
+        if ( model->getCoreMaterial( i ) == material )
+        {
+            return i;
+        }
+    }
+    return (-1);
+}
+
+
+void saveMeshes( const CalCoreModel* calCoreModel,
+                 const MeshesVector& meshes,
+                 const std::string&  fn )
+    throw (std::runtime_error)
+{
+    FILE* f = fopen( fn.c_str(), "wb" );
+
+    if ( f == NULL )
+    {
+        throw std::runtime_error( "Can't create " + fn );
+    }
+
+    FileCloser closeOnExit( f );
+    FileBuffer setReadBufferOfSize( f, 1*1024*1024 );
+
+    WRITE_I32( HW_MODEL_FILE_VERSION );
+
+    // -- Write meshes --
+    WRITE_I32( meshes.size() );
+
+    for ( size_t i = 0; i < meshes.size(); i++ )
+    {
+        MeshData* m = meshes[i].get();
+
+        // -- Write name --
+        const std::string& name = m->name;
+        WRITE_I32( name.size() );
+        WRITE_( m->name, name.data(), name.size() );
+
+        // -- Write material --
+        int coreMaterialThreadId = getCoreMaterialThreadId(
+            const_cast< CalCoreModel* >( calCoreModel ), m->coreMaterial );
+        if ( coreMaterialThreadId < 0 )
+        {
+            fclose( f );
+            throw std::runtime_error( "Can't get coreMaterialThreadId (mesh.pCoreMaterial not found in coreModel?" );            
+        }
+        WRITE_I32( coreMaterialThreadId );
+
+        // -- Read bone parameters --
+        WRITE_I32( m->rigid );
+        WRITE_I32( m->rigidBoneId );
+        WRITE_I32( m->maxBonesInfluence );
+
+        // -- Read bonesIndices --
+        WRITE_I32( m->bonesIndices.size() );
+        for ( size_t bi = 0; bi < m->bonesIndices.size(); bi++ )
+        {
+            WRITE_I32( m->bonesIndices[ bi ] );
+        }
+
+        // -- Write boundingBox --
+        assert( sizeof ( m->boundingBox ) == 6 * 4 ); // must be 6 floats
+        WRITE_STRUCT( m->boundingBox );
+    }
+
+#define WRITE_BUFFER( _bufferType, _buffer )    \
+    if ( m->_buffer.valid() )                   \
+    {                                           \
+        WRITE_I32( i );                         \
+        WRITE_I32( BT_##_bufferType );          \
+        WRITE_I32( m->_buffer->size() );        \
+        WRITE( m->_buffer )                     \
+    }
+
+    // -- Write resident mesh buffers --
+    for ( size_t i = 0; i < meshes.size(); i++ )
+    {
+        MeshData* m = meshes[i].get();
+
+        WRITE_BUFFER( INDEX, indexBuffer );
+        WRITE_BUFFER( VERTEX, vertexBuffer );
+        WRITE_BUFFER( WEIGHT, weightBuffer );
+        WRITE_BUFFER( MATRIX_INDEX, matrixIndexBuffer );
+    }
+
+    // -- Write mesh buffers that will be freed after display list created --
+    for ( size_t i = 0; i < meshes.size(); i++ )
+    {
+        MeshData* m = meshes[i].get();
+
+        WRITE_BUFFER ( NORMAL, normalBuffer );
+        WRITE_BUFFER ( TEX_COORD, texCoordBuffer );
+        WRITE_BUFFER ( TANGENT_AND_HANDEDNESS, tangentAndHandednessBuffer );
+    }
+
+#undef WRITE_BUFFER
+}
+
 
 // -- CoreModel loading --
 

@@ -24,50 +24,14 @@ using namespace osgCal;
 void
 usage()
 {
-    puts( "Usage: osgCalPreparer [-force] <cal3d.cfg file name>" );
+    puts( "Usage: osgCalPreparer <cal3d.cfg file name>" );
 }
-
-bool
-isFileOlder( const std::string& f1,
-             const std::string& f2 )
-{
-    struct stat stat1;
-    struct stat stat2;
-
-    if ( stat( f1.c_str(), &stat1 ) != 0 )
-    {
-        throw std::runtime_error( "isFileOlder: stat error for " + f1 );
-    }
-
-    if ( stat( f2.c_str(), &stat2 ) != 0 )
-    {
-        throw std::runtime_error( "isFileOlder: stat error for " + f2 );
-    }
-
-    return ( stat1.st_mtime < stat2.st_mtime );
-}
-
 
 int
 main( int argc,
       const char** argv )
 {
-    if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100
-         && Cal::LIBRARY_VERSION != 1200 )
-    {
-        perror( "error: osgCalPreparer tested only on cal3d version 0.10.0, 0.11.0 & 0.12.0" );
-        return 2;
-    }
-    
     if ( argc < 2 )
-    {
-        usage();
-        return 2;
-    }
-
-    bool forced = stricmp( argv[1], "-force" ) == 0;
-
-    if ( forced && argc < 3 )
     {
         usage();
         return 2;
@@ -84,7 +48,7 @@ main( int argc,
         return 2;                               \
     }
    
-    std::string cfgFileName = argv[forced ? 2 : 1];
+    std::string cfgFileName = argv[ 1 ];
 
     std::string dir = osgDB::getFilePath( cfgFileName );
 
@@ -99,35 +63,17 @@ main( int argc,
         
     CalCoreModel* calCoreModel = 0;
     float scale;
-    CalHardwareModel* calHardwareModel = 0;
-    VBOs* bos = 0;
-    std::vector< std::string > meshNames;
+    osgCal::MeshesVector meshesData;
 
     BRACKET_ERROR( calCoreModel = loadCoreModel( cfgFileName, scale ),
                    "Can't load model:\n%s" );
+    BRACKET_ERROR( loadMeshes( calCoreModel, meshesData ),
+                   "Can't load meshes from core model:\n%s" );
+    BRACKET_ERROR( saveMeshes( calCoreModel,
+                               meshesData,
+                               meshesCacheFileName( cfgFileName ) ),
+                   "Can't save meshes cache:\n%s" );
 
-    calHardwareModel = new CalHardwareModel( calCoreModel );
-    BRACKET_ERROR( bos = loadVBOs( calHardwareModel ),
-                   "Can't load vbos from hardware model:\n%s" );
-    for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-        hardwareMeshId++)
-    {
-        meshNames.push_back(
-            calCoreModel->
-            getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
-            getName() );
-    }
-
-    BRACKET_ERROR( saveVBOs( bos, VBOsCacheFileName( cfgFileName ) ),
-                   "Can't save vbos cache:\n%s" );
-    BRACKET_ERROR( saveHardwareModel( calHardwareModel,
-                                      calCoreModel,
-                                      meshNames,
-                                      HWModelCacheFileName( cfgFileName ) ),
-                   "Can't save hardware model cache:\n%s" );
-
-    delete bos;
-    delete calHardwareModel;
     delete calCoreModel;
 
     puts( "ok" );

@@ -372,68 +372,22 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         cfgFileName = cfgFileNameOriginal;
     }
 
-    calCoreModel = loadCoreModel( cfgFileName, scale );
-
     MeshesVector meshesData;
-
-    loadMeshes( calCoreModel, meshesData );
     
-//     std::vector< std::string > meshNames;
-//     std::auto_ptr< VBOs > bos;
-//     std::auto_ptr< CalHardwareModel > calHardwareModel;
-
-//     if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
-//          || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
-//     {
-//         // -- Load model and hw model from model --
-//         calCoreModel = loadCoreModel( cfgFileName, scale );
-
-//         calHardwareModel = std::auto_ptr< CalHardwareModel >( new CalHardwareModel( calCoreModel ) );
-//         bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel.get() ) );
-//         //saveVBOs( bos, dir + "/vbos.cache" );
-//         //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
-//         // ^ it's not loading task, cache preparation is export task
-//         // see `applications/preparer' for this.
-
-//         // -- Fill meshNames array --
-//         for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-//             hardwareMeshId++)
-//         {
-//             meshNames.push_back(
-//                 calCoreModel->
-//                 getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
-//                 getName() );
-//         }
-//     }
-//     else
-//     {
-//         // -- Load cached hardware model --
-//         if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 && Cal::LIBRARY_VERSION != 1200 )
-//         {
-//             throw std::runtime_error( "caching was only tested on cal3d 0.10.0, 0.11.0 and 0.12.0" );
-//         }
-        
-//         calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
-
-// //         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
-// //         {
-//         // We don't check file dates, since after `svn up' they can be
-//         // in any order. So, yes, if cache file doesn't correspond to
-//         // model we can SIGSEGV.
-//         bos = std::auto_ptr< VBOs >( loadVBOs( VBOsCacheFileName( cfgFileName ) ) );
-//         //std::cout << "loaded from cache" << std::endl;
-//         //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
-//         //std::cout << "faceCount = "   << bos->faceCount << std::endl;
-//         calHardwareModel = std::auto_ptr< CalHardwareModel >(
-//             loadHardwareModel( calCoreModel,
-//                                HWModelCacheFileName( cfgFileName ),
-//                                meshNames ) );
-// //         }
-// //         else
-// //         {
-// //             throw std::runtime_error( "cache is older than .cfg" );
-// //         }
-//     }
+    if ( isFileExists( meshesCacheFileName( cfgFileName ) ) == false )
+    {
+        calCoreModel = loadCoreModel( cfgFileName, scale );
+        loadMeshes( calCoreModel, meshesData );
+    }
+    else
+    {
+        // We don't check file dates, since after `svn up' they can be
+        // in any order. So, yes, if cache file doesn't correspond to
+        // model we can SIGSEGV.
+        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
+        loadMeshes( meshesCacheFileName( cfgFileName ),
+                    calCoreModel, meshesData );
+    }
 
     // -- Preparing meshes and materials for fast Model creation --
     for ( MeshesVector::iterator

@@ -56,8 +56,6 @@ namespace osgCal
 
     // -- Some other utilities --
     
-    OSGCAL_EXPORT bool isFileOlder( const std::string& fileName1,
-                                    const std::string& fileName2 );
     OSGCAL_EXPORT bool isFileExists( const std::string& f );
 
 
@@ -65,10 +63,10 @@ namespace osgCal
 #define OSGCAL_MAX_BONES_PER_MESH       30
 #define OSGCAL_MAX_VERTEX_PER_MODEL     1000000
 
-    typedef osg::Vec3Array      VertexBuffer;
-    typedef osg::Vec4Array      WeightBuffer;
-    typedef osg::Vec2Array      TexCoordBuffer;
-    typedef osg::UIntArray      IndexBuffer;
+    typedef osg::Vec3Array        VertexBuffer;
+    typedef osg::Vec4Array        WeightBuffer;
+    typedef osg::Vec2Array        TexCoordBuffer;
+    typedef osg::DrawElementsUInt IndexBuffer;
 
 #ifdef OSG_CAL_BYTE_BUFFERS
     typedef osg::Vec3bArray     NormalBuffer;
@@ -82,59 +80,6 @@ namespace osgCal
     typedef osg::Vec3Array      BinormalBuffer;
     typedef osg::Vec4sArray     MatrixIndexBuffer;
 #endif
-    
-    struct OSGCAL_EXPORT VBOs
-    {
-        public:
-
-            osg::ref_ptr< VertexBuffer >        vertexBuffer;
-            osg::ref_ptr< WeightBuffer >        weightBuffer;
-            osg::ref_ptr< MatrixIndexBuffer >   matrixIndexBuffer;
-            osg::ref_ptr< NormalBuffer >        normalBuffer;
-            osg::ref_ptr< TangentBuffer >       tangentBuffer;
-            osg::ref_ptr< BinormalBuffer >      binormalBuffer;
-            osg::ref_ptr< TexCoordBuffer >      texCoordBuffer;
-            osg::ref_ptr< IndexBuffer >         indexBuffer;
-            // CalIndex equals to 4 byte UInt
-            // since we handle more than 65536/3 faces
-
-            VBOs( int maxVertices = OSGCAL_MAX_VERTEX_PER_MODEL,
-                  int maxFaces = OSGCAL_MAX_VERTEX_PER_MODEL * 3 );
-
-            virtual ~VBOs();
-
-            int getVertexCount() const;
-            int getFaceCount() const;
-
-            /**
-             * Sets vertex count and resize all vertex buffers.
-             * @warning Buffers are resized so you must update your
-             * references (if any) to buffers data.
-             */
-            void setVertexCount( int vc );
-
-            /**
-             * Sets face count and resize index buffer.
-             * @warning Index buffer is resized so you must update your
-             * references (if any) to buffer's data.
-             */
-            void setFaceCount( int fc );
-
-        private:
-            
-            int vertexCount;
-            int faceCount;
-    };
-
-    OSGCAL_EXPORT std::string VBOsCacheFileName( const std::string& cfgFileName );
-    OSGCAL_EXPORT std::string HWModelCacheFileName( const std::string& cfgFileName );
-
-    OSGCAL_EXPORT VBOs* loadVBOs( const std::string& fileName ) throw (std::runtime_error);
-    OSGCAL_EXPORT void  saveVBOs( VBOs* vbos,
-                                  const std::string& fileName ) throw (std::runtime_error);
-
-    OSGCAL_EXPORT VBOs* loadVBOs( CalHardwareModel* calHardwareModel ) throw (std::runtime_error);
-
 
     // -- Mesh data --
 
@@ -197,7 +142,7 @@ namespace osgCal
              * DrawElementsUInt osg::PrimitiveSet is used as index
              * buffer to share it between meshes and use for picking.
              */
-            osg::ref_ptr< osg::DrawElementsUInt >       indexBuffer;
+            osg::ref_ptr< IndexBuffer >                 indexBuffer;
             osg::ref_ptr< VertexBuffer >                vertexBuffer;
 
             /**
@@ -231,16 +176,20 @@ namespace osgCal
 
     typedef std::vector< osg::ref_ptr< MeshData > > MeshesVector;
 
+    // -- MeshData I/O --
+
     /**
      * Name of file with preprocessed meshes.
      */
-    OSGCAL_EXPORT std::string meshesDataFileName( const std::string& cfgFileName );
+    OSGCAL_EXPORT std::string meshesCacheFileName( const std::string& cfgFileName );
 
-    OSGCAL_EXPORT void loadMeshes( const std::string& fileName,
+    OSGCAL_EXPORT void loadMeshes( const std::string&  fileName,
+                                   const CalCoreModel* calCoreModel,
                                    MeshesVector& meshes )
         throw (std::runtime_error);
 
-    OSGCAL_EXPORT void saveMeshes( const MeshesVector& meshes,
+    OSGCAL_EXPORT void saveMeshes( const CalCoreModel* calCoreModel,
+                                   const MeshesVector& meshes,
                                    const std::string&  fileName )
         throw (std::runtime_error);
 
@@ -248,17 +197,6 @@ namespace osgCal
                                    MeshesVector& meshes )
         throw (std::runtime_error);
     
-    // -- CalHardwareModel I/O --
-
-    OSGCAL_EXPORT CalHardwareModel* loadHardwareModel( const CalCoreModel* calCoreModel,
-                                                       const std::string& fileName,
-                                                       std::vector< std::string >& meshNames )
-        throw (std::runtime_error);
-    OSGCAL_EXPORT void saveHardwareModel( const CalHardwareModel* calHardwareModel,
-                                          const CalCoreModel*     calCoreModel,
-                                          const std::vector< std::string >& meshNames,
-                                          const std::string& fileName )
-        throw (std::runtime_error);
 
     // -- CalCoreModel I/O --
 
@@ -266,6 +204,7 @@ namespace osgCal
                                                float& scale,
                                                bool ignoreMeshes = false )
         throw (std::runtime_error);
+
 }; // namespace osgCal
 
 #endif
