@@ -421,7 +421,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         osg::notify( osg::INFO )
             << "mesh              : " << m->data->name << std::endl
             << "maxBonesInfluence : " << m->data->maxBonesInfluence << std::endl
-            << "trianglesCount    : " << m->data->getIndexesCount() / 3 << std::endl
+            << "trianglesCount    : " << m->data->getIndicesCount() / 3 << std::endl
             << "vertexCount       : " << m->data->vertexBuffer->size() << std::endl
             << "rigid             : " << m->data->rigid << std::endl
             << "rigidBoneId       : " << m->data->rigidBoneId << std::endl //<< std::endl
@@ -1012,7 +1012,9 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
             break;
     }
 
-    if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES )
+    if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES
+         &&
+         !(stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN) )
     {
         stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                         osg::StateAttribute::ON |

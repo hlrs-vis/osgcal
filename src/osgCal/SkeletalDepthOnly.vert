@@ -1,8 +1,8 @@
 // -*-c++-*-
 
 #if BONES_COUNT >= 1
-# define weight gl_MultiTexCoord1
-# define index  gl_MultiTexCoord2
+# define weight gl_MultiTexCoord2
+# define index  gl_MultiTexCoord3
 
 uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];

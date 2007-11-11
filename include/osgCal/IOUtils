@@ -63,22 +63,28 @@ namespace osgCal
 #define OSGCAL_MAX_BONES_PER_MESH       30
 #define OSGCAL_MAX_VERTEX_PER_MODEL     1000000
 
-    typedef osg::Vec3Array        VertexBuffer;
-    typedef osg::Vec4Array        WeightBuffer;
-    typedef osg::Vec2Array        TexCoordBuffer;
-    typedef osg::DrawElementsUInt IndexBuffer;
+    typedef osg::Vec3Array      VertexBuffer;
+    typedef osg::Vec4Array      WeightBuffer;
+    // TODO: weight & matrixIndex dependent from bones count?
+    typedef osg::Vec2Array      TexCoordBuffer;
+
+    typedef osg::Vec4ubArray    MatrixIndexBuffer;
+
+    /**
+     * Index buffer may be DrawElementsUByte/UShort/UInt depending
+     * from indexes count.
+     */
+    typedef osg::PrimitiveSet   IndexBuffer;
 
 #ifdef OSG_CAL_BYTE_BUFFERS
     typedef osg::Vec3bArray     NormalBuffer;
-    typedef osg::Vec3bArray     TangentBuffer;
-    typedef osg::Vec3bArray     BinormalBuffer;
-    typedef osg::Vec4ubArray    MatrixIndexBuffer;
+    typedef osg::Vec4bArray     TangentAndHandednessBuffer;
+    // byte is not supported by setTexCoordPointer,
+    // but supported in setNormalPointer
 #else
     typedef osg::Vec3Array      NormalBuffer;
-    typedef osg::Vec3Array      TangentBuffer;
     typedef osg::Vec4Array      TangentAndHandednessBuffer;
-    typedef osg::Vec3Array      BinormalBuffer;
-    typedef osg::Vec4sArray     MatrixIndexBuffer;
+//    typedef osg::Vec4sArray     TangentAndHandednessBuffer;
 #endif
 
     // -- Mesh data --
@@ -161,7 +167,7 @@ namespace osgCal
             osg::ref_ptr< TexCoordBuffer >              texCoordBuffer;
             osg::ref_ptr< TangentAndHandednessBuffer >  tangentAndHandednessBuffer;
 
-            int getIndexesCount() const { return indexBuffer->size(); }
+            int getIndicesCount() const { return indexBuffer->getNumIndices(); }
 
             int getBonesCount() const { return bonesIndices.size(); }
             int getBoneId( int index ) const { return bonesIndices[ index ]; }
@@ -204,6 +210,116 @@ namespace osgCal
                                                float& scale,
                                                bool ignoreMeshes = false )
         throw (std::runtime_error);
+
+
+    // -- NV_half_float half<=>float conversion --
+
+    /** Converts float in uint32 format to a a half in uint16 format
+     */
+    inline GLushort floatToHalfI(GLuint i)
+    {
+        register int s =  (i >> 16) & 0x00008000;
+        register int e = ((i >> 23) & 0x000000ff) - (127 - 15);
+        register int m =   i        & 0x007fffff;
+        
+        if (e <= 0)
+        {
+            if (e < -10)
+            {
+                return 0;
+            }
+            m = (m | 0x00800000) >> (1 - e);
+        
+            return s | (m >> 13);
+        }
+        else if (e == 0xff - (127 - 15))
+        {
+            if (m == 0) // Inf
+            {
+                return s | 0x7c00;
+            } 
+            else    // NAN
+            {
+                m >>= 13;
+                return s | 0x7c00 | m | (m == 0);
+            }
+        }
+        else
+        {
+            if (e > 30) // Overflow
+            {
+                return s | 0x7c00;
+            }
+        
+            return s | (e << 10) | (m >> 13);
+        }
+    }
+        
+    /** Convert a float32 to a float16 (NV_half_float)
+        Courtesy of OpenEXR
+    */
+    inline GLushort floatToHalf(float i)
+    {
+        union { float f; GLuint i; } v;
+        v.f = i;
+        return floatToHalfI(v.i);
+    }
+ 
+    /** Converts a half in uint16 format to a float
+        in uint32 format
+    */
+    inline GLuint halfToFloatI(GLushort y)
+    {
+        register GLuint s = (y >> 15) & 0x00000001;
+        register GLuint e = (y >> 10) & 0x0000001f;
+        register GLuint m =  y        & 0x000003ff;
+        
+        if (e == 0)
+        {
+            if (m == 0) // Plus or minus zero
+            {
+                return s << 31;
+            }
+            else // Denormalized number -- renormalize it
+            {
+                while (!(m & 0x00000400))
+                {
+                    m <<= 1;
+                    e -=  1;
+                }
+        
+                e += 1;
+                m &= ~0x00000400;
+            }
+        }
+        else if (e == 31)
+        {
+            if (m == 0) // Inf
+            {
+                return (s << 31) | 0x7f800000;
+            }
+            else // NaN
+            {
+                return (s << 31) | 0x7f800000 | (m << 13);
+            }
+        }
+        
+        e = e + (127 - 15);
+        m = m << 13;
+        
+        return (s << 31) | (e << 23) | m;
+    }
+
+    /**
+     * Convert a float16 (NV_half_float) to a float32
+     * Courtesy of OpenEXR
+     */
+    inline float halfToFloat(GLushort y)
+    {
+        union { float f; GLuint i; } v;
+        v.i = halfToFloatI(y);
+        return v.f;
+    }
 
 }; // namespace osgCal
 

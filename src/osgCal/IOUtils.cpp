@@ -120,7 +120,7 @@ checkRigidness( osgCal::MeshData* m )
         
     for ( ; w != wEnd; ++w, ++mi )
     {
-        if ( !( mi->x() == 0
+        if ( !( mi->r() == 0
                 &&
                 w->x() == 1.0f ) )
         {
@@ -210,7 +210,8 @@ checkForEmptyTexCoord( osgCal::MeshData* m )
 
 static
 void
-generateTangentAndHandednessBuffer( osgCal::MeshData* m )
+generateTangentAndHandednessBuffer( osgCal::MeshData* m,
+                                    const CalIndex*   indexBuffer )
 {
     if ( !m->texCoordBuffer.valid() )
     {
@@ -218,7 +219,7 @@ generateTangentAndHandednessBuffer( osgCal::MeshData* m )
     }
 
     int vertexCount = m->vertexBuffer->size();
-    int faceCount   = m->indexBuffer->size() / 3;    
+    int faceCount   = m->getIndicesCount() / 3;    
 
     m->tangentAndHandednessBuffer = new TangentAndHandednessBuffer( vertexCount );
 
@@ -227,13 +228,13 @@ generateTangentAndHandednessBuffer( osgCal::MeshData* m )
 
     const GLfloat* texCoordBufferData = (GLfloat*) m->texCoordBuffer->getDataPointer();
 
-    const GLuint*  ib = (GLuint*) m->indexBuffer->getDataPointer();
     const GLfloat* vb = (GLfloat*) m->vertexBuffer->getDataPointer();
 #ifdef OSG_CAL_BYTE_BUFFERS
     GLfloat* thb = new GLfloat[ vertexCount*4 ];
     const GLfloat* nb = floatNormalBuffer;
 #else
     GLfloat* thb = (GLfloat*) m->tangentAndHandednessBuffer->getDataPointer();
+//    GLshort* thb = (GLshort*) m->tangentAndHandednessBuffer->getDataPointer();
     const GLfloat* nb = (GLfloat*) m->normalBuffer->getDataPointer();
 #endif
 
@@ -244,9 +245,9 @@ generateTangentAndHandednessBuffer( osgCal::MeshData* m )
             // there seems to be no visual difference in calculating
             // tangent per vertex (as is tan1[i1] += spos(j=0,1,2))
             // or per face (tan1[i1,i2,i3] += spos)
-            GLuint i1 = ib[face*3+(j+0)%3];
-            GLuint i2 = ib[face*3+(j+1)%3];
-            GLuint i3 = ib[face*3+(j+2)%3];
+            CalIndex i1 = indexBuffer[face*3+(j+0)%3];
+            CalIndex i2 = indexBuffer[face*3+(j+1)%3];
+            CalIndex i3 = indexBuffer[face*3+(j+2)%3];
         
             const float* v1 = &vb[i1*3];
             const float* v2 = &vb[i2*3];
@@ -349,6 +350,10 @@ generateTangentAndHandednessBuffer( osgCal::MeshData* m )
 //         std::cout << "b = " << binormal.x << '\t' << binormal.y << '\t' << binormal.z << '\n';
 //            std::cout << "n = " << n.x        << '\t' << n.y        << '\t' << n.z        << '\n';
 
+//         thb[a*4+0] = floatToHalf( tangent.x ); //tangent.x * 0x7FFF;
+//         thb[a*4+1] = floatToHalf( tangent.y ); //tangent.y * 0x7FFF;
+//         thb[a*4+2] = floatToHalf( tangent.z ); //tangent.z * 0x7FFF;
+//         thb[a*4+3] = floatToHalf((((n % tangent) * binormal) > 0.0F) ? -1.0f : 1.0f); // handedness
         thb[a*4+0] = tangent.x; 
         thb[a*4+1] = tangent.y;
         thb[a*4+2] = tangent.z;
@@ -388,10 +393,10 @@ loadMeshes( CalCoreModel* calCoreModel,
     osg::ref_ptr< WeightBuffer >      weightBuffer( new WeightBuffer( maxVertices ) );
     osg::ref_ptr< MatrixIndexBuffer > matrixIndexBuffer( new MatrixIndexBuffer( maxVertices ) );
     osg::ref_ptr< NormalBuffer >      normalBuffer( new NormalBuffer( maxVertices ) );
-    osg::ref_ptr< TangentBuffer >     tangentBuffer( new TangentBuffer( maxVertices ) );
-    osg::ref_ptr< BinormalBuffer >    binormalBuffer( new BinormalBuffer( maxVertices ) );
+    osg::ref_ptr< NormalBuffer >      tangentBuffer( new NormalBuffer( maxVertices ) );
+    osg::ref_ptr< NormalBuffer >      binormalBuffer( new NormalBuffer( maxVertices ) );
     osg::ref_ptr< TexCoordBuffer >    texCoordBuffer( new TexCoordBuffer( maxVertices ) );
-    osg::ref_ptr< osg::UIntArray >    indexBuffer( new osg::UIntArray( maxFaces*3 ) );
+    CalIndex*                         indexBuffer = new CalIndex[ maxFaces*3 ];
 
     float* floatMatrixIndexBuffer = new float[maxVertices*4];
 
@@ -409,11 +414,11 @@ loadMeshes( CalCoreModel* calCoreModel,
                                       4*sizeof(float));
     calHardwareModel->setMatrixIndexBuffer((char*)floatMatrixIndexBuffer,
                                            4*sizeof(float));
-    calHardwareModel->setTextureCoordNum(1);
+    calHardwareModel->setTextureCoordNum( 1 );
     calHardwareModel->setTextureCoordBuffer(0, // texture stage #
                                             (char*)texCoordBuffer->getDataPointer(),
                                             2*sizeof(float));
-    calHardwareModel->setIndexBuffer((CalIndex*)(GLuint*)indexBuffer->getDataPointer());
+    calHardwareModel->setIndexBuffer( indexBuffer );
     // calHardwareModel->setCoreMeshIds(_activeMeshes);
     // if ids not set all meshes will be used at load() time
 
@@ -426,16 +431,11 @@ loadMeshes( CalCoreModel* calCoreModel,
 
 //    std::cout << "vertexCount = " << vertexCount << "; faceCount = " << faceCount << std::endl;
     
-#ifdef OSG_CAL_BYTE_BUFFERS
-    typedef GLubyte MatrixIndex;
-#else
-    typedef GLshort MatrixIndex;
-#endif
-    MatrixIndex* matrixIndexBufferData = (MatrixIndex*) matrixIndexBuffer->getDataPointer();
+    GLubyte* matrixIndexBufferData = (GLubyte*) matrixIndexBuffer->getDataPointer();
 
     for ( int i = 0; i < vertexCount*4; i++ )
     {
-        matrixIndexBufferData[i] = static_cast< MatrixIndex >( floatMatrixIndexBuffer[i] );
+        matrixIndexBufferData[i] = static_cast< GLubyte >( floatMatrixIndexBuffer[i] );
     }
 
     delete[] floatMatrixIndexBuffer;
@@ -480,15 +480,48 @@ loadMeshes( CalCoreModel* calCoreModel,
         m->name = calCoreModel->getCoreMesh( hardwareMesh->meshId )->getName();
         m->coreMaterial = hardwareMesh->pCoreMaterial;
 
+        // -- Create index buffer --
         int indexesCount = faceCount * 3;
         int startIndex = calHardwareModel->getStartIndex();
 
-        m->indexBuffer = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES, indexesCount );
+        if ( indexesCount <= 0x100 )
+        {
+            m->indexBuffer = new osg::DrawElementsUByte( osg::PrimitiveSet::TRIANGLES, indexesCount );
 
-        memcpy( &m->indexBuffer->front(),
-                (GLuint*)&indexBuffer->front() + startIndex,
-                indexesCount * sizeof ( GLuint ) );
+            GLubyte* data = (GLubyte*)m->indexBuffer->getDataPointer();
+            const CalIndex* i    = &indexBuffer[ startIndex ];
+            const CalIndex* iEnd = &indexBuffer[ startIndex + indexesCount ];
+            while ( i < iEnd )
+            {
+                *data++ = (GLubyte)*i++;
+            }
+        }
+        else if ( indexesCount <= 0x10000 )
+        {
+            m->indexBuffer = new osg::DrawElementsUShort( osg::PrimitiveSet::TRIANGLES, indexesCount );
 
+            GLushort* data = (GLushort*)m->indexBuffer->getDataPointer();
+            const CalIndex* i    = &indexBuffer[ startIndex ];
+            const CalIndex* iEnd = &indexBuffer[ startIndex + indexesCount ];
+            while ( i < iEnd )
+            {
+                *data++ = (GLushort)*i++;
+            }
+        }
+        else
+        {
+            m->indexBuffer = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES, indexesCount );
+
+            GLuint* data = (GLuint*)m->indexBuffer->getDataPointer();
+            const CalIndex* i    = &indexBuffer[ startIndex ];
+            const CalIndex* iEnd = &indexBuffer[ startIndex + indexesCount ];
+            while ( i < iEnd )
+            {
+                *data++ = (GLuint)*i++;
+            }
+        }
+
+        // -- Create other buffers --
         int vertexCount = calHardwareModel->getVertexCount();
         int baseVertexIndex = calHardwareModel->getBaseVertexIndex();
 
@@ -502,16 +535,19 @@ loadMeshes( CalCoreModel* calCoreModel,
         m->normalBuffer = SUB_BUFFER( NormalBuffer, normalBuffer );
         m->texCoordBuffer = SUB_BUFFER( TexCoordBuffer, texCoordBuffer );
 
+        // -- Parameters and buffers setup --
         m->boundingBox = calculateBoundingBox( m->vertexBuffer.get() );
 
         m->bonesIndices = hardwareMesh->m_vectorBonesIndices;
 
         checkRigidness( m );
         checkForEmptyTexCoord( m );
-        generateTangentAndHandednessBuffer( m );
+        generateTangentAndHandednessBuffer( m, &indexBuffer[ startIndex ] );
 
         meshes.push_back( m );
     }
+
+    delete[] indexBuffer;
 }
 
 // -- Meshes I/O --
@@ -610,13 +646,36 @@ struct FileBuffer
  */
 enum BufferType
 {
-    BT_INDEX,
-    BT_VERTEX,
-    BT_WEIGHT,
-    BT_MATRIX_INDEX,
-    BT_NORMAL,
-    BT_TEX_COORD,
-    BT_TANGENT_AND_HANDEDNESS
+    BT_MASK                     = 0xFF0000,
+    BT_INDEX                    = 0x010000,
+    BT_VERTEX                   = 0x020000,
+    BT_WEIGHT                   = 0x030000,
+    BT_MATRIX_INDEX             = 0x040000,
+    BT_NORMAL                   = 0x050000,
+    BT_TEX_COORD                = 0x060000,
+    BT_TANGENT_AND_HANDEDNESS   = 0x070000,
+};
+    
+
+enum BufferElementType
+{
+    ET_MASK   = 0xFF00,
+    ET_UBYTE  = 0x0100,
+    ET_USHORT = 0x0200,
+    ET_UINT   = 0x0300,
+    ET_BYTE   = 0x0400,
+    ET_SHORT  = 0x0500,
+    ET_INT    = 0x0600,
+    ET_FLOAT  = 0x0700,
+};
+
+enum BufferElementsCount
+{
+    EC_MASK = 0xFF,
+    EC_1    = 0x01,
+    EC_2    = 0x02,
+    EC_3    = 0x03,
+    EC_4    = 0x04,
 };
 
 static
@@ -653,14 +712,36 @@ readBuffer( MeshesVector& meshes,
             READ( m->_name );                           \
             break
 
-//     printf( "reading %d mesh, buffer type = %d, buffer size = %d\n",
-//             meshIndex, bufferType, bufferSize );
+//     printf( "reading %d mesh, buffer type = %d (0x%08X), buffer size = %d\n",
+//             meshIndex, bufferType, bufferType, bufferSize );
 //     fflush( stdout );
     
-    switch ( bufferType )
+    switch ( bufferType & BT_MASK )
     {
         case BT_INDEX:
-            m->indexBuffer = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES, bufferSize );
+            switch ( bufferType & ET_MASK )
+            {
+                case ET_UBYTE:
+                    m->indexBuffer = new osg::DrawElementsUByte( osg::PrimitiveSet::TRIANGLES, bufferSize );
+                    break;
+
+                case ET_USHORT:
+                    m->indexBuffer = new osg::DrawElementsUShort( osg::PrimitiveSet::TRIANGLES, bufferSize );
+                    break;
+
+                case ET_UINT:
+                    m->indexBuffer = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES, bufferSize );
+                    break;
+
+                default:
+                {
+                    char err[ 1024 ];
+                    sprintf( err, "Unknown index buffer element type %d (0x%08X)",
+                             bufferType & ET_MASK, bufferType & ET_MASK );
+                    throw std::runtime_error( err );
+                }
+
+            }
             READ( m->indexBuffer );
             break;
 
@@ -682,7 +763,7 @@ readBuffer( MeshesVector& meshes,
 #undef CASE
 }
 
-static const int HW_MODEL_FILE_VERSION = 0xCA3D0002;
+static const int HW_MODEL_FILE_VERSION = 0xCA3D0003;
 
 void
 loadMeshes( const std::string&  fn,
@@ -698,7 +779,7 @@ loadMeshes( const std::string&  fn,
     }
 
     FileCloser closeOnExit( f );
-    FileBuffer setReadBufferOfSize( f, 1*1024*1024 );
+//    FileBuffer setReadBufferOfSize( f, 1*1024*1024 ); <- not so much difference
 
     // -- Check version --
     int version;
@@ -794,7 +875,7 @@ void saveMeshes( const CalCoreModel* calCoreModel,
     }
 
     FileCloser closeOnExit( f );
-    FileBuffer setReadBufferOfSize( f, 1*1024*1024 );
+//    FileBuffer setReadBufferOfSize( f, 1*1024*1024 );
 
     WRITE_I32( HW_MODEL_FILE_VERSION );
 
@@ -841,7 +922,7 @@ void saveMeshes( const CalCoreModel* calCoreModel,
     if ( m->_buffer.valid() )                   \
     {                                           \
         WRITE_I32( i );                         \
-        WRITE_I32( BT_##_bufferType );          \
+        WRITE_I32( _bufferType );               \
         WRITE_I32( m->_buffer->size() );        \
         WRITE( m->_buffer )                     \
     }
@@ -851,10 +932,31 @@ void saveMeshes( const CalCoreModel* calCoreModel,
     {
         MeshData* m = meshes[i].get();
 
-        WRITE_BUFFER( INDEX, indexBuffer );
-        WRITE_BUFFER( VERTEX, vertexBuffer );
-        WRITE_BUFFER( WEIGHT, weightBuffer );
-        WRITE_BUFFER( MATRIX_INDEX, matrixIndexBuffer );
+        WRITE_I32( i );
+        switch ( m->indexBuffer->getType() )
+        {
+            case osg::PrimitiveSet::DrawElementsUBytePrimitiveType:
+                WRITE_I32( BT_INDEX + ET_UBYTE );
+                break;
+
+            case osg::PrimitiveSet::DrawElementsUShortPrimitiveType:
+                WRITE_I32( BT_INDEX + ET_USHORT );
+                break;
+
+            case osg::PrimitiveSet::DrawElementsUIntPrimitiveType:
+                WRITE_I32( BT_INDEX + ET_UINT );
+                break;
+
+            default:
+                throw std::runtime_error( "unsupported indexBuffer type?" );
+
+        }
+        WRITE_I32( m->getIndicesCount() );
+        WRITE( m->indexBuffer );
+        
+        WRITE_BUFFER( BT_VERTEX, vertexBuffer );
+        WRITE_BUFFER( BT_WEIGHT, weightBuffer );
+        WRITE_BUFFER( BT_MATRIX_INDEX, matrixIndexBuffer );
     }
 
     // -- Write mesh buffers that will be freed after display list created --
@@ -862,9 +964,9 @@ void saveMeshes( const CalCoreModel* calCoreModel,
     {
         MeshData* m = meshes[i].get();
 
-        WRITE_BUFFER ( NORMAL, normalBuffer );
-        WRITE_BUFFER ( TEX_COORD, texCoordBuffer );
-        WRITE_BUFFER ( TANGENT_AND_HANDEDNESS, tangentAndHandednessBuffer );
+        WRITE_BUFFER ( BT_NORMAL, normalBuffer );
+        WRITE_BUFFER ( BT_TEX_COORD, texCoordBuffer );
+        WRITE_BUFFER ( BT_TANGENT_AND_HANDEDNESS, tangentAndHandednessBuffer );
     }
 
 #undef WRITE_BUFFER

@@ -25,9 +25,11 @@
 
 using namespace osgCal;
 
-SubMeshSoftware::SubMeshSoftware( ModelData*             _modelData,
+SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
+                                  ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh )
-    : modelData( _modelData )
+    : coreModel( _coreModel )
+    , modelData( _modelData )
     , mesh( _mesh )
 {
     if ( mesh->data->rigid )

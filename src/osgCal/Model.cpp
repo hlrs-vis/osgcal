@@ -175,7 +175,7 @@ Model::load( CoreModel* coreModel,
         {
             case MT_HARDWARE:
             {
-                SubMeshHardware* smhw = new SubMeshHardware( modelData.get(), &mesh );
+                SubMeshHardware* smhw = new SubMeshHardware( coreModel, modelData.get(), &mesh );
 
                 g = smhw;
                 depthSubMesh = smhw->getDepthSubMesh();
@@ -226,7 +226,7 @@ Model::load( CoreModel* coreModel,
 // #endif
 //                 }
                 
-                g = new SubMeshSoftware( modelData.get(), &mesh );
+                g = new SubMeshSoftware( coreModel, modelData.get(), &mesh );
                 usedStateSets[ mesh.stateSet.get() ] = true;
                 break;
 

@@ -258,21 +258,18 @@ namespace osgCal
                  * with pixel shaders (useful if pixel shading is a
                  * bottleneck).
                  */
-                USE_DEPTH_FIRST_MESHES = 0x2, // TODO: commented
+                USE_DEPTH_FIRST_MESHES = 0x2,
 
-                //DONT_CALCULATE_VERTEX_IN_SHADER = 0x4,
-                // ^ it doesn't supported in display lists
-                
                 /**
                  * Don't keep normals and texture coords for
                  * software meshes (free them after VBOs are applied).
                  */
-                NO_SOFTWARE_MESHES = 0x8, // TODO: does not free memory
+                NO_SOFTWARE_MESHES = 0x8, // TODO: does not free memory yet
 
                 /**
                  * Show Tangent-Binormal-Normal basis.
                  */
-                SHOW_TBN = 0x10, // TODO: commented
+                SHOW_TBN = 0x10, // TODO: restore it
 
                 /**
                  * Enable fog in shader (exp, exp2 or linear mode)

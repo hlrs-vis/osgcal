@@ -42,7 +42,8 @@ namespace osgCal {
             virtual const char* libraryName() const { return "osgCal"; }
             virtual const char* className() const { return "SubMeshSoftware"; }
 
-            SubMeshSoftware( ModelData*             modelData,
+            SubMeshSoftware( CoreModel*             coreModel,
+                             ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
             SubMeshSoftware(const SubMeshSoftware&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
@@ -60,6 +61,7 @@ namespace osgCal {
 
         private:
 
+            osg::ref_ptr< CoreModel >             coreModel;
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;

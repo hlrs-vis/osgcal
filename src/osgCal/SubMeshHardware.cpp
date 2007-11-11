@@ -29,9 +29,11 @@ using namespace osgCal;
 
 
 
-SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
+SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
+                                  ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh )
-    : modelData( _modelData )
+    : coreModel( _coreModel )
+    , modelData( _modelData )
     , mesh( _mesh )
     , deformed( false )
 {   
@@ -276,38 +278,14 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     state.disableAllVertexArrays();
 
     // -- Setup vertex arrays --
-#ifdef OSG_CAL_BYTE_BUFFERS
-    #define NORMAL_TYPE         GL_BYTE
-    #define MATRIX_INDEX_TYPE   GL_UNSIGNED_BYTE
-#else
-    #define NORMAL_TYPE         GL_FLOAT
-    #define MATRIX_INDEX_TYPE   GL_SHORT
-#endif
-    if ( !mesh->data->rigid
-//          &&
-//          stateSet != mesh->staticHardwareStateSet.get()
-//          &&
-//          stateSet != mesh->staticDepthStateSet.get()
-        )
-    {
-        state.setTexCoordPointer( 1, 4, GL_FLOAT, 0,
-                                  mesh->data->weightBuffer->getDataPointer() );
-//         state.setVertexAttribPointer( program->getAttribLocation( "index" ),
-// //                                      4 , GL_INT, false, 0,0);   // dvorets - 17.5fps
-// //                                      4 , GL_BYTE, false, 0,0);  // dvorets - 20fps
-// //                                      4 , GL_FLOAT, false, 0,0); // dvorets - 53fps        
-// //                                      4 , GL_SHORT, false, 0,0); // dvorets - 57fps - GLSL int = 16 bit
-//                                         4 , MATRIX_INDEX_TYPE, false, 0,0);         
-//         // TODO: maybe ATI bug that Jan Ciger has happend due to unsupported GL_SHORT?
-//         // but conversion from float to int would be too expensive
-//         // when updating vertices on CPU.
-        state.setTexCoordPointer( 2, 4, MATRIX_INDEX_TYPE, 0,
-                                  mesh->data->matrixIndexBuffer->getDataPointer() );
-    }
-
 //     if ( stateSet != mesh->depthStateSet.get() &&
 //          stateSet != mesh->staticDepthStateSet.get() )
     {
+#ifdef OSG_CAL_BYTE_BUFFERS
+    #define NORMAL_TYPE         GL_BYTE
+#else
+    #define NORMAL_TYPE         GL_FLOAT
+#endif
     state.setNormalPointer( NORMAL_TYPE, 0,
                             mesh->data->normalBuffer->getDataPointer() );
 
@@ -315,11 +293,62 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     {
         state.setTexCoordPointer( 0, 2, GL_FLOAT, 0,
                                   mesh->data->texCoordBuffer->getDataPointer() );
-        state.setTexCoordPointer( 3, 4, NORMAL_TYPE, 0,
+    }
+
+    if ( mesh->data->tangentAndHandednessBuffer.valid() )
+    {
+//         state.setTexCoordPointer( 1, 4, GL_HALF_FLOAT_ARB/*GL_SHORT*//*NORMAL_TYPE*/, 0,
+//                                   mesh->data->tangentAndHandednessBuffer->getDataPointer() );
+        state.setTexCoordPointer( 1, 4, NORMAL_TYPE, 0,
                                   mesh->data->tangentAndHandednessBuffer->getDataPointer() );
     }
     }
     
+    GLushort* weightBuffer = NULL;
+
+    if ( mesh->data->weightBuffer.valid() )
+    {
+//         weightBuffer = new GLushort[ mesh->data->weightBuffer->size() * 4 ];
+
+//         GLushort* w = weightBuffer;
+//         const GLfloat* wsrc = (const GLfloat*)mesh->data->weightBuffer->getDataPointer();
+//         const GLfloat* wend = wsrc + mesh->data->weightBuffer->size() * 4;
+//         while ( wsrc < wend )
+//         {
+//             *w++ = floatToHalf( *wsrc++ );
+//         }
+        
+//         state.setTexCoordPointer( 2, mesh->data->maxBonesInfluence, GL_HALF_FLOAT_ARB, 4*2,
+//                                   weightBuffer );
+        state.setTexCoordPointer( 2, mesh->data->maxBonesInfluence, GL_FLOAT, 4*4,
+                                  mesh->data->weightBuffer->getDataPointer() );
+    }
+
+    GLshort* matrixIndexBuffer = NULL;
+
+    if ( mesh->data->matrixIndexBuffer.valid() )
+    {
+        matrixIndexBuffer = new GLshort[ mesh->data->matrixIndexBuffer->size() * 4 ];
+
+        GLshort* mi = matrixIndexBuffer;
+        const GLbyte* m   = (const GLbyte*)mesh->data->matrixIndexBuffer->getDataPointer();
+        const GLbyte* end = m + mesh->data->matrixIndexBuffer->size() * 4;
+        while ( m < end )
+        {
+            *mi++ = *m++;
+        }
+        
+        state.setTexCoordPointer( 3, mesh->data->maxBonesInfluence, GL_SHORT, 4*2,
+                                  matrixIndexBuffer );
+//         state.setColorPointer( 4, GL_UNSIGNED_BYTE, 0,
+//                                mesh->data->matrixIndexBuffer->getDataPointer() );
+        // GL_UNSIGNED_BYTE only supported in ColorPointer not the TexCoord
+        // but with color we need to multiply color by 255.0 in shader
+        // and get slighlty less performance (~1%). So we create
+        // GLshort data here. Hope the driver will convert it to bytes
+        // when compiling display list.
+    }
+
     state.setVertexPointer( 3, GL_FLOAT, 0,
                             mesh->data->vertexBuffer->getDataPointer() );
 
@@ -329,16 +358,19 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
         ( stateSet->getAttribute( osg::StateAttribute::MATERIAL ) );
 
     // -- Draw our indexed triangles --
-    // no visible speedup when using glDrawRangeElements
 #define DRAW                                                            \
-    glDrawElements/*glDrawRangeElements*/(                              \
-        GL_TRIANGLES,                                                   \
-        /*mesh->hardwareMesh.baseVertexIndex,*/                         \
-        /*mesh->hardwareMesh.baseVertexIndex + mesh->hardwareMesh.vertexCount,*/ \
-        mesh->data->indexBuffer->size(),                                \
-        GL_UNSIGNED_INT,                                                \
-        (GLuint *)mesh->data->indexBuffer->getDataPointer() );          \
-    if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    mesh->data->indexBuffer->draw( state, false );                      \
+    if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() )
+//     // no visible speedup when using glDrawRangeElements
+// #define DRAW                                                            
+//     glDrawElements/*glDrawRangeElements*/(                              
+//         GL_TRIANGLES,                                                   
+//         /*mesh->hardwareMesh.baseVertexIndex,*/                         
+//         /*mesh->hardwareMesh.baseVertexIndex + mesh->hardwareMesh.vertexCount,*/ 
+//         mesh->data->indexBuffer->size(),                                
+//         GL_UNSIGNED_INT,                                                
+//         (GLuint *)mesh->data->indexBuffer->getDataPointer() );          
+//     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     // TODO: ^ color restoring doesn't allow material overriding
     // since we get mesh material color, not last applied one (there is
     // no one when compiling display list). Maybe we can override Drawable::draw
@@ -383,6 +415,9 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     
     //glError();
     state.disableAllVertexArrays();
+
+    delete[] matrixIndexBuffer;
+    delete[] weightBuffer;
 }
 
 void
@@ -402,14 +437,13 @@ SubMeshHardware::create()
     boundingBox = mesh->data->boundingBox;
 
     // create depth submesh for non-transparent meshes
-    // TODO: restore depth meshes support
-//     if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
-//          &&
-//          !(mesh->staticHardwareStateSet.get()->getRenderingHint()
-//            & osg::StateSet::TRANSPARENT_BIN) )
-//     {
-//         depthSubMesh = new SubMeshDepth( this ); 
-//     }
+    if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
+         &&
+         !(mesh->staticHardwareStateSet.get()->getRenderingHint()
+           & osg::StateSet::TRANSPARENT_BIN) )
+    {
+        depthSubMesh = new SubMeshDepth( this ); 
+    }
 }
 
 static

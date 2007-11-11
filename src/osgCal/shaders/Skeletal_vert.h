@@ -12,16 +12,16 @@ shaderText += "  # define ivec4   vec4\n";
 shaderText += "# endif\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
-shaderText += "# define weight gl_MultiTexCoord1\n";
-shaderText += "# define index  gl_MultiTexCoord2\n";
+shaderText += "# define weight gl_MultiTexCoord2\n";
+shaderText += "# define index  gl_MultiTexCoord3\n";
 shaderText += "\n";
 shaderText += "uniform mat3 rotationMatrices[31];\n";
 shaderText += "uniform vec3 translationVectors[31];\n";
 }
 shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "# define tangent     gl_MultiTexCoord3.xyz\n";
-shaderText += "# define handedness  gl_MultiTexCoord3.w\n";
+shaderText += "# define tangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)\n";
+shaderText += "# define handedness   gl_MultiTexCoord1.w\n";
 shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 } else {
 shaderText += "varying vec3 transformedNormal;\n";

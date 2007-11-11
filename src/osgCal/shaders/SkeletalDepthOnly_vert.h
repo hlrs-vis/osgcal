@@ -1,8 +1,8 @@
 shaderText += "// -*-c++-*-\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
-shaderText += "# define weight gl_MultiTexCoord1\n";
-shaderText += "# define index  gl_MultiTexCoord2\n";
+shaderText += "# define weight gl_MultiTexCoord2\n";
+shaderText += "# define index  gl_MultiTexCoord3\n";
 shaderText += "\n";
 shaderText += "uniform mat3 rotationMatrices[31];\n";
 shaderText += "uniform vec3 translationVectors[31];\n";

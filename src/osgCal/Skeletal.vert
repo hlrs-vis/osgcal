@@ -12,16 +12,16 @@
 # endif
 
 #if BONES_COUNT >= 1
-# define weight gl_MultiTexCoord1
-# define index  gl_MultiTexCoord2
+# define weight gl_MultiTexCoord2
+# define index  gl_MultiTexCoord3
 
 uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];
 #endif
 
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-# define tangent     gl_MultiTexCoord3.xyz
-# define handedness  gl_MultiTexCoord3.w
+# define tangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)
+# define handedness   gl_MultiTexCoord1.w
 varying mat3 eyeBasis; // in tangent space
 #else
 varying vec3 transformedNormal;

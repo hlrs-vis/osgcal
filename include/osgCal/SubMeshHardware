@@ -70,7 +70,8 @@ namespace osgCal
             /**
              * Creates a submesh for one model given the mesh and submesh of this mesh
              */
-            SubMeshHardware( ModelData*             modelData,
+            SubMeshHardware( CoreModel*             coreModel,
+                             ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
             ~SubMeshHardware();
 
@@ -110,6 +111,7 @@ namespace osgCal
 
         private:
 
+            osg::ref_ptr< CoreModel >             coreModel;
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;
