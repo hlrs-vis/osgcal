@@ -36,6 +36,11 @@ namespace osgCal {
     enum MeshType
     {
         MT_HARDWARE = 0,
+
+        /**
+         * Software meshes are only for testing purpouses. Don't use
+         * them in conjunction with hardware meshes.
+         */
         MT_SOFTWARE = 1
     };
 

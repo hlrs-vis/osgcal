@@ -178,23 +178,26 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     //
     unsigned int contextID = renderInfo.getContextID();
 
-    GLuint& dl = displayLists[ NULL/*const_cast< osg::StateSet* >( stateSet )*/ ][ contextID ];
+    mesh->displayListsMutex.lock();
+    GLuint& dl = mesh->displayLists[ contextID ];
 
     if( dl != 0 )
     {
+        mesh->displayListsMutex.unlock();
+
         glCallList( dl );
     }
     else
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-//        glNewList( dl, GL_COMPILE );
-        innerDrawImplementation( renderInfo, stateSet, dl );
-//        glEndList();
+        innerDrawImplementation( renderInfo, dl );
+        mesh->displayListsMutex.unlock();
+
+        mesh->checkAllDisplayListsCompiled();
 
         glCallList( dl );
     }
-//     innerDrawImplementation( renderInfo, stateSet );
 }
 
 void
@@ -202,65 +205,29 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
     Geometry::compileGLObjects( renderInfo );
 
-    compileGLObjects( renderInfo, mesh->staticHardwareStateSet.get() );
-
-    if ( !mesh->data->rigid )
-    {
-        compileGLObjects( renderInfo, mesh->hardwareStateSet.get() );        
-    }
-}
-
-void
-SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo,
-                                  const osg::StateSet* stateSet) const
-{
     unsigned int contextID = renderInfo.getContextID();
 
-    GLuint& dl = displayLists[ NULL/*const_cast< osg::StateSet* >( stateSet )*/ ][ contextID ];
+    mesh->displayListsMutex.lock();
+    
+    GLuint& dl = mesh->displayLists[ contextID ];
 
     if( dl == 0 )
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
-//        glNewList( dl, GL_COMPILE );
-        innerDrawImplementation( renderInfo, stateSet, dl );
-//        glEndList();
+        innerDrawImplementation( renderInfo, dl );
+        mesh->displayListsMutex.unlock();
+
+        mesh->checkAllDisplayListsCompiled();
     }
-}
-
-void
-SubMeshHardware::releaseGLObjects(osg::State* state) const
-{
-    Geometry::releaseGLObjects( state );
-
-    for ( DisplayListsMap::iterator dls = displayLists.begin(); dls != displayLists.end(); ++dls )
-    {
-        if ( state )
-        {
-            GLuint& dl = dls->second[ state->getContextID() ];
-            if( dl != 0 )
-            {
-                Drawable::deleteDisplayList( state->getContextID(), dl, getGLObjectSizeHint() );
-                dl = 0;
-            }    
-        }
-        else
-        {
-            for( size_t i = 0; i < dls->second.size(); i++ )
-            {
-                if ( dls->second[i] != 0 )
-                {
-                    Drawable::deleteDisplayList( i, dls->second[i], getGLObjectSizeHint() );
-                    dls->second[i] = 0;
-                }
-            }            
-        }
+    else
+    {        
+        mesh->displayListsMutex.unlock();
     }
 }
 
 void
 SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
-                                          const osg::StateSet* stateSet,
                                           GLuint               displayList ) const
 {   
 #define glError()                                                       \
@@ -274,15 +241,11 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     }
 
     osg::State& state = *renderInfo.getState();
-    const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
     const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
     
     state.disableAllVertexArrays();
 
     // -- Setup vertex arrays --
-//     if ( stateSet != mesh->depthStateSet.get() &&
-//          stateSet != mesh->staticDepthStateSet.get() )
-    {
 #ifdef OSG_CAL_BYTE_BUFFERS
     #define NORMAL_TYPE         GL_BYTE
 #else
@@ -303,7 +266,6 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 //                                   mesh->data->tangentAndHandednessBuffer->getDataPointer() );
         state.setTexCoordPointer( 1, 4, NORMAL_TYPE, 0,
                                   mesh->data->tangentAndHandednessBuffer->getDataPointer() );
-    }
     }
     
     GLushort* weightBuffer = NULL;
@@ -356,8 +318,8 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 
     // get mesh material to restore glColor after glDrawElements call
     const osg::Material* material = static_cast< const osg::Material* >
-//        ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) ); <- don't work in display lists
-        ( stateSet->getAttribute( osg::StateAttribute::MATERIAL ) );
+        ( mesh->staticHardwareStateSet.get()->getAttribute( osg::StateAttribute::MATERIAL ) );
+    // ^ since we place it into display list material overriding doesn't work
 
     // -- Draw our indexed triangles --
 #define DRAW                                                            \
@@ -372,13 +334,9 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 //         mesh->data->indexBuffer->size(),                                
 //         GL_UNSIGNED_INT,                                                
 //         (GLuint *)mesh->data->indexBuffer->getDataPointer() );          
-//     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
-    // TODO: ^ color restoring doesn't allow material overriding
-    // since we get mesh material color, not last applied one (there is
-    // no one when compiling display list). Maybe we can override Drawable::draw
-    // to get actual last applied material.
 
-    GLint faceUniform = program->getUniformLocation( "face" );
+    GLint faceUniform = coreModel->getFlags() & CoreModel::USE_GL_FRONT_FACING ? -1 : 0;
+    // ^ face uniform is always first (0 location) if exists
 #define SET_FACE_UNIFORM(_fu) \
     if ( faceUniform >= 0 ) gl2extensions->glUniform1f( faceUniform, _fu );
 
@@ -721,6 +679,8 @@ SubMeshHardware::update()
 SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
     : hwMesh( hw )
 {
+    setThreadSafeRefUnref( true );
+
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     setUseVertexBufferObjects( false ); // false is default
@@ -740,14 +700,7 @@ SubMeshDepth::drawImplementation(osg::RenderInfo& renderInfo) const
 void
 SubMeshDepth::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
-    const CoreModel::Mesh* mesh = hwMesh->getCoreModelMesh();
-
-    hwMesh->compileGLObjects( renderInfo, mesh->staticDepthStateSet.get() );
-
-    if ( !mesh->data->rigid )
-    {
-        hwMesh->compileGLObjects( renderInfo, mesh->depthStateSet.get() );
-    }
+    hwMesh->compileGLObjects( renderInfo );
 }
 
 void

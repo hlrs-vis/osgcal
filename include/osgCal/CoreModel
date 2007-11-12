@@ -301,9 +301,38 @@ namespace osgCal
             {
                 public:
 
-                    osg::ref_ptr< MeshData >            data;
+                    mutable osg::ref_ptr< MeshData >    data;
 
                     HwStateDesc                         hwStateDesc;
+
+                    typedef osg::buffered_value<GLuint> GLObjectList;
+
+                    /**
+                     * Hardware mesh display lists, once compiled for
+                     * one model they are shared for all core model
+                     * instances.
+                     */
+                    mutable GLObjectList                displayLists;
+                    mutable OpenThreads::Mutex          displayListsMutex;
+
+                    /**
+                     * Destroys display lists.
+                     */
+                    ~Mesh();
+
+                    /**
+                     * Check that display lists are compiled for all
+                     * contexts and free mesh data that is needed only
+                     * for display lists (normals, tangents, texture
+                     * coordinates).
+                     *
+                     * Use
+                     * osg::DisplaySettings::instance()->setMaxNumberOfGraphicsContexts(N)
+                     * to set number of contexts you need (default
+                     * value is 32, so no mesh data or textures are
+                     * freed by default).
+                     */
+                    void checkAllDisplayListsCompiled() const;
 
                     /**
                      * Mesh state set. Contain material, textures and also

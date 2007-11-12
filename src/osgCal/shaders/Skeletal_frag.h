@@ -10,6 +10,10 @@ shaderText += "  # define half4   vec4\n";
 shaderText += "  # define half3x3 mat3  \n";
 shaderText += "# endif\n";
 shaderText += "\n";
+if ( !GL_FRONT_FACING ) {
+shaderText += "uniform half face; // make it always first uniform\n";
+}
+shaderText += "\n";
 if ( TEXTURING == 1 ) {
 shaderText += "uniform sampler2D decalMap;\n";
 }
@@ -29,9 +33,6 @@ shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
-if ( !GL_FRONT_FACING ) {
-shaderText += "uniform half face;\n";
-}
 shaderText += "uniform float glossiness;\n";
 shaderText += "\n";
 if ( FOG ) {

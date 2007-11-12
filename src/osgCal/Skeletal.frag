@@ -10,6 +10,10 @@
   # define half3x3 mat3  
 # endif
 
+#if !GL_FRONT_FACING
+uniform half face; // make it always first uniform
+#endif
+
 #if TEXTURING == 1
 uniform sampler2D decalMap;
 #endif
@@ -29,9 +33,6 @@ varying mat3 eyeBasis; // in tangent space
 varying vec3 transformedNormal;
 #endif
 
-#if !GL_FRONT_FACING
-uniform half face;
-#endif
 uniform float glossiness;
 
 #if FOG

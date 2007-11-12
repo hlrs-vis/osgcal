@@ -85,10 +85,6 @@ namespace osgCal
                                      const osg::StateSet* stateSet) const;
 
             virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
-            virtual void compileGLObjects(osg::RenderInfo& renderInfo,
-                                          const osg::StateSet* stateSet ) const;
-            virtual void releaseGLObjects(osg::State* state=0) const;
-
 
             void create();
             void update();
@@ -120,13 +116,6 @@ namespace osgCal
             osg::ref_ptr< SubMeshDepth > depthSubMesh;
             bool                        deformed;
 
-            typedef std::map< osg::StateSet*, GLObjectList > DisplayListsMap;
-            mutable DisplayListsMap displayLists;
-            // TODO: make it per CoreModel (move to CoreModel::Mesh)
-            // if we still support DONT_CALCULATE_VERTEX_IN_SHADER
-            // then we also need to index them per vertex VBO (and
-            // remove in ~Model), or make it per-model in this case
-            // (which is also PITA)
             // TODO: merge SubMeshDepth & SubMeshHardware into one
             // class and move all shared part into other structure.
             
@@ -136,10 +125,8 @@ namespace osgCal
              * It performs all the drawing related calls except
              * rotation/translation uniforms setup (which is mesh dependent).
              */
-            void innerDrawImplementation( osg::RenderInfo&     renderInfo,
-                                          const osg::StateSet* stateSet,
-                                          GLuint               displayList = 0
-                ) const;
+            void innerDrawImplementation( osg::RenderInfo& renderInfo,
+                                          GLuint           displayList = 0 ) const;
     };
 
 }; //namespace osgCal

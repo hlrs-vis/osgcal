@@ -1107,3 +1107,43 @@ DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& bo
 
     return stateSet;
 }
+
+CoreModel::Mesh::~Mesh()
+{
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( displayListsMutex ); 
+
+    for( size_t i = 0; i < displayLists.size(); i++ )
+    {
+        if ( displayLists[i] != 0 )
+        {
+            osg::Drawable::deleteDisplayList( i, displayLists[i], 0/*getGLObjectSizeHint()*/ );
+            displayLists[i] = 0;
+        }
+    }            
+}
+
+void
+CoreModel::Mesh::checkAllDisplayListsCompiled() const
+{
+    size_t numOfContexts = osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();
+
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( displayListsMutex ); 
+    
+    if ( displayLists.size() != numOfContexts )
+    {
+        return;
+    }
+    
+    for ( size_t i = 0; i < numOfContexts; i++ )
+    {
+        if ( displayLists[ i ] == 0 )
+        {
+            return;
+        }
+    }
+
+    // -- Free buffers that are no more needed --
+    data->normalBuffer = 0;
+    data->texCoordBuffer = 0;
+    data->tangentAndHandednessBuffer = 0;
+}
