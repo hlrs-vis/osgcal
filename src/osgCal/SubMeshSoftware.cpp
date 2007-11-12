@@ -32,6 +32,8 @@ SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
     , modelData( _modelData )
     , mesh( _mesh )
 {
+    setThreadSafeRefUnref( true );
+
     if ( mesh->data->rigid )
     {
         setUseDisplayList( true );

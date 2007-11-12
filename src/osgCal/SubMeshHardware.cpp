@@ -37,6 +37,8 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     , mesh( _mesh )
     , deformed( false )
 {   
+    setThreadSafeRefUnref( true );
+
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     // ^ no display lists since we create them manually

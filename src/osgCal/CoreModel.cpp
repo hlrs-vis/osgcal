@@ -146,7 +146,8 @@ class SkeletalShadersSet : public osg::Referenced
                          SHINING ? ", shining" : "",
                          GL_FRONT_FACING ? ", gl_FrontFacing" : ""
                     );
-                            
+
+                p->setThreadSafeRefUnref( true );
                 p->setName( name );
 
                 p->addShader( getVertexShader( flags ) );
@@ -271,6 +272,7 @@ static SkeletalShadersSet* skeletalShadersSet = NULL;
 CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
+    setThreadSafeRefUnref( true );
 //     std::cout << "CoreModel::CoreModel()" << std::endl;
     texturesCache = new TexturesCache();
     swMeshStateSetCache = new SwMeshStateSetCache( new MaterialsCache(),
@@ -400,6 +402,12 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 
         m->data = meshData->get();
 
+        m->setThreadSafeRefUnref( true );
+        m->data->setThreadSafeRefUnref( true );
+        m->data->indexBuffer->setThreadSafeRefUnref( true );
+        m->data->vertexBuffer->setThreadSafeRefUnref( true );
+        m->data->normalBuffer->setThreadSafeRefUnref( true );
+
         // -- Setup state sets --
         m->hwStateDesc = HwStateDesc( m->data->coreMaterial, dir );
 //         calCoreModel->getCoreMaterial( m->coreSubMesh->getCoreMaterialThreadId() );
@@ -412,8 +420,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 
         m->hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m->data->maxBonesInfluence );
 
-        m->hardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
-        m->depthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
+        if ( m->data->rigid == false )
+        {
+            m->hardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
+            m->depthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
+        }
 
         // -- Done with mesh --
         meshes.push_back( m );
@@ -661,6 +672,8 @@ getOrCreate( std::map< Key, osg::ref_ptr< Value > >& map,
     else
     {
         Value* v = (obj ->* create)( key ); // damn c++!
+        v->setThreadSafeRefUnref( true );
+        obj->setThreadSafeRefUnref( true );
         map[ key ] = v;
         return v;
     }
@@ -706,6 +719,7 @@ TexturesCache::createTexture( const TextureDesc& fileName )
 {
 //    std::cout << "load texture: " << fileName << std::endl;
     osg::Image* img = osgDB::readImageFile( fileName );
+    img->setThreadSafeRefUnref( true );
 
     if ( !img )
     {
@@ -773,14 +787,20 @@ struct osgCalStateAttributes
         {
             blending = new osg::BlendFunc;
             blending->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+            blending->setThreadSafeRefUnref( true );
 
             depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
+            depthFuncLessWriteMaskTrue->setThreadSafeRefUnref( true );
             depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
+            depthFuncLessWriteMaskFalse->setThreadSafeRefUnref( true );
             depthFuncLequalWriteMaskFalse = new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false );
+            depthFuncLequalWriteMaskFalse->setThreadSafeRefUnref( true );
 
             backFaceCulling = new osg::CullFace( osg::CullFace::BACK );
+            backFaceCulling->setThreadSafeRefUnref( true );
 
             noColorWrites = new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+            noColorWrites->setThreadSafeRefUnref( true );
         }
 };
 
