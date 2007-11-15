@@ -10,10 +10,6 @@
   # define half3x3 mat3  
 # endif
 
-#if !GL_FRONT_FACING
-uniform half face; // make it always first uniform
-#endif
-
 #if TEXTURING == 1
 uniform sampler2D decalMap;
 #endif
@@ -52,14 +48,6 @@ void main()
 //         discard; // <- VERY SLOW, nearly twice slower
 //     }
     // -- Calculate normal --
-#if GL_FRONT_FACING == 1
-    half face = gl_FrontFacing ? half(1.0) : half(-1.0);
-    // two-sided lighting
-    // ATI doesn't know about gl_FrontFacing ???
-    // it says that it unsupported language element
-    // and shader will run in software
-    // GeForce < 6.x also doesn't know about this.
-#endif
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     half2 ag = half2(0.0);
     #if NORMAL_MAPPING == 1
@@ -68,19 +56,27 @@ void main()
     #if BUMP_MAPPING == 1
        ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
-    half3 hnormal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
+    half3 hnormal = half3(ag, sqrt(half(1.0) - dot( ag, ag )));
     vec3 normal = normalize( vec3(hnormal) * eyeBasis );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),
 //                                        normalize( eyeBasis[2] ) ) );
     // ^ not much difference
 #else
-    vec3 normal = face*normalize(transformedNormal);
+    vec3 normal = normalize(transformedNormal);
     // Remark that we calculate lighting (normals) with full precision
     // but colors only with half one.
     // We previously calculated lighting in half precision too, but it gives us
     // precision errors on meshes with high glossiness, so we reverted to full precision.
 #endif
+
+#if TWO_SIDED == 1
+//    normal *= gl_Color.a * 2.0 - 1.0;
+    normal *= (gl_Color.a - 0.5) * 2.0;
+//    normal *= gl_Color.a;
+    // gl_FrontFacing is not always available
+#endif
+    
 
 #if TEXTURING == 1
     // -- Calculate decal (texture) color --

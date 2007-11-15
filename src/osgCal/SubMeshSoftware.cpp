@@ -79,6 +79,15 @@ SubMeshSoftware::~SubMeshSoftware()
 void
 SubMeshSoftware::create()
 {
+    if ( !mesh->data->normalBuffer.valid() )
+    {
+        throw std::runtime_error( "no normal buffer exists for software mesh, "
+                                  "seems that you've used hardware meshes before "
+                                  "(which free unneded buffers after display list created), "
+                                  "never use software and hardware meshes for single model, "
+                                  "software meshes are for testing purpouses only" );
+    }
+    
     if ( mesh->data->rigid )
     {
         setVertexArray( mesh->data->vertexBuffer.get() );

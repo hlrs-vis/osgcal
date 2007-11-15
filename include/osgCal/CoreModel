@@ -246,25 +246,11 @@ namespace osgCal
             enum LoadFlags
             {
                 /**
-                 * No double draw of two-sided meshes use
-                 * gl_FrontFacing in shader.
-                 * Remark that not all video boards support this
-                 * (GeForce >= 6.x, ATI -- don't know)
-                 */
-                USE_GL_FRONT_FACING = 0x1,
-
-                /**
                  * Draw meshes to depth buffer first, then draw meshes
                  * with pixel shaders (useful if pixel shading is a
                  * bottleneck).
                  */
                 USE_DEPTH_FIRST_MESHES = 0x2,
-
-                /**
-                 * Don't keep normals and texture coords for
-                 * software meshes (free them after VBOs are applied).
-                 */
-                NO_SOFTWARE_MESHES = 0x8, // TODO: does not free memory yet
 
                 /**
                  * Show Tangent-Binormal-Normal basis.

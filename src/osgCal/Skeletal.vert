@@ -145,4 +145,9 @@ void main()
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
+
+#if TWO_SIDED == 1
+    gl_FrontColor.a = 1.0;
+    gl_BackColor.a =  0.0;
+#endif
 }

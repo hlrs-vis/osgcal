@@ -170,12 +170,7 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         }
     }
 
-    // -- Call or create display list --
-    // display lists are currently disabled, since they are not
-    // compatible with VBOs on ATI.
-    // use experimental and unstable 0.3.0-dl branch for them
-    //   svn co https://osgcal.svn.sourceforge.net/svnroot/osgcal/branches/0.3.0-dl
-    //
+    // -- Create display list if not yet exists --
     unsigned int contextID = renderInfo.getContextID();
 
     mesh->displayListsMutex.lock();
@@ -184,8 +179,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     if( dl != 0 )
     {
         mesh->displayListsMutex.unlock();
-
-        glCallList( dl );
     }
     else
     {
@@ -195,8 +188,40 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         mesh->displayListsMutex.unlock();
 
         mesh->checkAllDisplayListsCompiled();
+    }
 
+    // -- Call display list --
+    // get mesh material to restore glColor after glDrawElements call
+    const osg::Material* material = static_cast< const osg::Material* >
+        ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) );
+
+    bool transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
+    bool twoSided = transparent || mesh->hwStateDesc.sides == 2;
+
+    if ( twoSided )
+    {
+        glEnable( GL_VERTEX_PROGRAM_TWO_SIDE_ARB );
+    }
+
+    if ( transparent )
+    {
+        glCullFace( GL_FRONT ); // first draw only back faces
         glCallList( dl );
+        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+        glCullFace( GL_BACK ); // then draw only front faces
+        glCallList( dl );
+        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    }
+    else
+    {
+        glCallList( dl );        
+        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    }
+
+    if ( twoSided )
+    {
+        glDisable( GL_VERTEX_PROGRAM_TWO_SIDE_ARB );
+        // TODO: not good to enable/disable it many times
     }
 }
 
@@ -241,7 +266,6 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     }
 
     osg::State& state = *renderInfo.getState();
-    const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
     
     state.disableAllVertexArrays();
 
@@ -316,59 +340,19 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
     state.setVertexPointer( 3, GL_FLOAT, 0,
                             mesh->data->vertexBuffer->getDataPointer() );
 
-    // get mesh material to restore glColor after glDrawElements call
-    const osg::Material* material = static_cast< const osg::Material* >
-        ( mesh->staticHardwareStateSet.get()->getAttribute( osg::StateAttribute::MATERIAL ) );
-    // ^ since we place it into display list material overriding doesn't work
-
     // -- Draw our indexed triangles --
-#define DRAW                                                            \
-    mesh->data->indexBuffer->draw( state, false );                      \
-    if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() )
-//     // no visible speedup when using glDrawRangeElements
-// #define DRAW                                                            
-//     glDrawElements/*glDrawRangeElements*/(                              
-//         GL_TRIANGLES,                                                   
-//         /*mesh->hardwareMesh.baseVertexIndex,*/                         
-//         /*mesh->hardwareMesh.baseVertexIndex + mesh->hardwareMesh.vertexCount,*/ 
-//         mesh->data->indexBuffer->size(),                                
-//         GL_UNSIGNED_INT,                                                
-//         (GLuint *)mesh->data->indexBuffer->getDataPointer() );          
-
-    GLint faceUniform = coreModel->getFlags() & CoreModel::USE_GL_FRONT_FACING ? -1 : 0;
-    // ^ face uniform is always first (0 location) if exists
-#define SET_FACE_UNIFORM(_fu) \
-    if ( faceUniform >= 0 ) gl2extensions->glUniform1f( faceUniform, _fu );
-
     if ( displayList != 0 )
         glNewList( displayList, GL_COMPILE );
 
-    if ( mesh->staticHardwareStateSet.get()->getRenderingHint()
-         & osg::StateSet::TRANSPARENT_BIN )
-    {
-        glCullFace( GL_FRONT ); // first draw only back faces
-        SET_FACE_UNIFORM( -1.0f );
-        DRAW;
-        SET_FACE_UNIFORM( 1.0f );
-        glCullFace( GL_BACK ); // then draw only front faces
-        DRAW;
-    }
-    else if ( mesh->hwStateDesc.sides == 2 && faceUniform >= 0 )
-    {
-        //glCullFace( GL_BACK ); // (already enabled) draw only front faces
-        gl2extensions->glUniform1f( faceUniform, 1.0f );
-        DRAW;
-        glCullFace( GL_FRONT ); // then draw only back faces
-        gl2extensions->glUniform1f( faceUniform, -1.0f );
-        DRAW;
-        glCullFace( GL_BACK ); // restore state
-    }
-    else // single sided (or undefined) -- simply draw it
-    {
-        SET_FACE_UNIFORM( 1.0f );
-        DRAW; // simple draw for single-sided (or two-sided with gl_FrontFacing)
-              // non-transparent meshes
-    }
+    mesh->data->indexBuffer->draw( state, false );
+//     // no visible speedup when using glDrawRangeElements
+//     glDrawRangeElements(
+//         GL_TRIANGLES,
+//         0,
+//         mesh->data->vertexBuffer->size(),
+//         mesh->data->indexBuffer->size(),
+//         GL_UNSIGNED_INT,                                                
+//         (GLuint *)mesh->data->indexBuffer->getDataPointer() );          
 
     if ( displayList != 0 )
         glEndList();

@@ -145,4 +145,9 @@ shaderText += "    transformedNormal = gl_NormalMatrix * gl_Normal;\n";
 } // NORMAL_MAPPING == 1
 shaderText += "\n";
 } // BONES_COUNT >= 1
+shaderText += "\n";
+if ( TWO_SIDED == 1 ) {
+shaderText += "    gl_FrontColor.a = 1.0;\n";
+shaderText += "    gl_BackColor.a =  0.0;\n";
+}
 shaderText += "}\n";

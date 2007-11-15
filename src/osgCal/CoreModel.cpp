@@ -52,7 +52,7 @@ using namespace osgCal;
 #define SHADER_FLAG_DEPTH_ONLY            0x1000
 #define DEPTH_ONLY_MASK                  ~0x04FF // ignore aything except bones
 #define SHADER_FLAG_DONT_CALCULATE_VERTEX 0x0200
-#define SHADER_FLAG_GL_FRONT_FACING       0x0100
+#define SHADER_FLAG_TWO_SIDED             0x0100
 #define SHADER_FLAG_BUMP_MAPPING          0x0080
 #define SHADER_FLAG_FOG_MODE_MASK        (0x0040 + 0x0020)
 #define SHADER_FLAG_FOG_MODE_LINEAR      (0x0040 + 0x0020)
@@ -124,7 +124,7 @@ class SkeletalShadersSet : public osg::Referenced
                 int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
                 int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;  \
                 int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
-                int GL_FRONT_FACING = ( SHADER_FLAG_GL_FRONT_FACING & flags ) ? 1 : 0; \
+                int TWO_SIDED = ( SHADER_FLAG_TWO_SIDED & flags ) ? 1 : 0; \
 
                 PARSE_FLAGS;
                 (void)FOG; // remove unused variable warning
@@ -144,7 +144,7 @@ class SkeletalShadersSet : public osg::Referenced
                          NORMAL_MAPPING ? ", normal mapping" : "",
                          BUMP_MAPPING ? ", bump mapping" : "",
                          SHINING ? ", shining" : "",
-                         GL_FRONT_FACING ? ", gl_FrontFacing" : ""
+                         TWO_SIDED ? ", two-sided" : ""
                     );
 
                 p->setThreadSafeRefUnref( true );
@@ -171,8 +171,7 @@ class SkeletalShadersSet : public osg::Referenced
         {           
             flags &= ~SHADER_FLAG_RGBA
                 & ~SHADER_FLAG_OPACITY
-                & ~SHADER_FLAG_SHINING
-                & ~SHADER_FLAG_GL_FRONT_FACING;
+                & ~SHADER_FLAG_SHINING;
             // remove irrelevant flags that can lead to
             // duplicate shaders in map
             if ( flags & SHADER_FLAG_FOG_MODE_MASK )
@@ -191,7 +190,7 @@ class SkeletalShadersSet : public osg::Referenced
             else
             {                
                 PARSE_FLAGS;
-                (void)RGBA, (void)OPACITY, (void)SHINING, (void)GL_FRONT_FACING, (void)FOG_MODE;
+                (void)RGBA, (void)OPACITY, (void)SHINING, (void)FOG_MODE;
                 // remove unused variable warning
 
                 std::string shaderText;
@@ -619,6 +618,10 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
         else if ( prefix == "Sides:" )
         {
             sides = stringToInt( suffix );
+            if ( sides == 2 )
+            {
+                shaderFlags |= SHADER_FLAG_TWO_SIDED;
+            }
         }
         else if ( prefix == "SelfIllumination:" )
         {
@@ -651,6 +654,7 @@ HwStateDesc::HwStateDesc( CalCoreMaterial* m,
     if ( material.diffuseColor.a() < 1 )
     {
         shaderFlags |= SHADER_FLAG_OPACITY;
+        shaderFlags |= SHADER_FLAG_TWO_SIDED;
     }
 }
 
@@ -873,7 +877,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
             break;
 
         case 2:
-            // two sided mesh -- no culling (for sw mesh)
+            // two sided mesh -- force no culling (for sw mesh)
             stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::OFF |
                                             osg::StateAttribute::PROTECTED );
@@ -959,18 +963,16 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
 
     // -- Setup shader --
     int rgba = isRGBAStateSet( stateSet );
+    int transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
 
     stateSet->setAttributeAndModes( skeletalShadersSet->get(
                                         desc.shaderFlags
                                         +
-                                        ( flags & CoreModel::USE_GL_FRONT_FACING
-                                          ? SHADER_FLAG_GL_FRONT_FACING
-                                          : 0 )
-                                        +
                                         ( flags & CoreModel::FOG_LINEAR ) / CoreModel::FOG_EXP
                                         * SHADER_FLAG_FOG_MODE_EXP
                                         +
-                                        rgba * SHADER_FLAG_RGBA ),
+                                        rgba * (SHADER_FLAG_RGBA | SHADER_FLAG_TWO_SIDED)
+                                        ),
                                     osg::StateAttribute::ON );
 
     stateSet->addUniform( newFloatUniform( "glossiness", desc.material.glossiness ) );
@@ -1006,35 +1008,10 @@ HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
         stateSet->addUniform( decalMap.get() );
     }
 
-    // -- setup sidedness --
-    switch ( desc.sides )
-    {
-        case 1:
-            // one sided mesh -- force backface culling
-            // do nothing since it already forced for software mesh
-            break;
-
-        case 2:
-            // two sided mesh -- enable culling
-            // (we use two pass render for double sided meshes,
-            //  or single pass when gl_FrontFacing used, but in only
-            //  works on GeForce >= 6.x and not works on ATI)
-            if ( !(flags & CoreModel::USE_GL_FRONT_FACING) )
-            {
-                stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                                osg::StateAttribute::ON |
-                                                osg::StateAttribute::PROTECTED );
-            }
-            break;
-
-        default:
-            // undefined sides count -- use default OSG culling
-            break;
-    }
-
+    // -- Depth first mode setup --
     if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES
          &&
-         !(stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN) )
+         !transparent )
     {
         stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                         osg::StateAttribute::ON |
