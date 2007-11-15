@@ -71,10 +71,13 @@ void main()
 #endif
 
 #if TWO_SIDED == 1
-//    normal *= gl_Color.a * 2.0 - 1.0;
-    normal *= (gl_Color.a - 0.5) * 2.0;
-//    normal *= gl_Color.a;
-    // gl_FrontFacing is not always available
+//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,
+                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB
+    if ( !gl_Color.a )
+    {
+        normal = -normal;
+    }
+//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster
 #endif
     
 

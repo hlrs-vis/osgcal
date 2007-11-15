@@ -221,7 +221,8 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     if ( twoSided )
     {
         glDisable( GL_VERTEX_PROGRAM_TWO_SIDE_ARB );
-        // TODO: not good to enable/disable it many times
+        // TODO: not good to enable/disable it many times but it is
+        // slow to keep it always enabled
     }
 }
 

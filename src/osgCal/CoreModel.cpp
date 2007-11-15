@@ -171,6 +171,7 @@ class SkeletalShadersSet : public osg::Referenced
         {           
             flags &= ~SHADER_FLAG_RGBA
                 & ~SHADER_FLAG_OPACITY
+//                & ~SHADER_FLAG_TWO_SIDED
                 & ~SHADER_FLAG_SHINING;
             // remove irrelevant flags that can lead to
             // duplicate shaders in map

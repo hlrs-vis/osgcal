@@ -71,10 +71,13 @@ shaderText += "    // precision errors on meshes with high glossiness, so we rev
 }
 shaderText += "\n";
 if ( TWO_SIDED == 1 ) {
-shaderText += "//    normal *= gl_Color.a * 2.0 - 1.0;\n";
-shaderText += "    normal *= (gl_Color.a - 0.5) * 2.0;\n";
-shaderText += "//    normal *= gl_Color.a;\n";
-shaderText += "    // gl_FrontFacing is not always available\n";
+shaderText += "//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,\n";
+shaderText += "                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB\n";
+shaderText += "    if ( !gl_Color.a )\n";
+shaderText += "    {\n";
+shaderText += "        normal = -normal;\n";
+shaderText += "    }\n";
+shaderText += "//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster\n";
 }
 shaderText += "    \n";
 shaderText += "\n";
