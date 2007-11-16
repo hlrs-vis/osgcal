@@ -27,7 +27,7 @@ Options:
         File must be csv with following format:
           <file name>;<compression>;<max width>;<max height>
         Where compression is one of:
-          DXT1, DXT3, DXT5, RGB8, RGBA8,
+          DXT1, DXT3, DXT5, RGB8, RGBA8, R5G6B5,
           DXT5_NM [-flipx true] [-flipy true],
           NormalsMap [-flipx true] [-flipy true],
           Bump
@@ -287,6 +287,8 @@ def get_nvdxt_compression(compression):
         return "-u888"
     if compression == "RGBA8":
         return "-u8888"
+    if compression == "R5G6B5":
+        return "-u565"
     if compression.startswith("DXT5_NM"):
         xscale = 1.0
         yscale = 1.0
