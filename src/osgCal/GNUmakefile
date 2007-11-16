@@ -2,8 +2,10 @@ TOPDIR = ../..
 include $(TOPDIR)/Make/makedefs 
 
 CXXFILES =\
-	CoreModel.cpp \
 	IOUtils.cpp \
+	Material.cpp \
+	StateSetCache.cpp \
+	CoreModel.cpp \
 	Model.cpp \
 	SubMeshHardware.cpp \
 	SubMeshSoftware.cpp
@@ -21,7 +23,7 @@ LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
 
 include $(TOPDIR)/Make/makerules 
 
-CoreModel.cpp: \
+StateSetCache.cpp: \
 	shaders/Skeletal_vert.h \
 	shaders/Skeletal_frag.h \
 	shaders/SkeletalDepthOnly_vert.h \

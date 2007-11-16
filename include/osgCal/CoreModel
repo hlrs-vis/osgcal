@@ -26,209 +26,13 @@
 
 #include <cal3d/cal3d.h>
 
-#include <osg/Texture2D>
-#include <osg/Referenced>
-#include <osg/Material>
-#include <osg/Program>
-#include <osg/BufferObject>
 #include <osgCal/Export>
-
-#include <osgDB/ReaderWriter>
-
 #include <osgCal/IOUtils>
+#include <osgCal/Material>
+#include <osgCal/StateSetCache>
 
 namespace osgCal
 {
-    // -- STATE SHARING PART --
-    
-    /**
-     * Abstract base cache class.
-     * To maximize state sharing we use separate caches for
-     * osg::Material, osg::Texture2D, osg::StateSet (texturing only) and osg::StateSet (material and texturing).
-     * There is also a separate cache for osg::StateSet with skeletal vertex shader added.
-     *
-     * Here is an internal cache hierarchy (the keys are shown in brakets):
-     *
-     * HardwareMeshStateSetCache[HwStateDesc]
-     *  |- SoftwareMeshStateSetCache[SwStateDesc]
-     *  \---|- TexturesCache[TextureDesc]
-     *      \- MaterialsCache[MaterialDesc]
-     */
-
-    // -- Cache keys --
-   
-    /// CalCoreMaterial, osg::Material cache key
-    class OSGCAL_EXPORT MaterialDesc
-    {
-        public:
-            osg::Vec4      ambientColor;
-            osg::Vec4      diffuseColor;
-            osg::Vec4      specularColor;
-            float          glossiness;
-
-            MaterialDesc()
-                : glossiness( 0 )
-            {}
-
-            /**
-             * Setup material using core material and glossiness &
-             * shininess.
-             * There is a trouble with exporter, shininess value is
-             * actually a specularColor strength and actual shininess
-             * (which named as `glossiness' in 3DSMax) doesn't
-             * exported at all.
-             */
-            MaterialDesc( CalCoreMaterial* ccm,
-                          float glossiness,
-                          float opacity );
-    };
-
-    /// Textures cache key (file name with full path)
-    typedef std::string TextureDesc;
-
-    /// Software mesh state set cache key
-    class OSGCAL_EXPORT SwStateDesc
-    {
-        public:
-            MaterialDesc material;
-            TextureDesc  diffuseMap;
-
-            /**
-             * Number of sides for mesh.
-             * 0 -- undefined (use default OSG culling);
-             * 1 -- one side (backface culling);
-             * 2 -- two sides (no culling for sw mesh and gl_FronFacing
-             * hw mesh, or culling for hw mesh when gl_FronFacing is
-             * not supported (using two pass with `face' uniform set
-             * to 1, then -1 + frontface culling)
-             */
-            int          sides;
-
-            SwStateDesc()
-                : sides( 0 )
-            {}
-    };
-
-    /// Hardware mesh state set cache key
-    class OSGCAL_EXPORT HwStateDesc : public SwStateDesc
-    {
-        public:
-            TextureDesc  normalsMap;
-            TextureDesc  bumpMap; /// currently not supported
-            float        normalsMapAmount; /// currently not supported
-            float        bumpMapAmount; /// currently not supported
-            int          shaderFlags; /// to determine, which shader
-                                      /// program will be taken from
-                                      /// shader program chache.
-
-            HwStateDesc()
-                : normalsMapAmount( 0 )
-                , bumpMapAmount( 0 )
-                , shaderFlags( 0 )
-            {}
-
-            /**
-             * Create whole state description from cal3d material and
-             * its maps.
-             */
-            HwStateDesc( CalCoreMaterial* m,
-                         const std::string& dir = std::string() );
-    };
-
-    // -- Some utility --
-
-    OSGCAL_EXPORT bool operator < ( const MaterialDesc& md1,
-                                    const MaterialDesc& md2 );
-
-    OSGCAL_EXPORT bool operator < ( const SwStateDesc& d1,
-                                    const SwStateDesc& d2 );
-
-    OSGCAL_EXPORT bool operator < ( const HwStateDesc& d1,
-                                    const HwStateDesc& d2 );
-
-
-    // -- Caches itself --
-    class MaterialsCache : public osg::Referenced
-    {
-        public:
-            osg::Material* get( const MaterialDesc& md );
-
-        private:
-            typedef std::map< MaterialDesc, osg::ref_ptr< osg::Material > > Map;
-            Map cache;
-
-            osg::Material* createMaterial( const MaterialDesc& desc );
-    };
-
-    class TexturesCache : public osg::Referenced
-    {
-        public:
-            osg::Texture2D* get( const TextureDesc& td );
-
-        private:
-            typedef std::map< TextureDesc, osg::ref_ptr< osg::Texture2D > > Map;
-            Map cache;
-            
-            osg::Texture2D* createTexture( const TextureDesc& fileName )
-                throw (std::runtime_error);
-    };
-
-    class SwMeshStateSetCache : public osg::Referenced
-    {
-        public:
-            SwMeshStateSetCache( MaterialsCache* mc = 0,
-                                 TexturesCache* tc = 0 );
-            
-            osg::StateSet* get( const SwStateDesc& swsd );
-
-        private:
-            typedef std::map< SwStateDesc, osg::ref_ptr< osg::StateSet > > Map;
-
-            Map cache;
-            osg::ref_ptr< MaterialsCache > materialsCache;
-            osg::ref_ptr< TexturesCache >  texturesCache;
-
-            osg::StateSet* createSwMeshStateSet( const SwStateDesc& swsd );
-    };
-
-    class HwMeshStateSetCache : public osg::Referenced
-    {
-        public:
-            HwMeshStateSetCache( SwMeshStateSetCache* swssc = 0,
-                                 TexturesCache* tc = 0 );
-            
-            osg::StateSet* get( const HwStateDesc& swsd );
-
-            int flags;
-
-        private:
-            typedef std::map< HwStateDesc, osg::ref_ptr< osg::StateSet > > Map;
-
-            Map cache;
-            osg::ref_ptr< SwMeshStateSetCache > swMeshStateSetCache;
-            osg::ref_ptr< TexturesCache >       texturesCache;
-
-            osg::StateSet* createHwMeshStateSet( const HwStateDesc& swsd );
-    };
-
-    class DepthMeshStateSetCache : public osg::Referenced
-    {
-        public:
-            osg::StateSet* get( const HwStateDesc& swsd );
-
-            int flags;
-
-        private:
-            // map from < bone count, sides count > to stateset
-            typedef std::map< std::pair< int, int >, osg::ref_ptr< osg::StateSet > > Map;
-
-            Map cache;
-
-            osg::StateSet* createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount );
-    };
-    
-    // -- CORE MODEL CLASS --
-
     /**
      * Core Model class that creates a templated core object.
      * In order to create an animated model, a cal3d core model has to
@@ -283,14 +87,27 @@ namespace osgCal
 
             int           getFlags()        const  { return flags; }
 
-            struct Mesh : public osg::Referenced
+            struct MeshStateSets : public osg::Referenced
             {
                 public:
+                    MeshStateSets( StateSetCache*  c,
+                                   const Material& m,
+                                   const MeshData* d );
+                    
+                    /**
+                     * Mesh state set. Contain material, textures and shaders.
+                     */
+                    osg::ref_ptr< osg::StateSet >   hardware;
+                    osg::ref_ptr< osg::StateSet >   staticHardware; ///< zero bones state set
+                    osg::ref_ptr< osg::StateSet >   software; ///< software state set
 
-                    mutable osg::ref_ptr< MeshData >    data;
+                    osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
+                    osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
+            };
 
-                    HwStateDesc                         hwStateDesc;
-
+            struct MeshDisplayLists : public osg::Referenced
+            {
+                public:
                     typedef osg::buffered_value<GLuint> GLObjectList;
 
                     /**
@@ -298,13 +115,13 @@ namespace osgCal
                      * one model they are shared for all core model
                      * instances.
                      */
-                    mutable GLObjectList                displayLists;
-                    mutable OpenThreads::Mutex          displayListsMutex;
+                    mutable GLObjectList        displayLists;
+                    mutable OpenThreads::Mutex  displayListsMutex;
 
                     /**
                      * Destroys display lists.
                      */
-                    ~Mesh();
+                    ~MeshDisplayLists();
 
                     /**
                      * Check that display lists are compiled for all
@@ -320,16 +137,20 @@ namespace osgCal
                      */
                     void checkAllDisplayListsCompiled() const;
 
-                    /**
-                     * Mesh state set. Contain material, textures and also
-                     * vertex program when mesh is hardware (hardwareMesh != 0).
-                     */
-                    osg::ref_ptr< osg::StateSet >       hardwareStateSet;
-                    osg::ref_ptr< osg::StateSet >       staticHardwareStateSet; ///< zero bones state set
-                    osg::ref_ptr< osg::StateSet >       stateSet;
+            };
+            
+            struct Mesh : public osg::Referenced
+            {
+                public:
 
-                    osg::ref_ptr< osg::StateSet >       depthStateSet; ///< depth only hw state ste
-                    osg::ref_ptr< osg::StateSet >       staticDepthStateSet; ///< zero bones state set
+                    /**
+                     * Mutable since we free some data after display lists compiled.
+                     */
+                    mutable osg::ref_ptr< MeshData >    data;
+                    Material                            material;
+                    osg::ref_ptr< MeshDisplayLists >    displayLists;
+                    osg::ref_ptr< MeshStateSets >       stateSets;
+
             };
 
             float getScale() const { return scale; }
@@ -348,10 +169,7 @@ namespace osgCal
             float               scale;
             CalCoreModel*       calCoreModel;
 
-            TexturesCache*              texturesCache;
-            SwMeshStateSetCache*        swMeshStateSetCache;
-            HwMeshStateSetCache*        hwMeshStateSetCache;
-            DepthMeshStateSetCache*     depthMeshStateSetCache;
+            osg::ref_ptr< StateSetCache > stateSetCache;
 
             MeshVector                  meshes;
             std::vector< std::string >  animationNames;

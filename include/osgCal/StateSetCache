@@ -1,0 +1,192 @@
+/* -*- c++ -*-
+    Copyright (C) 2003 <ryu@gpul.org>
+    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+#ifndef __OSGCAL__STATE_SET_CACHE_H__
+#define __OSGCAL__STATE_SET_CACHE_H__
+
+#include <vector>
+#include <map>
+#include <stdexcept>
+#include <memory>
+
+#include <cal3d/cal3d.h>
+
+#include <osg/Texture2D>
+#include <osg/Referenced>
+#include <osg/Material>
+#include <osg/Program>
+#include <osgCal/Export>
+#include <osgCal/Material>
+#include <osgCal/IOUtils>
+
+namespace osgCal
+{
+
+     // -- Shader cache --
+
+#define SHADER_FLAG_BONES(_nbones)      (0x10000 * (_nbones))
+#define SHADER_FLAG_DEPTH_ONLY            0x1000
+#define DEPTH_ONLY_MASK                  ~0x04FF // ignore aything except bones
+#define SHADER_FLAG_DONT_CALCULATE_VERTEX 0x0200
+#define SHADER_FLAG_TWO_SIDED             0x0100
+#define SHADER_FLAG_BUMP_MAPPING          0x0080
+#define SHADER_FLAG_FOG_MODE_MASK        (0x0040 + 0x0020)
+#define SHADER_FLAG_FOG_MODE_LINEAR      (0x0040 + 0x0020)
+#define SHADER_FLAG_FOG_MODE_EXP2         0x0040
+#define SHADER_FLAG_FOG_MODE_EXP          0x0020
+#define SHADER_FLAG_RGBA                  0x0010 // enable blending of RGBA textures
+#define SHADER_FLAG_OPACITY               0x0008
+#define SHADER_FLAG_TEXTURING             0x0004
+#define SHADER_FLAG_NORMAL_MAPPING        0x0002
+#define SHADER_FLAG_SHINING               0x0001
+
+    /**
+     * Set of shaders with specific flags.
+     */
+    class ShaderCache : public osg::Referenced
+    {
+        public:
+
+            ~ShaderCache();
+
+            osg::Program* get( int flags );
+        
+        private:
+
+            osg::Shader* getVertexShader( int flags );
+            osg::Shader* getFragmentShader( int flags );
+
+            typedef std::map< int, osg::ref_ptr< osg::Program > > ProgramsMap;
+            ProgramsMap programs;
+
+            typedef std::map< int, osg::ref_ptr< osg::Shader > > ShadersMap;
+            ShadersMap vertexShaders;
+            ShadersMap fragmentShaders;
+    };
+
+   /**
+     * To maximize state sharing we use separate caches for
+     * osg::Material, osg::Texture2D, osg::StateSet (texturing only) and osg::StateSet (material and texturing).
+     * There is also a separate cache for osg::StateSet with skeletal vertex shader added.
+     *
+     * Here is an internal cache hierarchy (the keys are shown in brakets):
+     *
+     * HardwareMeshStateSetCache[HwStateDesc]
+     *  |- SoftwareMeshStateSetCache[SwStateDesc]
+     *  \---|- TexturesCache[TextureDesc]
+     *      \- MaterialsCache[MaterialDesc]
+     */
+    class MaterialsCache : public osg::Referenced
+    {
+        public:
+            osg::Material* get( const MaterialDesc& md );
+
+        private:
+            typedef std::map< MaterialDesc, osg::ref_ptr< osg::Material > > Map;
+            Map cache;
+
+            osg::Material* createMaterial( const MaterialDesc& desc );
+    };
+
+    class TexturesCache : public osg::Referenced
+    {
+        public:
+            osg::Texture2D* get( const TextureDesc& td );
+
+        private:
+            typedef std::map< TextureDesc, osg::ref_ptr< osg::Texture2D > > Map;
+            Map cache;
+            
+            osg::Texture2D* createTexture( const TextureDesc& fileName )
+                throw (std::runtime_error);
+    };
+
+    class SwMeshStateSetCache : public osg::Referenced
+    {
+        public:
+            SwMeshStateSetCache( MaterialsCache* mc = 0,
+                                 TexturesCache* tc = 0 );
+            
+            osg::StateSet* get( const SwStateDesc& swsd );
+
+        private:
+            typedef std::map< SwStateDesc, osg::ref_ptr< osg::StateSet > > Map;
+
+            Map cache;
+            osg::ref_ptr< MaterialsCache > materialsCache;
+            osg::ref_ptr< TexturesCache >  texturesCache;
+
+            osg::StateSet* createSwMeshStateSet( const SwStateDesc& swsd );
+    };
+
+    class HwMeshStateSetCache : public osg::Referenced
+    {
+        public:
+            HwMeshStateSetCache( SwMeshStateSetCache* swssc = 0,
+                                 TexturesCache* tc = 0 );
+            
+            osg::StateSet* get( const HwStateDesc& swsd );
+
+            int flags;
+
+        private:
+            // map from < state desc, bones count >
+            typedef std::map< std::pair< HwStateDesc, int >,
+                              osg::ref_ptr< osg::StateSet > > Map;
+
+            Map cache;
+            osg::ref_ptr< SwMeshStateSetCache > swMeshStateSetCache;
+            osg::ref_ptr< TexturesCache >       texturesCache;
+
+            osg::StateSet* createHwMeshStateSet( const HwStateDesc& swsd );
+    };
+
+    class DepthMeshStateSetCache : public osg::Referenced
+    {
+        public:
+            osg::StateSet* get( const HwStateDesc& swsd,
+                                const MeshData*    meshData );
+
+            int flags;
+
+        private:
+            // map from < bone count, sides count > to stateset
+            typedef std::map< std::pair< int, int >, osg::ref_ptr< osg::StateSet > > Map;
+
+            Map cache;
+
+            osg::StateSet* createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount );
+    };
+
+    class StateSetCache : public osg::Referenced
+    {
+        public:
+
+            StateSetCache();
+            ~StateSetCache();
+            
+            TexturesCache*              texturesCache;
+            SwMeshStateSetCache*        swMeshStateSetCache;
+            HwMeshStateSetCache*        hwMeshStateSetCache;
+            DepthMeshStateSetCache*     depthMeshStateSetCache;
+            
+    }
+
+}; // namespace osgCal
+
+#endif
