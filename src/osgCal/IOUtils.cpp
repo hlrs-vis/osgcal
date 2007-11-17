@@ -15,79 +15,15 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <sys/stat.h>
 #include <stdexcept>
 
 #include <osg/io_utils>
-
-#include <osgDB/FileNameUtils>
 
 #include <osgCal/IOUtils>
 
 
 namespace osgCal
 {
-
-std::string
-getPrefix( const std::string& str )
-{
-    std::string::size_type pos;
-    pos = str.find_first_of(":");
-
-    if(pos == std::string::npos) return std::string();
-
-    return str.substr(0, pos + 1);
-}
-
-std::string
-getSuffix( const std::string& str )
-{
-    std::string::size_type pos;
-    pos = str.find_last_of(":");
-
-    if(pos == std::string::npos) return str;
-
-    return str.substr(pos + 1);
-}
-
-bool
-endsWith( const std::string& str,
-          const std::string& suffix )
-{
-    std::string::size_type suffl = suffix.length();;
-    std::string::size_type strl = str.length();;
-
-    return ( strl >= suffl && str.substr( strl - suffl ) == suffix );
-}
-
-std::string
-getAfter( const std::string& prefix,
-          const std::string& str )
-{
-    return str.substr(prefix.size());
-}
-
-bool
-prefixEquals( const std::string& str,
-              const std::string& prefix )
-{
-    if ( str.length() < prefix.length() )
-    {
-        return false;
-    }
-    else
-    {
-        return str.substr( 0, prefix.length() ) == prefix;
-    }
-}
-
-bool
-isFileExists( const std::string& f )
-{
-    struct stat st;
-
-    return ( stat( f.c_str(), &st ) == 0 );
-}
 
 // -- Mesh data --
 
@@ -384,8 +320,8 @@ loadMeshes( CalCoreModel* calCoreModel,
             MeshesVector& meshes )
     throw (std::runtime_error)
 {
-    const int maxVertices = OSGCAL_MAX_VERTEX_PER_MODEL;
-    const int maxFaces    = OSGCAL_MAX_VERTEX_PER_MODEL * 3;
+    const int maxVertices = Constants::MAX_VERTEX_PER_MODEL;
+    const int maxFaces    = Constants::MAX_VERTEX_PER_MODEL * 3;
 
     std::auto_ptr< CalHardwareModel > calHardwareModel( new CalHardwareModel( calCoreModel ) );
     
@@ -423,7 +359,7 @@ loadMeshes( CalCoreModel* calCoreModel,
     // if ids not set all meshes will be used at load() time
 
     //std::cout << "calHardwareModel->load" << std::endl;
-    calHardwareModel->load( 0, 0, OSGCAL_MAX_BONES_PER_MESH );
+    calHardwareModel->load( 0, 0, Constants::MAX_BONES_PER_MESH );
     //std::cout << "calHardwareModel->load ok" << std::endl;
 
     int vertexCount = calHardwareModel->getTotalVertexCount();
@@ -970,164 +906,6 @@ void saveMeshes( const CalCoreModel* calCoreModel,
     }
 
 #undef WRITE_BUFFER
-}
-
-
-// -- CoreModel loading --
-
-CalCoreModel*
-loadCoreModel( const std::string& cfgFileName,
-               float& scale,
-               bool ignoreMeshes )
-    throw (std::runtime_error)
-{
-    // -- Initial loading of model --
-    scale = 1.0f;
-    bool bScale = false;
-
-    FILE* f = fopen( cfgFileName.c_str(), "r" );
-    if( !f )
-    {
-        throw std::runtime_error( "Can't open " + cfgFileName );
-    }
-
-    std::auto_ptr< CalCoreModel > calCoreModel( new CalCoreModel( "dummy" ) );
-
-    // Extract path from fileName
-    std::string dir = osgDB::getFilePath( cfgFileName );
-
-    static const int LINE_BUFFER_SIZE = 4096;
-    char buffer[LINE_BUFFER_SIZE];
-
-    while ( fgets( buffer, LINE_BUFFER_SIZE,f ) )
-    {
-        // Ignore comments or empty lines
-        if ( *buffer == '#' || *buffer == 0 )
-            continue;
-
-        char* equal = strchr( buffer, '=' );
-        if ( equal )
-        {
-            // Terminates first token
-            *equal++ = 0;
-            // Removes ending newline ( CR & LF )
-            {
-                int last = strlen( equal ) - 1;
-                if ( equal[last] == '\n' ) equal[last] = 0;
-                if ( last > 0 && equal[last-1] == '\r' ) equal[last-1] = 0;
-            }
-
-            // extract file name. all animations, meshes and materials names
-            // are taken from file name without extension
-            std::string nameToLoad;            
-            char* point = strrchr( equal, '.' );
-            if ( point )
-            {
-                nameToLoad = std::string( equal, point );
-            }
-            else
-            {
-                nameToLoad = equal;
-            }
-                
-            std::string fullpath = dir + "/" + std::string( equal );
-
-            // process .cfg parameters
-            if ( !strcmp( buffer, "scale" ) ) 
-            { 
-                bScale	= true;
-                scale	= atof( equal );
-                continue;
-            }
-
-            if ( !strcmp( buffer, "skeleton" ) ) 
-            {
-                if( !calCoreModel->loadCoreSkeleton( fullpath ) )
-                {
-                    throw std::runtime_error( "Can't load skeleton: "
-                                             + CalError::getLastErrorDescription() );
-                }                
-            } 
-            else if ( !strcmp( buffer, "animation" ) )
-            {
-                int animationId = calCoreModel->loadCoreAnimation( fullpath );
-                if( animationId < 0 )
-                {
-                    throw std::runtime_error( "Can't load animation " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
-                }
-                calCoreModel->getCoreAnimation(animationId)->setName( nameToLoad );
-            }
-            else if ( !strcmp( buffer, "mesh" ) )
-            {
-                if ( ignoreMeshes )
-                {
-                    continue; // we don't need meshes since VBO data is already loaded from cache
-                }
-
-                int meshId = calCoreModel->loadCoreMesh( fullpath );
-                if( meshId < 0 )
-                {
-                    throw std::runtime_error( "Can't load mesh " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
-                }
-                calCoreModel->getCoreMesh( meshId )->setName( nameToLoad );
-
-                // -- Remove zero influence vertices --
-                // warning: this is a temporary workaround and subject to remove!
-                // (this actually must be fixed in blender exporter)
-                CalCoreMesh* cm = calCoreModel->getCoreMesh( meshId );
-
-                for ( int i = 0; i < cm->getCoreSubmeshCount(); i++ )
-                {
-                    CalCoreSubmesh* sm = cm->getCoreSubmesh( i );
-
-                    std::vector< CalCoreSubmesh::Vertex >& v = sm->getVectorVertex();
-
-                    for ( size_t j = 0; j < v.size(); j++ )
-                    {
-                        std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
-
-                        for ( size_t ii = 0; ii < infl.size(); ii++ )
-                        {
-                            if ( infl[ii].weight == 0 )
-                            {
-                                infl.erase( infl.begin() + ii );
-                                --ii;
-                            }
-                        }
-                    }
-                }
-            }
-            else if ( !strcmp( buffer, "material" ) )  
-            {
-                int materialId = calCoreModel->loadCoreMaterial( fullpath );
-
-                if( materialId < 0 ) 
-                {
-                    throw std::runtime_error( "Can't load material " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
-                } 
-                else 
-                {
-                    calCoreModel->createCoreMaterialThread( materialId ); 
-                    calCoreModel->setCoreMaterialId( materialId, 0, materialId );
-
-                    CalCoreMaterial* material = calCoreModel->getCoreMaterial( materialId );
-                    material->setName( nameToLoad );
-                }
-            }
-        }
-    }
-
-    // scaling must be done after everything has been created
-    if( bScale )
-    {
-        calCoreModel->scale( scale );
-    }
-    fclose( f );
-
-    return calCoreModel.release();
 }
 
 }

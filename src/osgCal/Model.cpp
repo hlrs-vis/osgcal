@@ -184,19 +184,19 @@ Model::load( CoreModel* coreModel,
                 depthSubMesh = smhw->getDepthSubMesh();
 
                 // -- Add shader state sets for compilation --
-                usedStateSets[ mesh.staticHardwareStateSet.get() ] = true;
+                usedStateSets[ mesh.stateSets->staticHardware.get() ] = true;
 
                 if ( !mesh.data->rigid )
                 {
-                    usedStateSets[ mesh.hardwareStateSet.get() ] = true;
+                    usedStateSets[ mesh.stateSets->hardware.get() ] = true;
                 }
 
                 if ( depthSubMesh )
                 {
-                    usedStateSets[ mesh.staticDepthStateSet.get() ] = true;
+                    usedStateSets[ mesh.stateSets->staticDepthOnly.get() ] = true;
                     if ( !mesh.data->rigid )
                     {
-                        usedStateSets[ mesh.depthStateSet.get() ] = true;
+                        usedStateSets[ mesh.stateSets->depthOnly.get() ] = true;
                     }
                 }
                 break;
@@ -204,7 +204,7 @@ Model::load( CoreModel* coreModel,
 
             case MT_SOFTWARE:
                 g = new SubMeshSoftware( coreModel, modelData.get(), &mesh );
-                usedStateSets[ mesh.stateSet.get() ] = true;
+                usedStateSets[ mesh.stateSets->software.get() ] = true;
                 break;
 
             default:

@@ -46,7 +46,7 @@ SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
     }
 
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( mesh->stateSet.get() );
+    setStateSet( mesh->stateSets->software.get() );
 
     create();
 

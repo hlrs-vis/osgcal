@@ -16,11 +16,11 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 //#define GL_GLEXT_PROTOTYPES <- for glDrawRangeElements
-#include <GL/gl.h>
-#include <GL/glu.h>
+//#include <GL/gl.h>
+//#include <GL/glu.h>
 
-#include <osg/VertexProgram>
-#include <osg/GL2Extensions>
+//#include <osg/VertexProgram>
+//#include <osg/GL2Extensions>
 #include <osg/CullFace>
 
 #include <osgCal/SubMeshHardware>
@@ -45,7 +45,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     
     setUseVertexBufferObjects( false ); // false is default
 
-    setStateSet( mesh->staticHardwareStateSet.get() );
+    setStateSet( mesh->stateSets->staticHardware.get() );
     // Initially we use static (not skinning) state set. It will
     // changed to skinning (in update() method when some animation
     // starts.
@@ -55,7 +55,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
 // its too expensive to create different stateset for each submesh
 // which (stateset) differs only in two uniforms
 // its better to set them in drawImplementation
-//     setStateSet( new osg::StateSet( *mesh->hardwareStateSet.get(), osg::CopyOp::SHALLOW_COPY ) );
+//     setStateSet( new osg::StateSet( *mesh->stateSets->hardware.get(), osg::CopyOp::SHALLOW_COPY ) );
 //     getStateSet()->addUniform( new osg::Uniform( osg::Uniform::FLOAT_VEC3, "translationVectors",
 //                                                  30 /*OSGCAL_MAX_BONES_PER_MESH*/ ) );
 //     getStateSet()->addUniform( new osg::Uniform( osg::Uniform::FLOAT_MAT3, "rotationMatrices",
@@ -173,21 +173,21 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     // -- Create display list if not yet exists --
     unsigned int contextID = renderInfo.getContextID();
 
-    mesh->displayListsMutex.lock();
-    GLuint& dl = mesh->displayLists[ contextID ];
+    mesh->displayLists->mutex.lock();
+    GLuint& dl = mesh->displayLists->lists[ contextID ];
 
     if( dl != 0 )
     {
-        mesh->displayListsMutex.unlock();
+        mesh->displayLists->mutex.unlock();
     }
     else
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
         innerDrawImplementation( renderInfo, dl );
-        mesh->displayListsMutex.unlock();
+        mesh->displayLists->mutex.unlock();
 
-        mesh->checkAllDisplayListsCompiled();
+        mesh->displayLists->checkAllDisplayListsCompiled( mesh->data.get() );
     }
 
     // -- Call display list --
@@ -196,7 +196,7 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) );
 
     bool transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
-    bool twoSided = transparent || mesh->hwStateDesc.sides == 2;
+    bool twoSided = transparent || mesh->material.sides == 2;
 
     if ( twoSided )
     {
@@ -233,22 +233,22 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 
     unsigned int contextID = renderInfo.getContextID();
 
-    mesh->displayListsMutex.lock();
+    mesh->displayLists->mutex.lock();
     
-    GLuint& dl = mesh->displayLists[ contextID ];
+    GLuint& dl = mesh->displayLists->lists[ contextID ];
 
     if( dl == 0 )
     {
         dl = generateDisplayList( contextID, getGLObjectSizeHint() );
 
         innerDrawImplementation( renderInfo, dl );
-        mesh->displayListsMutex.unlock();
+        mesh->displayLists->mutex.unlock();
 
-        mesh->checkAllDisplayListsCompiled();
+        mesh->displayLists->checkAllDisplayListsCompiled( mesh->data.get() );
     }
     else
     {        
-        mesh->displayListsMutex.unlock();
+        mesh->displayLists->mutex.unlock();
     }
 }
 
@@ -384,7 +384,7 @@ SubMeshHardware::create()
     // create depth submesh for non-transparent meshes
     if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
          &&
-         !(mesh->staticHardwareStateSet.get()->getRenderingHint()
+         !(mesh->stateSets->staticHardware.get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) )
     {
         depthSubMesh = new SubMeshDepth( this ); 
@@ -502,11 +502,11 @@ SubMeshHardware::update()
 //    std::cout << "deformed = " << deformed << std::endl;
     if ( deformed )
     {
-        setStateSet( mesh->hardwareStateSet.get() );
+        setStateSet( mesh->stateSets->hardware.get() );
     }
     else
     {
-        setStateSet( mesh->staticHardwareStateSet.get() );
+        setStateSet( mesh->stateSets->staticHardware.get() );
         // for undeformed meshes we use static state set which not
         // perform vertex, normal, binormal and tangent deformations
         // in vertex shader
@@ -669,7 +669,7 @@ SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( hwMesh->getCoreModelMesh()->staticDepthStateSet.get() );
+    setStateSet( hwMesh->getCoreModelMesh()->stateSets->staticDepthOnly.get() );
     dirtyBound();
 
     setUserData( getStateSet() /*any referenced*/ );
@@ -693,11 +693,11 @@ SubMeshDepth::update( bool deformed )
 {
     if ( deformed )
     {
-        setStateSet( hwMesh->getCoreModelMesh()->depthStateSet.get() );
+        setStateSet( hwMesh->getCoreModelMesh()->stateSets->depthOnly.get() );
     }
     else
     {
-        setStateSet( hwMesh->getCoreModelMesh()->staticDepthStateSet.get() );
+        setStateSet( hwMesh->getCoreModelMesh()->stateSets->staticDepthOnly.get() );
     }
 
     dirtyBound();

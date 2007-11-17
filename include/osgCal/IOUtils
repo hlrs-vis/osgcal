@@ -29,39 +29,15 @@
 
 namespace osgCal
 {
-
-    // -- Some string utilities (used in material map names) --
-    
-    /**
-     * Return "prefix" from "prefix:foo:bar/baz" or empty string
-     * when no ':' found.
-     */
-    std::string getPrefix( const std::string& str );
-
-    /**
-     * Return "suffix" from "foo:bar/baz:suffix" or whole string
-     * when no ':' found.
-     */
-    std::string getSuffix( const std::string& str );
-
-    std::string getAfter( const std::string& prefix,
-                          const std::string& str );
-
-    bool prefixEquals( const std::string& str,
-                       const std::string& prefix );
-
-    bool endsWith( const std::string& str,
-                   const std::string& suffix );
-
-
-    // -- Some other utilities --
-    
-    OSGCAL_EXPORT bool isFileExists( const std::string& f );
-
-
     // -- Vertex buffer objects & I/O --
-#define OSGCAL_MAX_BONES_PER_MESH       30
-#define OSGCAL_MAX_VERTEX_PER_MODEL     1000000
+    struct Constants
+    {
+            enum
+            {
+                MAX_BONES_PER_MESH   = 30,
+                MAX_VERTEX_PER_MODEL = 1000000
+            };
+    };
 
     typedef osg::Vec3Array      VertexBuffer;
     typedef osg::Vec4Array      WeightBuffer;
@@ -203,13 +179,6 @@ namespace osgCal
                                    MeshesVector& meshes )
         throw (std::runtime_error);
     
-
-    // -- CalCoreModel I/O --
-
-    OSGCAL_EXPORT CalCoreModel* loadCoreModel( const std::string& cfgFileName,
-                                               float& scale,
-                                               bool ignoreMeshes = false )
-        throw (std::runtime_error);
 
 
     // -- NV_half_float half<=>float conversion --

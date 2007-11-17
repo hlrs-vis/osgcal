@@ -28,8 +28,13 @@
 
 namespace osgCal
 {  
-    /// CalCoreMaterial, osg::Material cache key
-    class OSGCAL_EXPORT MaterialDesc
+    /**
+     * osg::Material description + glossiness (which can be > 128.0,
+     * so the separate type).
+     *
+     * This structure is also used as cache key for osg::Material cache.
+     */
+    class OSGCAL_EXPORT OsgMaterial
     {
         public:
             osg::Vec4      ambientColor;
@@ -37,7 +42,7 @@ namespace osgCal
             osg::Vec4      specularColor;
             float          glossiness;
 
-            MaterialDesc()
+            OsgMaterial()
                 : glossiness( 0 )
             {}
 
@@ -49,79 +54,78 @@ namespace osgCal
              * (which named as `glossiness' in 3DSMax) doesn't
              * exported at all.
              */
-            MaterialDesc( CalCoreMaterial* ccm,
-                          float glossiness,
-                          float opacity );
+            void setupOsgMaterial( CalCoreMaterial* ccm,
+                                   float glossiness,
+                                   float opacity );
     };
 
-    /// Textures cache key (file name with full path)
+    /**
+     * Textures description, also used as textures cache key,
+     * contatins file name with full path.
+     */
     typedef std::string TextureDesc;
 
-    /// Software mesh state set cache key
-    class OSGCAL_EXPORT SwStateDesc
+    /**
+     * Material description software only part, also used as software
+     * mesh state set cache key.
+     */
+    class OSGCAL_EXPORT SoftwareMaterial : public OsgMaterial
     {
         public:
-            MaterialDesc material;
             TextureDesc  diffuseMap;
 
             /**
              * Number of sides for mesh.
              * 0 -- undefined (use default OSG culling);
              * 1 -- one side (backface culling);
-             * 2 -- two sides (no culling for sw mesh and gl_FronFacing
-             * hw mesh, or culling for hw mesh when gl_FronFacing is
-             * not supported (using two pass with `face' uniform set
-             * to 1, then -1 + frontface culling)
+             * 2 -- two sides (no culling);
              */
             int          sides;
 
-            SwStateDesc()
+            SoftwareMaterial()
                 : sides( 0 )
             {}
     };
 
-    /// Hardware mesh state set cache key
-    class OSGCAL_EXPORT HwStateDesc : public SwStateDesc
+    /**
+     * Material description, also used as hardware mesh state set
+     * cache key.
+     */
+    class OSGCAL_EXPORT Material : public SoftwareMaterial
     {
         public:
             TextureDesc  normalsMap;
             TextureDesc  bumpMap;
             float        normalsMapAmount; /// currently not supported
             float        bumpMapAmount;
-//             int          shaderFlags; /// to determine, which shader
-//                                       /// program will be taken from
-//                                       /// shader program chache.
 
-            HwStateDesc()
+            Material()
                 : normalsMapAmount( 0 )
                 , bumpMapAmount( 0 )
-//                , shaderFlags( 0 )
             {}
 
             /**
              * Create whole state description from cal3d material
              * and its maps.
              */
-            HwStateDesc( CalCoreMaterial* m,
-                         const std::string& dir = std::string() );
+            Material( CalCoreMaterial* m,
+                      const std::string& dir );
     };
-
-    typedef HwStateDesc Material;
 
     // -- Some utility --
 
-    OSGCAL_EXPORT bool operator < ( const MaterialDesc& md1,
-                                    const MaterialDesc& md2 );
+    OSGCAL_EXPORT bool operator < ( const OsgMaterial& md1,
+                                    const OsgMaterial& md2 );
 
-    OSGCAL_EXPORT bool operator < ( const SwStateDesc& d1,
-                                    const SwStateDesc& d2 );
+    OSGCAL_EXPORT bool operator < ( const SoftwareMaterial& d1,
+                                    const SoftwareMaterial& d2 );
 
-    OSGCAL_EXPORT bool operator < ( const HwStateDesc& d1,
-                                    const HwStateDesc& d2 );
+    OSGCAL_EXPORT bool operator < ( const Material& d1,
+                                    const Material& d2 );
 
     OSGCAL_EXPORT std::ostream&
     operator << ( std::ostream& os,
-                  const osgCal::HwStateDesc& sd );
+                  const osgCal::Material& sd );
 
 
 }; // namespace osgCal

@@ -94,12 +94,10 @@ namespace osgCal
                                    const Material& m,
                                    const MeshData* d );
                     
-                    /**
-                     * Mesh state set. Contain material, textures and shaders.
-                     */
+                    osg::ref_ptr< osg::StateSet >   software; ///< software state set
+
                     osg::ref_ptr< osg::StateSet >   hardware;
                     osg::ref_ptr< osg::StateSet >   staticHardware; ///< zero bones state set
-                    osg::ref_ptr< osg::StateSet >   software; ///< software state set
 
                     osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
                     osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
@@ -108,15 +106,15 @@ namespace osgCal
             struct MeshDisplayLists : public osg::Referenced
             {
                 public:
-                    typedef osg::buffered_value<GLuint> GLObjectList;
+                    typedef osg::buffered_value< GLuint > GLObjectList;
 
                     /**
                      * Hardware mesh display lists, once compiled for
                      * one model they are shared for all core model
                      * instances.
                      */
-                    mutable GLObjectList        displayLists;
-                    mutable OpenThreads::Mutex  displayListsMutex;
+                    mutable GLObjectList        lists;
+                    mutable OpenThreads::Mutex  mutex;
 
                     /**
                      * Destroys display lists.
@@ -135,13 +133,17 @@ namespace osgCal
                      * value is 32, so no mesh data or textures are
                      * freed by default).
                      */
-                    void checkAllDisplayListsCompiled() const;
+                    void checkAllDisplayListsCompiled( MeshData* data ) const;
 
             };
             
             struct Mesh : public osg::Referenced
             {
                 public:
+
+                    Mesh( const Material& m )
+                        : material( m )
+                    {}
 
                     /**
                      * Mutable since we free some data after display lists compiled.
@@ -174,6 +176,14 @@ namespace osgCal
             MeshVector                  meshes;
             std::vector< std::string >  animationNames;
     };
+
+
+    // -- CalCoreModel I/O --
+
+    OSGCAL_EXPORT CalCoreModel* loadCoreModel( const std::string& cfgFileName,
+                                               float& scale,
+                                               bool ignoreMeshes = false )
+        throw (std::runtime_error);
 
 }; // namespace osgCal
 

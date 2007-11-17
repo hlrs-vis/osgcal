@@ -17,27 +17,10 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include <sys/stat.h>
-#include <memory>
 
 #include <osg/Notify>
-#include <osg/Texture2D>
-#include <osg/Image>
-#include <osg/VertexProgram>
 #include <osg/Drawable>
-#include <osg/Vec4>
-#include <osg/BlendFunc>
-#include <osg/CullFace>
-#include <osg/Depth>
-#include <osg/ColorMask>
-#include <osg/DisplaySettings>
-#include <osg/io_utils>
-
 #include <osgDB/FileNameUtils>
-#include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
-
-#include <cal3d/coresubmesh.h>
-#include <cal3d/coremesh.h>
 
 #include <osgCal/CoreModel>
 
@@ -47,28 +30,7 @@ CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
     setThreadSafeRefUnref( true );
-//     std::cout << "CoreModel::CoreModel()" << std::endl;
-    texturesCache = new TexturesCache();
-    swMeshStateSetCache = new SwMeshStateSetCache( new MaterialsCache(),
-                                                   texturesCache );
-    hwMeshStateSetCache = new HwMeshStateSetCache( swMeshStateSetCache,
-                                                   texturesCache );
-    depthMeshStateSetCache = new DepthMeshStateSetCache();
-
-    // add initial reference since we are not keeping caches in osg::ref_ptr 
-    // and unref them manually (before destroying skeletal shader to which they are refer)
-    texturesCache->ref();
-    swMeshStateSetCache->ref();
-    hwMeshStateSetCache->ref();
-    depthMeshStateSetCache->ref();
-
-    // create and ref skeletal vertex shader
-    if ( !shadersCache )
-    {
-        shadersCache = new ShaderCache();
-    }
-
-    shadersCache->ref();
+    stateSetCache = new StateSetCache;
 }
 
 CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
@@ -79,25 +41,16 @@ CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
 
 CoreModel::~CoreModel()
 {
-    meshes.clear();
-    
     // cleanup of non-auto released resources
     delete calCoreModel;
+}
 
-    depthMeshStateSetCache->unref();
-    hwMeshStateSetCache->unref();
-    swMeshStateSetCache->unref();
-    texturesCache->unref();
+bool
+isFileExists( const std::string& f )
+{
+    struct stat st;
 
-    // delete shadersCache when no references left
-    if ( shadersCache->referenceCount() == 1 )
-    {
-        // TODO: there is some error with access to already destroyed shader
-        // when exiting multithreaded application with model w/o animations
-        shadersCache->unref(); 
-        shadersCache = NULL;
-    }
-//     std::cout << "CoreModel::~CoreModel()" << std::endl;
+    return ( stat( f.c_str(), &st ) == 0 );
 }
 
 void
@@ -114,8 +67,8 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 //         | DONT_CALCULATE_VERTEX_IN_SHADER;
     
     flags = _flags;
-    hwMeshStateSetCache->flags = _flags;
-    depthMeshStateSetCache->flags = _flags;
+    stateSetCache->hwMeshStateSetCache->flags = _flags;
+    stateSetCache->depthMeshStateSetCache->flags = _flags;
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 
@@ -146,7 +99,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
         loadMeshes( meshesCacheFileName( cfgFileName ),
                     calCoreModel, meshesData );
-    }
+    }    
 
     // -- Preparing meshes and materials for fast Model creation --
     for ( MeshesVector::iterator
@@ -155,33 +108,21 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
           meshData != meshDataEnd; ++meshData )
     {
         // -- Setup some fields --
-        Mesh* m = new Mesh;
+        Mesh* m = new Mesh( Material( (*meshData)->coreMaterial, dir ) );
 
         m->data = meshData->get();
+        m->displayLists = new MeshDisplayLists;
+        m->stateSets = new MeshStateSets( stateSetCache.get(),
+                                          m->material,
+                                          m->data.get() );
 
         m->setThreadSafeRefUnref( true );
         m->data->setThreadSafeRefUnref( true );
         m->data->indexBuffer->setThreadSafeRefUnref( true );
         m->data->vertexBuffer->setThreadSafeRefUnref( true );
         m->data->normalBuffer->setThreadSafeRefUnref( true );
-
-        // -- Setup state sets --
-        m->hwStateDesc = HwStateDesc( m->data->coreMaterial, dir );
-//         calCoreModel->getCoreMaterial( m->coreSubMesh->getCoreMaterialThreadId() );
-//         coreMaterialId == coreMaterialThreadId - we made them equal on load phase
-        
-        m->stateSet = swMeshStateSetCache->get( static_cast< SwStateDesc >( m->hwStateDesc ) );
-
-        m->staticHardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
-        m->staticDepthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
-
-        m->hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m->data->maxBonesInfluence );
-
-        if ( m->data->rigid == false )
-        {
-            m->hardwareStateSet = hwMeshStateSetCache->get( m->hwStateDesc );
-            m->depthStateSet = depthMeshStateSetCache->get( m->hwStateDesc );
-        }
+        m->displayLists->setThreadSafeRefUnref( true );
+        m->stateSets->setThreadSafeRefUnref( true );        
 
         // -- Done with mesh --
         meshes.push_back( m );
@@ -194,7 +135,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
             << "rigid             : " << m->data->rigid << std::endl
             << "rigidBoneId       : " << m->data->rigidBoneId << std::endl //<< std::endl
 //            << "-- material: " << m->data->coreMaterial->getName() << " --" << std::endl
-            << m->hwStateDesc << std::endl;
+            << m->material << std::endl;
     }
 
     // -- Collecting animation names --
@@ -221,35 +162,49 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
     }
 }
 
+CoreModel::MeshStateSets::MeshStateSets( StateSetCache*  c,
+                                         const Material& m,
+                                         const MeshData* d )
+    : software( c->swMeshStateSetCache->get( *static_cast< const SoftwareMaterial* >( &m ) ) )
+    , staticHardware( c->hwMeshStateSetCache->get( m, 0 ) )
+    , staticDepthOnly( c->depthMeshStateSetCache->get( m, 0 ) )
+{
+    if ( d->rigid == false )
+    {
+        hardware = c->hwMeshStateSetCache->get( m, d->maxBonesInfluence );
+        depthOnly = c->depthMeshStateSetCache->get( m, d->maxBonesInfluence );
+    }
+}
+
 CoreModel::MeshDisplayLists::~MeshDisplayLists()
 {
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( displayListsMutex ); 
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( mutex ); 
 
-    for( size_t i = 0; i < displayLists.size(); i++ )
+    for( size_t i = 0; i < lists.size(); i++ )
     {
-        if ( displayLists[i] != 0 )
+        if ( lists[i] != 0 )
         {
-            osg::Drawable::deleteDisplayList( i, displayLists[i], 0/*getGLObjectSizeHint()*/ );
-            displayLists[i] = 0;
+            osg::Drawable::deleteDisplayList( i, lists[i], 0/*getGLObjectSizeHint()*/ );
+            lists[i] = 0;
         }
     }            
 }
 
 void
-CoreModel::MeshDisplayLists::checkAllDisplayListsCompiled() const
+CoreModel::MeshDisplayLists::checkAllDisplayListsCompiled( MeshData* data ) const
 {
     size_t numOfContexts = osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();
 
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( displayListsMutex ); 
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( mutex ); 
     
-    if ( displayLists.size() != numOfContexts )
+    if ( lists.size() != numOfContexts )
     {
         return;
     }
     
     for ( size_t i = 0; i < numOfContexts; i++ )
     {
-        if ( displayLists[ i ] == 0 )
+        if ( lists[ i ] == 0 )
         {
             return;
         }
@@ -259,4 +214,163 @@ CoreModel::MeshDisplayLists::checkAllDisplayListsCompiled() const
     data->normalBuffer = 0;
     data->texCoordBuffer = 0;
     data->tangentAndHandednessBuffer = 0;
+}
+
+
+
+// -- CoreModel loading --
+
+CalCoreModel*
+osgCal::loadCoreModel( const std::string& cfgFileName,
+                       float& scale,
+                       bool ignoreMeshes )
+    throw (std::runtime_error)
+{
+    // -- Initial loading of model --
+    scale = 1.0f;
+    bool bScale = false;
+
+    FILE* f = fopen( cfgFileName.c_str(), "r" );
+    if( !f )
+    {
+        throw std::runtime_error( "Can't open " + cfgFileName );
+    }
+
+    std::auto_ptr< CalCoreModel > calCoreModel( new CalCoreModel( "dummy" ) );
+
+    // Extract path from fileName
+    std::string dir = osgDB::getFilePath( cfgFileName );
+
+    static const int LINE_BUFFER_SIZE = 4096;
+    char buffer[LINE_BUFFER_SIZE];
+
+    while ( fgets( buffer, LINE_BUFFER_SIZE,f ) )
+    {
+        // Ignore comments or empty lines
+        if ( *buffer == '#' || *buffer == 0 )
+            continue;
+
+        char* equal = strchr( buffer, '=' );
+        if ( equal )
+        {
+            // Terminates first token
+            *equal++ = 0;
+            // Removes ending newline ( CR & LF )
+            {
+                int last = strlen( equal ) - 1;
+                if ( equal[last] == '\n' ) equal[last] = 0;
+                if ( last > 0 && equal[last-1] == '\r' ) equal[last-1] = 0;
+            }
+
+            // extract file name. all animations, meshes and materials names
+            // are taken from file name without extension
+            std::string nameToLoad;            
+            char* point = strrchr( equal, '.' );
+            if ( point )
+            {
+                nameToLoad = std::string( equal, point );
+            }
+            else
+            {
+                nameToLoad = equal;
+            }
+                
+            std::string fullpath = dir + "/" + std::string( equal );
+
+            // process .cfg parameters
+            if ( !strcmp( buffer, "scale" ) ) 
+            { 
+                bScale	= true;
+                scale	= atof( equal );
+                continue;
+            }
+
+            if ( !strcmp( buffer, "skeleton" ) ) 
+            {
+                if( !calCoreModel->loadCoreSkeleton( fullpath ) )
+                {
+                    throw std::runtime_error( "Can't load skeleton: "
+                                             + CalError::getLastErrorDescription() );
+                }                
+            } 
+            else if ( !strcmp( buffer, "animation" ) )
+            {
+                int animationId = calCoreModel->loadCoreAnimation( fullpath );
+                if( animationId < 0 )
+                {
+                    throw std::runtime_error( "Can't load animation " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                }
+                calCoreModel->getCoreAnimation(animationId)->setName( nameToLoad );
+            }
+            else if ( !strcmp( buffer, "mesh" ) )
+            {
+                if ( ignoreMeshes )
+                {
+                    continue; // we don't need meshes since VBO data is already loaded from cache
+                }
+
+                int meshId = calCoreModel->loadCoreMesh( fullpath );
+                if( meshId < 0 )
+                {
+                    throw std::runtime_error( "Can't load mesh " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                }
+                calCoreModel->getCoreMesh( meshId )->setName( nameToLoad );
+
+                // -- Remove zero influence vertices --
+                // warning: this is a temporary workaround and subject to remove!
+                // (this actually must be fixed in blender exporter)
+                CalCoreMesh* cm = calCoreModel->getCoreMesh( meshId );
+
+                for ( int i = 0; i < cm->getCoreSubmeshCount(); i++ )
+                {
+                    CalCoreSubmesh* sm = cm->getCoreSubmesh( i );
+
+                    std::vector< CalCoreSubmesh::Vertex >& v = sm->getVectorVertex();
+
+                    for ( size_t j = 0; j < v.size(); j++ )
+                    {
+                        std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
+
+                        for ( size_t ii = 0; ii < infl.size(); ii++ )
+                        {
+                            if ( infl[ii].weight == 0 )
+                            {
+                                infl.erase( infl.begin() + ii );
+                                --ii;
+                            }
+                        }
+                    }
+                }
+            }
+            else if ( !strcmp( buffer, "material" ) )  
+            {
+                int materialId = calCoreModel->loadCoreMaterial( fullpath );
+
+                if( materialId < 0 ) 
+                {
+                    throw std::runtime_error( "Can't load material " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                } 
+                else 
+                {
+                    calCoreModel->createCoreMaterialThread( materialId ); 
+                    calCoreModel->setCoreMaterialId( materialId, 0, materialId );
+
+                    CalCoreMaterial* material = calCoreModel->getCoreMaterial( materialId );
+                    material->setName( nameToLoad );
+                }
+            }
+        }
+    }
+
+    // scaling must be done after everything has been created
+    if( bScale )
+    {
+        calCoreModel->scale( scale );
+    }
+    fclose( f );
+
+    return calCoreModel.release();
 }

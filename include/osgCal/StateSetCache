@@ -30,6 +30,7 @@
 #include <osg/Referenced>
 #include <osg/Material>
 #include <osg/Program>
+#include <osg/Fog>
 #include <osgCal/Export>
 #include <osgCal/Material>
 #include <osgCal/IOUtils>
@@ -37,35 +38,44 @@
 namespace osgCal
 {
 
-     // -- Shader cache --
+    // -- Shader cache --
 
-#define SHADER_FLAG_BONES(_nbones)      (0x10000 * (_nbones))
-#define SHADER_FLAG_DEPTH_ONLY            0x1000
-#define DEPTH_ONLY_MASK                  ~0x04FF // ignore aything except bones
-#define SHADER_FLAG_DONT_CALCULATE_VERTEX 0x0200
-#define SHADER_FLAG_TWO_SIDED             0x0100
-#define SHADER_FLAG_BUMP_MAPPING          0x0080
-#define SHADER_FLAG_FOG_MODE_MASK        (0x0040 + 0x0020)
-#define SHADER_FLAG_FOG_MODE_LINEAR      (0x0040 + 0x0020)
-#define SHADER_FLAG_FOG_MODE_EXP2         0x0040
-#define SHADER_FLAG_FOG_MODE_EXP          0x0020
-#define SHADER_FLAG_RGBA                  0x0010 // enable blending of RGBA textures
-#define SHADER_FLAG_OPACITY               0x0008
-#define SHADER_FLAG_TEXTURING             0x0004
-#define SHADER_FLAG_NORMAL_MAPPING        0x0002
-#define SHADER_FLAG_SHINING               0x0001
+    inline int SHADER_FLAG_BONES(int _nbones) { return 0x10000 * _nbones; }
+
+    enum ShaderFlags
+    {
+        SHADER_FLAG_DEPTH_ONLY      =  0x1000,
+        DEPTH_ONLY_MASK             = ~0x04FF, // ignore aything except bones
+        SHADER_FLAG_TWO_SIDED       =  0x0100,
+        SHADER_FLAG_BUMP_MAPPING    =  0x0080,
+        SHADER_FLAG_FOG_MODE_MASK   = (0x0040 + 0x0020),
+        SHADER_FLAG_FOG_MODE_LINEAR = (0x0040 + 0x0020),
+        SHADER_FLAG_FOG_MODE_EXP2   =  0x0040,
+        SHADER_FLAG_FOG_MODE_EXP    =  0x0020,
+        SHADER_FLAG_RGBA            =  0x0010, // enable blending of RGBA textures
+        SHADER_FLAG_OPACITY         =  0x0008,
+        SHADER_FLAG_TEXTURING       =  0x0004,
+        SHADER_FLAG_NORMAL_MAPPING  =  0x0002,
+        SHADER_FLAG_SHINING         =  0x0001,
+    };
+
+    int materialShaderFlags( const Material& material );
 
     /**
      * Set of shaders with specific flags.
      */
-    class ShaderCache : public osg::Referenced
+    class ShadersCache : public osg::Referenced
     {
         public:
 
-            ~ShaderCache();
+            ~ShadersCache();
 
-            osg::Program* get( int flags );
+//             osg::Program* get( const Material& material,
+//                                int             bonesCount = 0,
+//                                osg::Fog::Mode  fogMode = 0 );
         
+            osg::Program* get( int flags );
+
         private:
 
             osg::Shader* getVertexShader( int flags );
@@ -81,26 +91,28 @@ namespace osgCal
 
    /**
      * To maximize state sharing we use separate caches for
-     * osg::Material, osg::Texture2D, osg::StateSet (texturing only) and osg::StateSet (material and texturing).
-     * There is also a separate cache for osg::StateSet with skeletal vertex shader added.
+     * osg::Material, osg::Texture2D, osg::StateSet (SoftwareMaterial,
+     * for software meshes),
+     * osg::Program and osg::StateSet (Material, with shaders).
      *
      * Here is an internal cache hierarchy (the keys are shown in brakets):
      *
-     * HardwareMeshStateSetCache[HwStateDesc]
-     *  |- SoftwareMeshStateSetCache[SwStateDesc]
-     *  \---|- TexturesCache[TextureDesc]
-     *      \- MaterialsCache[MaterialDesc]
+     * HardwareMeshStateSetCache[Material]
+     *  |- SoftwareMeshStateSetCache[SoftwareMaterial]
+     *  |- -|- TexturesCache[TextureDesc]
+     *  |   \- MaterialsCache[OsgMaterial]
+     *  \- ShadersCache[ShaderFlags]
      */
     class MaterialsCache : public osg::Referenced
     {
         public:
-            osg::Material* get( const MaterialDesc& md );
+            osg::Material* get( const OsgMaterial& md );
 
         private:
-            typedef std::map< MaterialDesc, osg::ref_ptr< osg::Material > > Map;
+            typedef std::map< OsgMaterial, osg::ref_ptr< osg::Material > > Map;
             Map cache;
 
-            osg::Material* createMaterial( const MaterialDesc& desc );
+            osg::Material* createMaterial( const OsgMaterial& desc );
     };
 
     class TexturesCache : public osg::Referenced
@@ -119,48 +131,55 @@ namespace osgCal
     class SwMeshStateSetCache : public osg::Referenced
     {
         public:
-            SwMeshStateSetCache( MaterialsCache* mc = 0,
-                                 TexturesCache* tc = 0 );
+            SwMeshStateSetCache( MaterialsCache* mc,
+                                 TexturesCache*  tc );
             
-            osg::StateSet* get( const SwStateDesc& swsd );
+            osg::StateSet* get( const SoftwareMaterial& swsd );
 
         private:
-            typedef std::map< SwStateDesc, osg::ref_ptr< osg::StateSet > > Map;
+            typedef std::map< SoftwareMaterial, osg::ref_ptr< osg::StateSet > > Map;
 
             Map cache;
             osg::ref_ptr< MaterialsCache > materialsCache;
             osg::ref_ptr< TexturesCache >  texturesCache;
 
-            osg::StateSet* createSwMeshStateSet( const SwStateDesc& swsd );
+            osg::StateSet* createSwMeshStateSet( const SoftwareMaterial& swsd );
     };
 
     class HwMeshStateSetCache : public osg::Referenced
     {
         public:
-            HwMeshStateSetCache( SwMeshStateSetCache* swssc = 0,
-                                 TexturesCache* tc = 0 );
+            HwMeshStateSetCache( SwMeshStateSetCache* swssc,
+                                 TexturesCache*       tc,
+                                 ShadersCache*        sc );
             
-            osg::StateSet* get( const HwStateDesc& swsd );
+            osg::StateSet* get( const Material& swsd,
+                                int             bonesCount );
 
             int flags;
 
         private:
             // map from < state desc, bones count >
-            typedef std::map< std::pair< HwStateDesc, int >,
+            typedef std::map< std::pair< Material, int >,
                               osg::ref_ptr< osg::StateSet > > Map;
 
             Map cache;
             osg::ref_ptr< SwMeshStateSetCache > swMeshStateSetCache;
             osg::ref_ptr< TexturesCache >       texturesCache;
+            osg::ref_ptr< ShadersCache >        shadersCache;
 
-            osg::StateSet* createHwMeshStateSet( const HwStateDesc& swsd );
+            osg::StateSet* createHwMeshStateSet( const std::pair< Material, int >& matAndBones );
     };
 
     class DepthMeshStateSetCache : public osg::Referenced
     {
         public:
-            osg::StateSet* get( const HwStateDesc& swsd,
-                                const MeshData*    meshData );
+            DepthMeshStateSetCache( ShadersCache* sc )
+                : flags( 0 )
+                , shadersCache( sc )                  
+            {}
+            osg::StateSet* get( const Material& material,
+                                int             bonesCount );
 
             int flags;
 
@@ -169,6 +188,7 @@ namespace osgCal
             typedef std::map< std::pair< int, int >, osg::ref_ptr< osg::StateSet > > Map;
 
             Map cache;
+            osg::ref_ptr< ShadersCache >        shadersCache;
 
             osg::StateSet* createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount );
     };
@@ -178,14 +198,12 @@ namespace osgCal
         public:
 
             StateSetCache();
-            ~StateSetCache();
+
+            osg::ref_ptr< SwMeshStateSetCache >     swMeshStateSetCache;
+            osg::ref_ptr< HwMeshStateSetCache >     hwMeshStateSetCache;
+            osg::ref_ptr< DepthMeshStateSetCache >  depthMeshStateSetCache;
             
-            TexturesCache*              texturesCache;
-            SwMeshStateSetCache*        swMeshStateSetCache;
-            HwMeshStateSetCache*        hwMeshStateSetCache;
-            DepthMeshStateSetCache*     depthMeshStateSetCache;
-            
-    }
+    };
 
 }; // namespace osgCal
 

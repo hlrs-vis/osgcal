@@ -17,6 +17,7 @@
 */
 #include <sys/stat.h>
 #include <osgCal/IOUtils>
+#include <osgCal/CoreModel>
 #include <osgDB/FileNameUtils>
 
 using namespace osgCal;
