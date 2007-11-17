@@ -19,7 +19,7 @@
 
 #include <osg/io_utils>
 
-#include <osgCal/IOUtils>
+#include <osgCal/Meshes>
 
 
 namespace osgCal

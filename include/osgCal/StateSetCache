@@ -33,7 +33,7 @@
 #include <osg/Fog>
 #include <osgCal/Export>
 #include <osgCal/Material>
-#include <osgCal/IOUtils>
+#include <osgCal/Meshes>
 
 namespace osgCal
 {

@@ -2,7 +2,7 @@ TOPDIR = ../..
 include $(TOPDIR)/Make/makedefs 
 
 CXXFILES =\
-	IOUtils.cpp \
+	Meshes.cpp \
 	Material.cpp \
 	StateSetCache.cpp \
 	CoreModel.cpp \
