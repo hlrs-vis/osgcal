@@ -383,6 +383,9 @@ main( int argc,
         animationNames = coreModel->getAnimationNames();
     } // end of model's ref_ptr scope
 
+    // set the display settings we can to request, OsgCameraGroup will read this.
+    osg::DisplaySettings::instance()->setMinimumNumAccumBits(8,8,8,8);
+
     // -- Setup viewer --
     osgViewer::Viewer viewer;
     
@@ -509,7 +512,8 @@ main( int argc,
         viewer.frame( currentTime - totalPauseTime );
     }
 
-    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
+//    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
+    // ^ buggy in multi-threaded mode, or not???
 
     return 0;
 }

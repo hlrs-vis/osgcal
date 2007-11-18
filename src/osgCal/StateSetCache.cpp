@@ -15,9 +15,6 @@
    License along with this library; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-//#include <memory>
-
-#include <osg/DeleteHandler>
 #include <osg/Texture2D>
 #include <osg/Image>
 #include <osg/BlendFunc>
@@ -30,298 +27,37 @@
 #include <osgCal/StateSetCache>
 #include <osgCal/CoreModel>
 
-// -- Shader cache --
-
 using namespace osgCal;
-
-int
-osgCal::materialShaderFlags( const Material& material )
-{
-    int flags = 0;
-
-    if ( !material.diffuseMap.empty() )
-    {
-        flags |= SHADER_FLAG_TEXTURING;
-    }
-    if ( !material.normalsMap.empty() )
-    {
-        flags |= SHADER_FLAG_NORMAL_MAPPING;
-    }
-    if ( !material.bumpMap.empty() )
-    {
-        flags |= SHADER_FLAG_BUMP_MAPPING;
-    }
-    if ( material.sides == 2 )
-    {
-        flags |= SHADER_FLAG_TWO_SIDED;
-    }
-
-    if (    material.specularColor.r() != 0
-            || material.specularColor.g() != 0
-            || material.specularColor.b() != 0 )
-    {
-        flags |= SHADER_FLAG_SHINING;
-    }
-
-    if ( material.diffuseColor.a() < 1 )
-    {
-        flags |= SHADER_FLAG_OPACITY;
-        flags |= SHADER_FLAG_TWO_SIDED;
-    }
-
-    return flags;
-}
-
-
-ShadersCache::~ShadersCache()
-{
-    osg::notify( osg::DEBUG_FP ) << "destroying ShadersCache... " << std::endl;
-    vertexShaders.clear();
-    fragmentShaders.clear();
-    programs.clear();
-    osg::notify( osg::DEBUG_FP ) << "ShadersCache destroyed" << std::endl;
-}
-
-osg::Program*
-ShadersCache::get( int flags )
-{
-//     if ( flags &
-//          (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
-//           | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
-//     {
-//         flags &= ~SHADER_FLAG_BONES(0)
-//             & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-//             & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
-//         flags |= SHADER_FLAG_BONES(4);
-//     }
-//     BTW, not so much difference between always 4 bone and per-bones count shaders
-
-    if ( flags & SHADER_FLAG_DEPTH_ONLY )
-    {
-        flags &= DEPTH_ONLY_MASK; 
-    }
-
-    ProgramsMap::const_iterator pmi = programs.find( flags );
-
-    if ( pmi != programs.end() )
-    {
-        return pmi->second.get();
-    }
-    else
-    {
-#define PARSE_FLAGS                                                     \
-        int BONES_COUNT = flags / SHADER_FLAG_BONES(1);                 \
-        int RGBA = ( SHADER_FLAG_RGBA & flags ) ? 1 : 0;                \
-        int FOG_MODE = ( SHADER_FLAG_FOG_MODE_MASK & flags );           \
-        int FOG = FOG_MODE != 0;                                        \
-        int OPACITY = ( SHADER_FLAG_OPACITY & flags ) ? 1 : 0;          \
-        int TEXTURING = ( SHADER_FLAG_TEXTURING & flags ) ? 1 : 0;      \
-        int NORMAL_MAPPING = ( SHADER_FLAG_NORMAL_MAPPING & flags ) ? 1 : 0; \
-        int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
-        int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;          \
-        int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0;    \
-        int TWO_SIDED = ( SHADER_FLAG_TWO_SIDED & flags ) ? 1 : 0
-        
-        PARSE_FLAGS;
-        (void)FOG; // remove unused variable warning
-                
-        osg::Program* p = new osg::Program;
-
-        char name[ 256 ];
-        sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s)",
-                 BONES_COUNT,
-                 DEPTH_ONLY ? ", depth_only" : "",
-                 (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP ? ", fog_exp"
-                  : (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP2 ? ", fog_exp2"
-                     : (FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR ? ", fog_linear" : ""))),
-                 RGBA ? ", rgba" : "",
-                 OPACITY ? ", opacity" : "",
-                 TEXTURING ? ", texturing" : "",
-                 NORMAL_MAPPING ? ", normal mapping" : "",
-                 BUMP_MAPPING ? ", bump mapping" : "",
-                 SHINING ? ", shining" : "",
-                 TWO_SIDED ? ", two-sided" : ""
-            );
-
-        p->setThreadSafeRefUnref( true );
-        p->setName( name );
-
-        p->addShader( getVertexShader( flags ) );
-        p->addShader( getFragmentShader( flags ) );
-
-        //p->addBindAttribLocation( "position", 0 );
-        // Attribute location binding is needed for ATI.
-        // ATI will draw nothing until one of the attributes
-        // will bound to zero location (BTW, this behaviour
-        // described in OpenGL spec. don't know why on nVidia
-        // it works w/o binding).
-
-        programs[ flags ] = p;
-        return p;
-    }            
-}
-        
-
-osg::Shader*
-ShadersCache::getVertexShader( int flags )
-{           
-    flags &= ~SHADER_FLAG_RGBA
-        & ~SHADER_FLAG_OPACITY
-//        & ~SHADER_FLAG_TWO_SIDED
-        & ~SHADER_FLAG_SHINING;
-    // remove irrelevant flags that can lead to
-    // duplicate shaders in map
-    if ( flags & SHADER_FLAG_FOG_MODE_MASK )
-    {
-        flags |= SHADER_FLAG_FOG_MODE_MASK;
-        // ^ vertex shader only need to know that FOG is needed
-        // fog mode is irrelevant
-    }
-
-    ShadersMap::const_iterator smi = vertexShaders.find( flags );
-
-    if ( smi != vertexShaders.end() )
-    {
-        return smi->second.get();
-    }
-    else
-    {                
-        PARSE_FLAGS;
-        (void)RGBA, (void)OPACITY, (void)SHINING, (void)FOG_MODE;
-        // remove unused variable warning
-
-        std::string shaderText;
-
-        if ( DEPTH_ONLY )
-        {
-            #include "shaders/SkeletalDepthOnly_vert.h"
-        }
-        else
-        {                    
-            #include "shaders/Skeletal_vert.h"
-        }
-
-        osg::Shader* vs = new osg::Shader( osg::Shader::VERTEX,
-                                           shaderText.data() );
-        vs->setThreadSafeRefUnref( true );
-        vertexShaders[ flags ] = vs;
-        return vs;
-    }
-}
-
-osg::Shader*
-ShadersCache::getFragmentShader( int flags )
-{
-    flags &= ~SHADER_FLAG_BONES(0)
-        & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-        & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
-    // remove irrelevant flags that can lead to
-    // duplicate shaders in map  
-
-    ShadersMap::const_iterator smi = fragmentShaders.find( flags );
-
-    if ( smi != fragmentShaders.end() )
-    {
-        return smi->second.get();
-    }
-    else
-    {                
-        PARSE_FLAGS;
-        (void)BONES_COUNT; // remove unused variable warning
-
-        std::string shaderText;
-
-        if ( DEPTH_ONLY )
-        {
-            #include "shaders/SkeletalDepthOnly_frag.h"
-        }
-        else
-        {                    
-            #include "shaders/Skeletal_frag.h"
-        }
-
-        osg::Shader* fs = new osg::Shader( osg::Shader::FRAGMENT,
-                                           shaderText.data() );
-        fs->setThreadSafeRefUnref( true );
-        fragmentShaders[ flags ] = fs;
-        return fs;
-    }
-}
-
-
-/**
- * Global instance of ShadersCache.
- * There is only one shader instance which is created with first CoreModel
- * and destroyed after last CoreModel destroyed (and hence all Models destroyed also
- * since they are referring to CoreModel).
- */
-static OpenThreads::Mutex shadersCacheMutex;
-static osg::Referenced* shadersCache = NULL;
-
-class SingletonDeleteHandler : public osg::DeleteHandler
-{
-    public:
-
-        OpenThreads::Mutex& mutex;
-        osg::Referenced**   r;
-
-        SingletonDeleteHandler( OpenThreads::Mutex& m,
-                                osg::Referenced**   _r )                                
-            : mutex( m )
-            , r( _r )
-        {}
-        
-        virtual void requestDelete(const osg::Referenced* object)
-        {
-            mutex.lock();
-            if ( (*r)->referenceCount() == 0 )
-            {
-                *r = NULL; // clear global variable
-                mutex.unlock();
-                osg::DeleteHandler::requestDelete( object );
-            }
-            else // someone referenced shared 'r' just before deletion
-            {
-                mutex.unlock();
-                // do nothing
-            }
-        }
-        
-};
-
-/**
- * MUST be used and referenced inside shadersCacheMutex.lock/unlock
- */
-static
-void
-allocShadersCache()
-{
-    if ( shadersCache == NULL )
-    {
-        shadersCache = new ShadersCache();
-        shadersCache->setThreadSafeRefUnref( true );
-        shadersCache->setDeleteHandler( new SingletonDeleteHandler( shadersCacheMutex,
-                                                                    &shadersCache ) );
-    }
-}
 
 // -- StateSetCache --
 
 StateSetCache::StateSetCache()
 {
-    setThreadSafeRefUnref( true );
+    //setThreadSafeRefUnref( true );
 
     TexturesCache* texturesCache = new TexturesCache();
     swMeshStateSetCache = new SwMeshStateSetCache( new MaterialsCache(),
                                                    texturesCache );
-    shadersCacheMutex.lock();
-    allocShadersCache(); // alloc and reference inside mutex
+
     hwMeshStateSetCache = new HwMeshStateSetCache( swMeshStateSetCache.get(),
                                                    texturesCache,
-                                                   static_cast< ShadersCache* >( shadersCache ) );
-    depthMeshStateSetCache = new DepthMeshStateSetCache( static_cast< ShadersCache* >( shadersCache ) );
-    shadersCacheMutex.unlock();
+                                                   ShadersCache::instance() );
+    depthMeshStateSetCache = new DepthMeshStateSetCache( ShadersCache::instance() );
 }
+
+static osg::observer_ptr< StateSetCache >  stateSetCache;
+
+StateSetCache*
+StateSetCache::instance()
+{
+    if ( !stateSetCache.valid() )
+    {
+        stateSetCache = new StateSetCache;
+    }
+
+    return stateSetCache.get();
+}
+
 
 
 // -- Caches --
@@ -341,8 +77,8 @@ getOrCreate( std::map< Key, osg::ref_ptr< Value > >& map,
     else
     {
         Value* v = (obj ->* create)( key ); // damn c++!
-        v->setThreadSafeRefUnref( true );
-        obj->setThreadSafeRefUnref( true );
+        //v->setThreadSafeRefUnref( true );
+        //obj->setThreadSafeRefUnref( true );
         map[ key ] = v;
         return v;
     }
@@ -387,7 +123,7 @@ TexturesCache::createTexture( const TextureDesc& fileName )
 {
 //    std::cout << "load texture: " << fileName << std::endl;
     osg::Image* img = osgDB::readImageFile( fileName );
-    img->setThreadSafeRefUnref( true );
+    //img->setThreadSafeRefUnref( true );
 
     if ( !img )
     {
@@ -455,20 +191,20 @@ struct osgCalStateAttributes
         {
             blending = new osg::BlendFunc;
             blending->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-            blending->setThreadSafeRefUnref( true );
+            //blending->setThreadSafeRefUnref( true );
 
             depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
-            depthFuncLessWriteMaskTrue->setThreadSafeRefUnref( true );
+            //depthFuncLessWriteMaskTrue->setThreadSafeRefUnref( true );
             depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
-            depthFuncLessWriteMaskFalse->setThreadSafeRefUnref( true );
+            //depthFuncLessWriteMaskFalse->setThreadSafeRefUnref( true );
             depthFuncLequalWriteMaskFalse = new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false );
-            depthFuncLequalWriteMaskFalse->setThreadSafeRefUnref( true );
+            //depthFuncLequalWriteMaskFalse->setThreadSafeRefUnref( true );
 
             backFaceCulling = new osg::CullFace( osg::CullFace::BACK );
-            backFaceCulling->setThreadSafeRefUnref( true );
+            //backFaceCulling->setThreadSafeRefUnref( true );
 
             noColorWrites = new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
-            noColorWrites->setThreadSafeRefUnref( true );
+            //noColorWrites->setThreadSafeRefUnref( true );
         }
 };
 
@@ -587,7 +323,7 @@ newFloatUniform( const std::string& name,
 {
     osg::Uniform* u = new osg::Uniform( osg::Uniform::FLOAT, name );
     u->set( value );
-    u->setThreadSafeRefUnref( true );
+    //u->setThreadSafeRefUnref( true );
 
     return u;
 }
@@ -600,7 +336,7 @@ newIntUniform( osg::Uniform::Type type,
 {
     osg::Uniform* u = new osg::Uniform( type, name );
     u->set( value );
-    u->setThreadSafeRefUnref( true );
+    //u->setThreadSafeRefUnref( true );
 
     return u;
 }

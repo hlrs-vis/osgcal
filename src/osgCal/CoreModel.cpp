@@ -29,7 +29,10 @@ using namespace osgCal;
 CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
-    setThreadSafeRefUnref( true );
+    //setThreadSafeRefUnref( true );
+
+//    static StateSetCache* g_stateSetCache = new StateSetCache;
+//    stateSetCache = g_stateSetCache;
     stateSetCache = new StateSetCache;
 }
 
@@ -116,13 +119,13 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
                                           m->material,
                                           m->data.get() );
 
-        m->setThreadSafeRefUnref( true );
-        m->data->setThreadSafeRefUnref( true );
-        m->data->indexBuffer->setThreadSafeRefUnref( true );
-        m->data->vertexBuffer->setThreadSafeRefUnref( true );
-        m->data->normalBuffer->setThreadSafeRefUnref( true );
-        m->displayLists->setThreadSafeRefUnref( true );
-        m->stateSets->setThreadSafeRefUnref( true );        
+//         m->setThreadSafeRefUnref( true );
+//         m->data->setThreadSafeRefUnref( true );
+//         m->data->indexBuffer->setThreadSafeRefUnref( true );
+//         m->data->vertexBuffer->setThreadSafeRefUnref( true );
+//         m->data->normalBuffer->setThreadSafeRefUnref( true );
+//         m->displayLists->setThreadSafeRefUnref( true );
+//         m->stateSets->setThreadSafeRefUnref( true );        
 
         // -- Done with mesh --
         meshes.push_back( m );

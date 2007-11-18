@@ -4,6 +4,7 @@ include $(TOPDIR)/Make/makedefs
 CXXFILES =\
 	Meshes.cpp \
 	Material.cpp \
+	ShadersCache.cpp \
 	StateSetCache.cpp \
 	CoreModel.cpp \
 	Model.cpp \
@@ -23,7 +24,7 @@ LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
 
 include $(TOPDIR)/Make/makerules 
 
-StateSetCache.cpp: \
+ShadersCache.cpp: \
 	shaders/Skeletal_vert.h \
 	shaders/Skeletal_frag.h \
 	shaders/SkeletalDepthOnly_vert.h \

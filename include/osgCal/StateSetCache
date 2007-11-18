@@ -1,6 +1,5 @@
 /* -*- c++ -*-
-    Copyright (C) 2003 <ryu@gpul.org>
-    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+    Copyright (C) 2007 Vladimir Shabanov <vshabanoff@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -19,76 +18,19 @@
 #ifndef __OSGCAL__STATE_SET_CACHE_H__
 #define __OSGCAL__STATE_SET_CACHE_H__
 
-#include <vector>
 #include <map>
-#include <stdexcept>
-#include <memory>
-
-#include <cal3d/cal3d.h>
 
 #include <osg/Texture2D>
 #include <osg/Referenced>
 #include <osg/Material>
-#include <osg/Program>
 #include <osg/Fog>
 #include <osgCal/Export>
 #include <osgCal/Material>
 #include <osgCal/Meshes>
+#include <osgCal/ShadersCache>
 
 namespace osgCal
 {
-
-    // -- Shader cache --
-
-    inline int SHADER_FLAG_BONES(int _nbones) { return 0x10000 * _nbones; }
-
-    enum ShaderFlags
-    {
-        SHADER_FLAG_DEPTH_ONLY      =  0x1000,
-        DEPTH_ONLY_MASK             = ~0x04FF, // ignore aything except bones
-        SHADER_FLAG_TWO_SIDED       =  0x0100,
-        SHADER_FLAG_BUMP_MAPPING    =  0x0080,
-        SHADER_FLAG_FOG_MODE_MASK   = (0x0040 + 0x0020),
-        SHADER_FLAG_FOG_MODE_LINEAR = (0x0040 + 0x0020),
-        SHADER_FLAG_FOG_MODE_EXP2   =  0x0040,
-        SHADER_FLAG_FOG_MODE_EXP    =  0x0020,
-        SHADER_FLAG_RGBA            =  0x0010, // enable blending of RGBA textures
-        SHADER_FLAG_OPACITY         =  0x0008,
-        SHADER_FLAG_TEXTURING       =  0x0004,
-        SHADER_FLAG_NORMAL_MAPPING  =  0x0002,
-        SHADER_FLAG_SHINING         =  0x0001,
-    };
-
-    int materialShaderFlags( const Material& material );
-
-    /**
-     * Set of shaders with specific flags.
-     */
-    class ShadersCache : public osg::Referenced
-    {
-        public:
-
-            ~ShadersCache();
-
-//             osg::Program* get( const Material& material,
-//                                int             bonesCount = 0,
-//                                osg::Fog::Mode  fogMode = 0 );
-        
-            osg::Program* get( int flags );
-
-        private:
-
-            osg::Shader* getVertexShader( int flags );
-            osg::Shader* getFragmentShader( int flags );
-
-            typedef std::map< int, osg::ref_ptr< osg::Program > > ProgramsMap;
-            ProgramsMap programs;
-
-            typedef std::map< int, osg::ref_ptr< osg::Shader > > ShadersMap;
-            ShadersMap vertexShaders;
-            ShadersMap fragmentShaders;
-    };
-
    /**
      * To maximize state sharing we use separate caches for
      * osg::Material, osg::Texture2D, osg::StateSet (SoftwareMaterial,
@@ -202,6 +144,14 @@ namespace osgCal
             osg::ref_ptr< SwMeshStateSetCache >     swMeshStateSetCache;
             osg::ref_ptr< HwMeshStateSetCache >     hwMeshStateSetCache;
             osg::ref_ptr< DepthMeshStateSetCache >  depthMeshStateSetCache;
+
+            /**
+             * Return global state set cache instance. Instance is
+             * keeped inside osg::observer_ptr so it will be removed
+             * when last reference to StateSetCache is removed. Also
+             * instance does not exists until first instance() call.
+             */
+            static StateSetCache* instance();
             
     };
 

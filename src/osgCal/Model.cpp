@@ -142,7 +142,7 @@ Model::load( CoreModel* coreModel,
     calModel->update( 0 );
 
     modelData = new ModelData( calModel );
-    modelData->setThreadSafeRefUnref( true );
+    //modelData->setThreadSafeRefUnref( true );
 
     setUpdateCallback( new CalUpdateCallback() );
 //    setUserData( cm ); // <- maybe this helps to not FLATTEN_STATIC_TRANSFORMS?

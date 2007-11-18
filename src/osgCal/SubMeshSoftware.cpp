@@ -32,7 +32,7 @@ SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
     , modelData( _modelData )
     , mesh( _mesh )
 {
-    setThreadSafeRefUnref( true );
+    //setThreadSafeRefUnref( true );
 
     if ( mesh->data->rigid )
     {

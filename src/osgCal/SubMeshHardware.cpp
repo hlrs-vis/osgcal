@@ -37,7 +37,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     , mesh( _mesh )
     , deformed( false )
 {   
-    setThreadSafeRefUnref( true );
+    //setThreadSafeRefUnref( true );
 
     setUseDisplayList( false );
     setSupportsDisplayList( false );
@@ -664,7 +664,7 @@ SubMeshHardware::update()
 SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
     : hwMesh( hw )
 {
-    setThreadSafeRefUnref( true );
+    //setThreadSafeRefUnref( true );
 
     setUseDisplayList( false );
     setSupportsDisplayList( false );
