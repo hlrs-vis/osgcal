@@ -29,10 +29,7 @@ using namespace osgCal;
 CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
-    //setThreadSafeRefUnref( true );
-
-//    static StateSetCache* g_stateSetCache = new StateSetCache;
-//    stateSetCache = g_stateSetCache;
+//    stateSetCache = StateSetCache::instance();
     stateSetCache = new StateSetCache;
 }
 

@@ -154,15 +154,17 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         }
     
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
-                                           mesh->data->getBonesCount(), GL_TRUE, rotationMatrices );
+                                           mesh->data->getBonesCount(), GL_FALSE,
+                                           rotationMatrices );
         if ( translationVectorsAttrib >= 0 )
         {
             gl2extensions->glUniform3fv( translationVectorsAttrib,
-                                         mesh->data->getBonesCount(), translationVectors );
+                                         mesh->data->getBonesCount(),
+                                         translationVectors );
         }
 
-        GLfloat translation[3] = {0,0,0};
-        GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
+        const GLfloat translation[3] = {0,0,0};
+        const GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
         if ( translationVectorsAttrib >= 0 )
         {
@@ -405,30 +407,6 @@ operator == ( const osg::Matrix3& m1,
 }
 }
 
-inline
-float
-square( float x )
-{
-    return x*x;
-}
-
-float
-rtDistance( const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v1,
-            const std::vector< std::pair< osg::Matrix3, osg::Vec3f > >& v2,
-            int count )
-{
-    float r = 0;
-    for ( int i = 0; i < count; i++ )
-    {
-        for ( int j = 0; j < 9; j++ )
-        {
-            r += square( v1[i].first[j] - v2[i].first[j] );
-        }
-        r += ( v1[i].second - v2[i].second ).length2();
-    }
-    return r;
-}
-
 void
 SubMeshHardware::update()
 {   
@@ -438,52 +416,28 @@ SubMeshHardware::update()
     }
     
     // -- Setup rotation matrices & translation vertices --
-    std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
+    typedef std::pair< osg::Matrix3, osg::Vec3f > RTPair;
+    float rotationTranslationMatricesData[ 31 * sizeof (RTPair) / sizeof ( float ) ];
+    // we make data to not init matrices & vertex since we always set
+    // them to correct data
+    RTPair* rotationTranslationMatrices = (RTPair*)(void*)&rotationTranslationMatricesData;
 
     deformed = false;
+    bool changed = false;
 
     for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
     {
         int boneId = mesh->data->getBoneId( boneIndex );
+        const ModelData::BoneParams& bp = modelData->getBoneParams( boneId );
 
-        rotationTranslationMatrices.push_back( modelData->getBoneRotationTranslation( boneId ) );
-        osg::Vec3 translation = modelData->getBoneTranslation( boneId );
-        osg::Quat rotation    = modelData->getBoneRotation( boneId );
+        deformed |= bp.deformed;
+        changed  |= bp.changed;
 
-        if ( // cal3d reports nonzero translations for non-animated models
-            // and non zero quaternions (seems like some FP round-off error). 
-            // So we must check for deformations using some epsilon value.
-            // Problem:
-            //   * It is cal3d that must return correct values, no epsilons
-            // But nevertheless we use this to reduce CPU load.
-                 
-            translation.length() > boundingBox.radius() * 1e-5 // usually 1e-6 .. 1e-7
-            ||
-            osg::Vec3d( rotation.x(),
-                        rotation.y(),
-                        rotation.z() ).length() > 1e-6 // usually 1e-7 .. 1e-8
-            )
-        {
-            deformed = true;
-//             std::cout << "quaternion: "
-//                       << rotation.x << ' '
-//                       << rotation.y << ' '
-//                       << rotation.z << ' '
-//                       << rotation.w << std::endl
-//                       << "translation: "
-//                       << translation.x << ' ' << translation.y << ' ' << translation.z
-//                       << "; len = " << translation.length() << std::endl
-//                       << "len / bbox.radius = " << translation.length() / boundingBox.radius()
-//                       << std::endl;
-        }
+        RTPair& rt = rotationTranslationMatrices[ boneIndex ];
+
+        rt.first  = bp.rotation;
+        rt.second = bp.translation;
     }
-
-    rotationTranslationMatrices.resize( 31 );
-    rotationTranslationMatrices[ 30 ] = // last always identity (see #68)
-        std::make_pair( osg::Matrix3( 1, 0, 0,
-                                      0, 1, 0,
-                                      0, 0, 1 ),
-                        osg::Vec3( 0, 0, 0 ) );
 
     // -- Check for deformation state and select state set type --
 //    std::cout << "deformed = " << deformed << std::endl;
@@ -505,24 +459,18 @@ SubMeshHardware::update()
         depthSubMesh->update( deformed );
     }
 
-    // -- Check changes --    
-    previousRotationTranslationMatrices.resize( 31 );
-//     std::cout << "distance = "
-//               << rtDistance( rotationTranslationMatrices,
-//                              previousRotationTranslationMatrices )
-//               << std::endl;
-//    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
-    if ( rtDistance( rotationTranslationMatrices,
-                     previousRotationTranslationMatrices,
-                     mesh->data->getBonesCount() ) < 1e-7 ) // usually 1e-8..1e-10
+    // -- Check changes --
+    if ( !changed )
     {
 //        std::cout << "didn't changed" << std::endl;
         return; // no changes
     }
-    else
-    {
-        previousRotationTranslationMatrices = rotationTranslationMatrices;
-    }
+
+    rotationTranslationMatrices[ 30 ] = // last always identity (see #68)
+        std::make_pair( osg::Matrix3( 1, 0, 0,
+                                      0, 1, 0,
+                                      0, 0, 1 ),
+                        osg::Vec3( 0, 0, 0 ) );
 
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();

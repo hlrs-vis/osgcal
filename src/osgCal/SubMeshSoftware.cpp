@@ -158,31 +158,38 @@ SubMeshSoftware::update()
     // hmm. is it good to copy/paste? its nearly the same algorithm
     
     // -- Setup rotation matrices & translation vertices --
-    std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
+    typedef std::pair< osg::Matrix3, osg::Vec3f > RTPair;
+    float rotationTranslationMatricesData[ 31 * sizeof (RTPair) / sizeof ( float ) ];
+    // we make data to not init matrices & vertex since we always set
+    // them to correct data
+    RTPair* rotationTranslationMatrices = (RTPair*)(void*)&rotationTranslationMatricesData;
+
+    bool changed = false;
 
     for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
     {
         int boneId = mesh->data->getBoneId( boneIndex );
+        const ModelData::BoneParams& bp = modelData->getBoneParams( boneId );
 
-        rotationTranslationMatrices.push_back( modelData->getBoneRotationTranslation( boneId ) );
+        changed  |= bp.changed;
+
+        RTPair& rt = rotationTranslationMatrices[ boneIndex ];
+
+        rt.first  = bp.rotation;
+        rt.second = bp.translation;
+    }
+   
+    // -- Check changes --
+    if ( !changed )
+    {
+        return; // no changes
     }
 
-    rotationTranslationMatrices.resize( 31 );
     rotationTranslationMatrices[ 30 ] = // last always identity (see #68)
         std::make_pair( osg::Matrix3( 1, 0, 0,
                                       0, 1, 0,
                                       0, 0, 1 ),
                         osg::Vec3( 0, 0, 0 ) );
-    
-    // -- Check changes --
-    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
-    {
-        return; // no changes
-    }
-    else
-    {
-        previousRotationTranslationMatrices = rotationTranslationMatrices;
-    }
 
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();

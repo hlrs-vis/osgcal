@@ -93,7 +93,7 @@ namespace osgCal {
     // -- Model data --
 
     /**
-     * Contains CalModel and som utility functions. It is separated
+     * Contains CalModel and some utility functions. It is separated
      * from Model to remove circular references from submeshes to
      * model.
      */
@@ -101,16 +101,35 @@ namespace osgCal {
     {
         public:
 
-            ModelData( CalModel* cm ) : calModel( cm )
+            struct BoneParams
             {
-                vectorBone = &(calModel->getSkeleton()->getVectorBone());
-            }
-            ~ModelData() { delete calModel; }
+                    BoneParams()
+                        : bone( 0 )
+                        , deformed( false )
+                        , changed( false )
+                    {}
+                    
+                    CalBone*     bone;
+                    osg::Matrix3 rotation;
+                    osg::Vec3f   translation;
+                    bool         deformed;
+                    bool         changed;
+            };
 
-            CalModel* getCalModel() { return calModel; }
+            ModelData( CalModel* cm );
+            ~ModelData();
 
-            osg::Quat getBoneRotation( int boneId ) const;
-            osg::Vec3 getBoneTranslation( int boneId ) const;
+            /**
+             * Perform skeleton and BoneParams arrays update.
+             * Return true, if something was changed, false otherwise.
+             */
+            bool update( float deltaTime );
+
+//             CalModel* getCalModel() { return calModel; }
+            CalMixer* getCalMixer() { return calMixer; }
+
+//             osg::Quat getBoneRotation( int boneId ) const;
+//             osg::Vec3 getBoneTranslation( int boneId ) const;
 
             /**
              * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
@@ -119,14 +138,36 @@ namespace osgCal {
              */
             void getBoneRotationTranslation( int boneId,
                                              GLfloat* rotation,
-                                             GLfloat* translation ) const;
-            osg::Matrixf getBoneMatrix( int boneId ) const;
-            std::pair< osg::Matrix3, osg::Vec3 > getBoneRotationTranslation( int boneId ) const;
+                                             GLfloat* translation ) const
+            {
+                const BoneParams& b = bones[ boneId ];
+                memcpy( rotation   , b.rotation.ptr()   , 9 * sizeof( GLfloat ) );
+                memcpy( translation, b.translation.ptr(), 3 * sizeof( GLfloat ) );
+            }
+                    
+            osg::Matrix getBoneMatrix( int boneId ) const
+            {
+                const BoneParams&   b = bones[ boneId ];
+                const osg::Matrix3& r = b.rotation;
+                const osg::Vec3f&   t = b.translation;
+                return osg::Matrix( r[0] , r[1] , r[2] , 0.0,
+                                    r[3] , r[4] , r[5] , 0.0,
+                                    r[6] , r[7] , r[8] , 0.0,
+                                    t.x(), t.y(), t.z(), 1.0 );
+            }
+
+            const BoneParams& getBoneParams( int boneId ) const
+            {
+                return bones[ boneId ];
+            }
 
         private:
             
             CalModel*                   calModel;
-            const std::vector<CalBone *>* vectorBone;
+            CalMixer*                   calMixer;
+
+            typedef std::vector< BoneParams > BoneParamsVector;
+            BoneParamsVector            bones;
     };
     
     // -- Model --    

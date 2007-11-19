@@ -349,25 +349,10 @@ Model::accept( osg::NodeVisitor& nv )
 void
 Model::update( double deltaTime ) 
 {
-    CalMixer* calMixer = (CalMixer*)modelData->getCalModel()->getAbstractMixer();
-
-    if ( //calMixer->getAnimationVector().size() == <total animations count>
-        calMixer->getAnimationActionList().size() != 0 ||
-        calMixer->getAnimationCycle().size() != 0 )
+    if ( modelData->update( deltaTime ) )
     {
-        // we update only when we animate something
-        calMixer->updateAnimation(deltaTime); 
-        calMixer->updateSkeleton();
-
-        // Model::update is 5-10 times slower than updateAnimation + updateSkeleton
-        // for idle animations.
+        updateNode( this );
     }
-    else
-    {
-        return; // no animations, nothing to update
-    }
-
-    updateNode( this );
 }
 
 void
@@ -461,14 +446,14 @@ Model::blendCycle( int id,
                    float weight,
                    float delay )
 {
-    modelData->getCalModel()->getMixer()->blendCycle( id, weight, delay );
+    modelData->getCalMixer()->blendCycle( id, weight, delay );
 }
 
 void
 Model::clearCycle( int id,
                    float delay )
 {
-    modelData->getCalModel()->getMixer()->clearCycle( id, delay );
+    modelData->getCalMixer()->clearCycle( id, delay );
 }
 
 osg::Geometry*
@@ -487,71 +472,114 @@ Model::getMesh( const std::string& name ) const throw (std::runtime_error)
 }
 
 
-osg::Quat
-ModelData::getBoneRotation( int boneId ) const
+ModelData::ModelData( CalModel* cm )
+    : calModel( cm )
+    , calMixer( (CalMixer*)cm->getAbstractMixer() )
 {
-    CalQuaternion r = (*vectorBone)[ boneId ]->getRotationBoneSpace();
-    return osg::Quat( r.x, r.y, r.z, r.w );
+    const std::vector< CalBone* >& vectorBone = calModel->getSkeleton()->getVectorBone();
+
+    bones.resize( vectorBone.size() );
+
+    std::vector< CalBone* >::const_iterator b = vectorBone.begin();        
+    for ( BoneParamsVector::iterator
+              bp = bones.begin(),
+              bpEnd = bones.end();
+          bp < bpEnd; ++bp, ++b )
+    {
+        bp->bone = *b;
+    }
 }
 
-osg::Vec3
-ModelData::getBoneTranslation( int boneId ) const
+ModelData::~ModelData()
 {
-    CalVector t =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
-    return osg::Vec3( t.x, t.y, t.z );
+    delete calModel;
 }
 
-void
-ModelData::getBoneRotationTranslation( int boneId,
-                                       GLfloat* rotation,
-                                       GLfloat* translation ) const
+inline
+float
+square( float x )
 {
-    CalQuaternion   rotationBoneSpace = (*vectorBone)[ boneId ]->getRotationBoneSpace();
-    CalVector       translationBoneSpace =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
-
-    CalMatrix       rotationMatrix = rotationBoneSpace;
-
-    rotation[0] = rotationMatrix.dxdx;
-    rotation[1] = rotationMatrix.dxdy;
-    rotation[2] = rotationMatrix.dxdz;
-    rotation[3] = rotationMatrix.dydx;
-    rotation[4] = rotationMatrix.dydy;
-    rotation[5] = rotationMatrix.dydz;
-    rotation[6] = rotationMatrix.dzdx;
-    rotation[7] = rotationMatrix.dzdy;
-    rotation[8] = rotationMatrix.dzdz;
-
-    translation[0] = translationBoneSpace.x;
-    translation[1] = translationBoneSpace.y;
-    translation[2] = translationBoneSpace.z;
+    return x*x;
 }
 
-osg::Matrixf
-ModelData::getBoneMatrix( int boneId ) const
+bool
+ModelData::update( float deltaTime )
 {
-    CalQuaternion   rotation = (*vectorBone)[ boneId ]->getRotationBoneSpace();
-    CalVector       translation =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+    // -- Update calMixer & skeleton --
+    if ( //calMixer->getAnimationVector().size() == <total animations count>
+         calMixer->getAnimationActionList().size() == 0 &&
+         calMixer->getAnimationCycle().size() == 0 )
+    {
+        return false; // no animations, nothing to update
+    }
 
-    CalMatrix       rm = rotation;
+    calMixer->updateAnimation( deltaTime ); 
+    calMixer->updateSkeleton();
 
-    return osg::Matrixf( rm.dxdx   , rm.dydx   , rm.dzdx   , 0.0f,
-                         rm.dxdy   , rm.dydy   , rm.dzdy   , 0.0f,
-                         rm.dxdz   , rm.dydz   , rm.dzdz   , 0.0f,
-                         translation.x, translation.y, translation.z, 1.0f );
-}
+    // -- Update bone parameters --
+    bool anythingChanged = false;
+    for ( BoneParamsVector::iterator
+              b    = bones.begin(),
+              bEnd = bones.end();
+          b < bEnd; ++b )
+    {
+        const CalQuaternion& rotation = b->bone->getRotationBoneSpace();
+        const CalVector&     translation = b->bone->getTranslationBoneSpace();
+        const CalMatrix&     rm = b->bone->getTransformMatrix();
 
+        const osg::Matrix3   r( rm.dxdx, rm.dydx, rm.dzdx,
+                                rm.dxdy, rm.dydy, rm.dzdy,
+                                rm.dxdz, rm.dydz, rm.dzdz );
+        const osg::Vec3f     t( translation.x, translation.y, translation.z );
 
-std::pair< osg::Matrix3, osg::Vec3 >
-ModelData::getBoneRotationTranslation( int boneId ) const
-{
-    CalQuaternion   rotation = (*vectorBone)[ boneId ]->getRotationBoneSpace();
-    CalVector       translation =  (*vectorBone)[ boneId ]->getTranslationBoneSpace();
+        // -- Check for deformed --
+        b->deformed =
+            // cal3d reports nonzero translations for non-animated models
+            // and non zero quaternions (seems like some FP round-off error). 
+            // So we must check for deformations using some epsilon value.
+            // Problem:
+            //   * It is cal3d that must return correct values, no epsilons
+            // But nevertheless we use this to reduce CPU load.
 
-    CalMatrix       rm = rotation;
+            t.length() > /*boundingBox.radius() **/ 1e-5 // usually 1e-6 .. 1e-7
+            ||
+            osg::Vec3d( rotation.x,
+                        rotation.y,
+                        rotation.z ).length() > 1e-6 // usually 1e-7 .. 1e-8
+            ;
 
-    return std::make_pair(
-        osg::Matrix3( rm.dxdx   , rm.dydx   , rm.dzdx   ,
-                      rm.dxdy   , rm.dydy   , rm.dzdy   ,
-                      rm.dxdz   , rm.dydz   , rm.dzdz   ),
-        osg::Vec3( translation.x, translation.y, translation.z ) );
+        // -- Check for changes --
+        float s = 0;
+        for ( int j = 0; j < 9; j++ )
+        {
+            s += square( r[j] - b->rotation[j] );
+        }
+        s += ( t - b->translation ).length2();
+
+        if ( s < 1e-7 ) // usually 1e-8..1e-10
+        {
+            b->changed = false;
+        }
+        else
+        {
+            b->changed = true;
+            anythingChanged = true;
+            b->rotation = r;
+            b->translation = t;
+        }
+        
+//         std::cout << "quaternion: "
+//                   << rotation.x << ' '
+//                   << rotation.y << ' '
+//                   << rotation.z << ' '
+//                   << rotation.w << std::endl
+//                   << "translation: "
+//                   << t.x() << ' ' << t.y() << ' ' << t.z()
+//                   << "; len = " << t.length()
+//                   << "; r = " << r // << std::endl
+// //                  << "len / bbox.radius = " << translation.length() / boundingBox.radius()
+//                   << std::endl;
+    }
+
+    return anythingChanged;
 }
