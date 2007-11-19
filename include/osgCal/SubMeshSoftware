@@ -28,14 +28,13 @@
 
 namespace osgCal {
 
-    class OSGCAL_EXPORT SubMeshSoftware : public osg::Geometry
+    class OSGCAL_EXPORT SubMeshSoftware : public osg::Geometry, public Updatable
     {
         protected:
             virtual ~SubMeshSoftware();
 
         public:
 
-//            SubMeshSoftware();
             osg::Object* cloneType() const;
             osg::Object* clone( const osg::CopyOp& ) const;
             virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const SubMeshSoftware *>(obj)!=NULL; }
@@ -45,10 +44,9 @@ namespace osgCal {
             SubMeshSoftware( CoreModel*             coreModel,
                              ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
-            SubMeshSoftware(const SubMeshSoftware&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
             void create();
-            void update();
+            virtual void update();
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 
@@ -65,8 +63,7 @@ namespace osgCal {
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;
-  
-    };
+      };
 
 };
 

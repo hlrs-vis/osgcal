@@ -33,14 +33,14 @@ namespace osgCal
     /**
      * Submesh which is only draw depth part of specified hardware submesh.
      */
-    class SubMeshDepth :  public /*osg::Drawable //*/osg::Geometry 
+    class SubMeshDepth :  public /*osg::Drawable //*/osg::Geometry
     {
         public:
            
             SubMeshDepth( SubMeshHardware* hw );
 
             virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
-            void update( bool deformed );
+            void update( bool deformed, bool changed );
 
             virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
 
@@ -57,7 +57,7 @@ namespace osgCal
 
     };
 
-    class /*OSGCAL_EXPORT*/ SubMeshHardware : public /*osg::Drawable //*/osg::Geometry 
+    class /*OSGCAL_EXPORT*/ SubMeshHardware : public /*osg::Drawable //*/osg::Geometry, public Updatable
     {
         public:
            
@@ -87,7 +87,7 @@ namespace osgCal
             virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
 
             void create();
-            void update();
+            virtual void update();
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 

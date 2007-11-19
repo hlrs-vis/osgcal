@@ -390,31 +390,71 @@ mul3( const osg::Matrix3& m,
                        m(0,1)*v.x() + m(1,1)*v.y() + m(2,1)*v.z(),
                        m(0,2)*v.x() + m(1,2)*v.y() + m(2,2)*v.z() );
 }
-namespace osg {
-bool
-operator == ( const osg::Matrix3& m1,
-              const osg::Matrix3& m2 )
+
+static
+inline
+osg::Matrix3
+operator * ( const osg::Matrix3& m,
+             float s )
 {
-    for ( int i = 0; i < 9; i++ )
-    {
-        if ( m1.ptr()[ i ] != m2.ptr()[ i ] )
-        {
-            return false; 
-        }
-    }
-    
-    return true;
+    return osg::Matrix3( m(0,0)*s, m(0,1)*s, m(0,2)*s,
+                         m(1,0)*s, m(1,1)*s, m(1,2)*s,
+                         m(2,0)*s, m(2,1)*s, m(2,2)*s );
 }
+
+static
+inline
+osg::Matrix3&
+operator += ( osg::Matrix3& d,
+              const osg::Matrix3& s )
+{
+    d[0] += s[0];
+    d[1] += s[1];
+    d[2] += s[2];
+    d[3] += s[3];
+    d[4] += s[4];
+    d[5] += s[5];
+    d[6] += s[6];
+    d[7] += s[7];
+    d[8] += s[8];
+    return d;
+}
+
+static
+inline
+osg::Matrix3&
+mulAdd( osg::Matrix3& d,
+        const osg::Matrix3& s,
+        float k )
+{
+    d[0] += s[0] * k;
+    d[1] += s[1] * k;
+    d[2] += s[2] * k;
+    d[3] += s[3] * k;
+    d[4] += s[4] * k;
+    d[5] += s[5] * k;
+    d[6] += s[6] * k;
+    d[7] += s[7] * k;
+    d[8] += s[8] * k;
+    return d;
+}
+
+static
+inline
+osg::Vec3f&
+mulAdd( osg::Vec3f& d,
+        const osg::Vec3f& s,
+        float k )
+{
+    d[0] += s[0] * k;
+    d[1] += s[1] * k;
+    d[2] += s[2] * k;
+    return d;
 }
 
 void
 SubMeshHardware::update()
 {   
-    if ( mesh->data->rigid )
-    {
-        return; // no bones - no update
-    }
-    
     // -- Setup rotation matrices & translation vertices --
     typedef std::pair< osg::Matrix3, osg::Vec3f > RTPair;
     float rotationTranslationMatricesData[ 31 * sizeof (RTPair) / sizeof ( float ) ];
@@ -456,7 +496,7 @@ SubMeshHardware::update()
     // -- Update depthSubMesh --
     if ( depthSubMesh.valid() )
     {
-        depthSubMesh->update( deformed );
+        depthSubMesh->update( deformed, changed );
     }
 
     // -- Check changes --
@@ -503,9 +543,9 @@ SubMeshHardware::update()
     #define y() g()
     #define z() b()
     #define w() a()
-    
+
 #define PROCESS_X( _process_y )                                         \
-    /*if ( mi->x() != 30 )*/                                            \
+    if ( mi->x() != 30 )                                                \
         /* we have no zero weight vertices they all bound to 30th bone */ \
     {                                                                   \
         const osg::Matrix3& rm = rotationTranslationMatrices[mi->x()].first; \
@@ -513,51 +553,100 @@ SubMeshHardware::update()
         *v = (mul3(rm, *sv) + tv) * w->x();                             \
                                                                         \
         _process_y;                                                     \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        *v = *sv;                                                       \
     }                                                                   
-//     else
-//     {
-//         *v = *sv;
+
+// #define PROCESS_X( _process_y )                                         
+//     if ( mi->x() != 30 )                                                
+//         /* we have no zero weight vertices they all bound to 30th bone */ 
+//     {                                                                   
+//         osg::Matrix3 rm( rotationTranslationMatrices[mi->x()].first * w->x() ); 
+//         osg::Vec3f   tv( rotationTranslationMatrices[mi->x()].second * w->x() ); 
+//                                                                         
+//         _process_y;                                                     
+//         *v = (mul3(rm, *sv) + tv);                                      
+//     }                                                                   
+//     else                                                                
+//     {                                                                   
+//         *v = *sv;                                                       
 //     }
 
     // Strange, but multiplying each matrix on source vector works
     // faster than accumulating matrix and multiply at the end (as in
     // shader)
-    // TODO: ^ retest it with non-indexed update
     //
-    // And more strange, removing of  branches gives 5-10% speedup.
-    // Seems that instruction prediction is really bad thing.
+    // Not strange:
+    // mul3            9*  6+
+    // mul3 + tv       9*  9+
+    // (mul3 + tv)*w  12*  9+
+    // v += ..        12* 12+ (-3 for first)
+    // x4 48* 45+
+    //
+    // +=rm,+=tv      12* 12+ (-12 for first)
+    // (mul3 + tv)*w  12*  9+
+    // x4 60* 45+
+    // accumulation of matrix is more expensive than multiplicating
+    //
     //
     // And it seems that memory access (even for accumulating matix)
     // is really expensive (commenting of branches in accumulating code
     // doesn't change speed at all)
 
 #define PROCESS_Y( _process_z )                                         \
-    /*if ( w->y() )*/                                                   \
+    if ( w->y() )                                                   \
     {                                                                   \
         const osg::Matrix3& rm = rotationTranslationMatrices[mi->y()].first; \
         const osg::Vec3f&   tv = rotationTranslationMatrices[mi->y()].second; \
-        *v += (mul3(rm, *sv) + tv) * w->y();                             \
+        *v += (mul3(rm, *sv) + tv) * w->y();                            \
                                                                         \
         _process_z;                                                     \
-    }
+    }                                                                   
 
 #define PROCESS_Z( _process_w )                                         \
-    /*if ( w->z() )*/                                                   \
+    if ( w->z() )                                                       \
     {                                                                   \
         const osg::Matrix3& rm = rotationTranslationMatrices[mi->z()].first; \
         const osg::Vec3f&   tv = rotationTranslationMatrices[mi->z()].second; \
-        *v += (mul3(rm, *sv) + tv) * w->z();                               \
+        *v += (mul3(rm, *sv) + tv) * w->z();                            \
                                                                         \
         _process_w;                                                     \
     }
 
 #define PROCESS_W()                                                     \
-    /*if ( w->w() )*/                                                   \
+    if ( w->w() )                                                       \
     {                                                                   \
         const osg::Matrix3& rm = rotationTranslationMatrices[mi->w()].first; \
         const osg::Vec3f&   tv = rotationTranslationMatrices[mi->w()].second; \
-        *v += (mul3(rm, *sv) + tv) * w->w();                               \
+        *v += (mul3(rm, *sv) + tv) * w->w();                            \
     }
+
+// #define PROCESS_Y( _process_z )                                         
+//     if ( w->y() )                                                       
+//     {                                                                   
+//         mulAdd( rm, rotationTranslationMatrices[mi->y()].first, w->y() ); 
+//         mulAdd( tv, rotationTranslationMatrices[mi->y()].second, w->y() ); 
+//                                                                         
+//         _process_z;                                                     
+//     }                                                       
+
+// #define PROCESS_Z( _process_w )                                         
+//     if ( w->z() )                                                       
+//     {                                                                   
+//         mulAdd( rm, rotationTranslationMatrices[mi->z()].first, w->z() ); 
+//         mulAdd( tv, rotationTranslationMatrices[mi->z()].second, w->z() ); 
+//                                                                         
+//         _process_w;                                                     
+//     }                                                       
+
+// #define PROCESS_W()                                         
+//     if ( w->w() )                                           
+//     {                                                       
+//         mulAdd( rm, rotationTranslationMatrices[mi->w()].first, w->w() ); 
+//         mulAdd( tv, rotationTranslationMatrices[mi->w()].second, w->w() ); 
+//     }
 
 #define STOP
 
@@ -624,7 +713,7 @@ SubMeshDepth::compileGLObjects(osg::RenderInfo& renderInfo) const
 }
 
 void
-SubMeshDepth::update( bool deformed )
+SubMeshDepth::update( bool deformed, bool changed )
 {
     if ( deformed )
     {
@@ -635,7 +724,10 @@ SubMeshDepth::update( bool deformed )
         setStateSet( hwMesh->getCoreModelMesh()->stateSets->staticDepthOnly.get() );
     }
 
-    dirtyBound();
+    if ( changed )
+    {
+        dirtyBound();
+    }
 }
 
 osg::BoundingBox

@@ -20,6 +20,7 @@
 #define __OSGCAL__MODEL_H__
 
 #include <map>
+#include <vector>
 
 #include <osg/Group>
 #include <osg/Geometry>
@@ -30,6 +31,16 @@
 #include <osgCal/Export>
 
 namespace osgCal {
+
+    /**
+     * Updatable class, has update() method, used to update meshes. 
+     */
+    class Updatable
+    {
+        public:
+            virtual ~Updatable() {}
+            virtual void update() = 0;
+    };
 
     // -- Mesh type selection for Model::load --
 
@@ -125,11 +136,7 @@ namespace osgCal {
              */
             bool update( float deltaTime );
 
-//             CalModel* getCalModel() { return calModel; }
             CalMixer* getCalMixer() { return calMixer; }
-
-//             osg::Quat getBoneRotation( int boneId ) const;
-//             osg::Vec3 getBoneTranslation( int boneId ) const;
 
             /**
              * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
@@ -228,8 +235,6 @@ namespace osgCal {
 
             Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
-            void updateNode( osg::Node* node );
-
             /**
              * Needed to not destroy animations and caches while model exists.
              */
@@ -238,7 +243,12 @@ namespace osgCal {
 
             typedef std::map< std::string, osg::ref_ptr< osg::Geometry > > MeshMap;
 
-            MeshMap                     meshes;            
+            MeshMap                     meshes;
+
+            // we use matrix transforms for rigid meshes, one transform per bone
+            typedef std::map< int, osg::MatrixTransform* > RigidTransformsMap;
+            RigidTransformsMap          rigidTransforms;
+            std::vector< Updatable* >   updatableMeshes;
 
             /**
              * Map of used state sets for compilation when

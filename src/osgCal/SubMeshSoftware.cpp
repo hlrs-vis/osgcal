@@ -54,12 +54,6 @@ SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
     // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
 }
 
-SubMeshSoftware::SubMeshSoftware( const SubMeshSoftware&, const osg::CopyOp& )
-    : Geometry() // to eliminate warning
-{
-    throw std::runtime_error( "SubMeshSoftware copying is not supported" );
-}
-
 osg::Object*
 SubMeshSoftware::cloneType() const
 {
@@ -107,12 +101,6 @@ SubMeshSoftware::create()
     boundingBox = mesh->data->boundingBox;
 }
 
-namespace osg {
-bool
-operator == ( const osg::Matrix3& m1,
-              const osg::Matrix3& m2 ); // defined in SubMeshHardware.cpp
-}
-
 static
 inline
 osg::Vec3f
@@ -151,10 +139,6 @@ mul3( const osg::Matrix3& m,
 void
 SubMeshSoftware::update()
 {
-    if ( mesh->data->rigid )
-    {
-        return; // no bones - no update
-    }
     // hmm. is it good to copy/paste? its nearly the same algorithm
     
     // -- Setup rotation matrices & translation vertices --

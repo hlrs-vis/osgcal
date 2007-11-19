@@ -156,9 +156,6 @@ Model::load( CoreModel* coreModel,
         meshTyper->ref();
     }
 
-    // we use matrix transforms for rigid meshes, one transform per bone
-    std::map< int, osg::MatrixTransform* > rigidTransforms;
-
     // -- Process meshes --
     osg::ref_ptr< osg::Geode > geode( new osg::Geode );
     
@@ -231,6 +228,11 @@ Model::load( CoreModel* coreModel,
         }
 
         meshes[ mesh.data->name ] = g;
+
+        if ( mesh.data->rigid == false )
+        {
+            updatableMeshes.push_back( dynamic_cast< Updatable* >( g ) );
+        }
 
         if ( mesh.data->rigid == false // deformable
              || (mesh.data->rigid && mesh.data->rigidBoneId == -1) // unrigged
@@ -315,6 +317,8 @@ Model::load( CoreModel* coreModel,
     {
         addChild( geode.get() );
     }
+
+    updatableMeshes.swap( updatableMeshes ); // trim vector
 }
 
 
@@ -349,95 +353,31 @@ Model::accept( osg::NodeVisitor& nv )
 void
 Model::update( double deltaTime ) 
 {
-    if ( modelData->update( deltaTime ) )
+    if ( modelData->update( deltaTime ) == false )
     {
-        updateNode( this );
-    }
-}
-
-void
-Model::updateNode( osg::Node* node ) 
-{
-    // -- Update SubMeshHardware/Software if child is Geode --
-    osg::Geode* geode = dynamic_cast< osg::Geode* >( node );
-    if ( geode )
-    {
-        for ( size_t j = 0; j < geode->getNumDrawables(); j++ )
-        {
-            osg::Drawable* drawable = geode->getDrawable( j );
-            
-            SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
-            if ( hardware )
-            {
-                hardware->update();
-                continue;
-            }
-            
-            SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
-            if ( software )
-            {
-                software->update();
-                continue;
-            }
-
-            //throw std::runtime_error( "unexpected drawable type" );
-            // ^ maybe user add his own drawables
-        }
-
         return;
     }
 
-    // -- Set transformation matrix if child is MatrixTransform --
-    osg::MatrixTransform* mt = dynamic_cast< osg::MatrixTransform* >( node );
-    if ( mt )
-    {
-        osg::Drawable* drawable =
-            static_cast< osg::Geode* >( mt->getChild( 0 ) )->getDrawable( 0 );
-        const CoreModel::Mesh* m = 0;
-        SubMeshHardware* hardware = dynamic_cast< SubMeshHardware* >( drawable );
-        if ( hardware )
-        {
-            m = hardware->getCoreModelMesh();
-        }
-        else
-        {               
-            SubMeshSoftware* software = dynamic_cast< SubMeshSoftware* >( drawable );
-            if ( software )
-            {
-                m = software->getCoreModelMesh();
-            }
-            else
-            {
-                throw std::runtime_error( "unexpected drawable type" );
-                // ^ currently, first mesh is always SubMeshSoftware/Hardware
-            }
-        }
-
-        // -- Set bone matrix --
-        if ( m->data->rigidBoneId != -1 )
-        {
-            mt->setMatrix( modelData->getBoneMatrix( m->data->rigidBoneId ) );
-        }
-        else
-        {
-            throw std::runtime_error( "rigid mesh under MatrixTransform and rigidBoneId == -1 ?" );
-        }
-
-        return;
-    }
-
-    // -- Is group? (MatrixTransform is also a Group BTW) --
-    osg::Group* group = dynamic_cast< osg::Group* >( node );
-    if ( group )
-    {
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-        for(size_t i = 0; i < group->getNumChildren(); i++)
+    for ( std::vector< Updatable* >::iterator
+              u    = updatableMeshes.begin(),
+              uEnd = updatableMeshes.end();
+          u < uEnd; ++u )
+    {
+        (*u)->update();
+    }
+
+    for ( RigidTransformsMap::iterator
+              t    = rigidTransforms.begin(),
+              tEnd = rigidTransforms.end();
+          t != tEnd; ++t )
+    {
+        if ( modelData->getBoneParams( t->first ).changed )
         {
-            updateNode( group->getChild(i) );
+            t->second->setMatrix( modelData->getBoneMatrix( t->first ) );
         }
-        return;
     }
 }
 

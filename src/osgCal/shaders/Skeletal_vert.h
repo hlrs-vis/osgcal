@@ -40,25 +40,37 @@ shaderText += "    gl_TexCoord[0].st = gl_MultiTexCoord0.st; // export texCoord 
 }
 shaderText += "\n";
 if ( BONES_COUNT >= 1 ) {
+shaderText += "//     vec3 transformedPosition =\n";
+shaderText += "//         (rotationMatrices[int(index.x)] * gl_Vertex.xyz\n";
+shaderText += "//          + translationVectors[int(index.x)]) * weight.x;\n";
 shaderText += "    mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];\n";
-shaderText += "    vec3 totalTranslation = weight.x * translationVectors[int(index.x)];\n";
+shaderText += "    vec3 transformedPosition = weight.x * translationVectors[int(index.x)];\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 2 ) {
+shaderText += "//     transformedPosition +=\n";
+shaderText += "//         (rotationMatrices[int(index.y)] * gl_Vertex.xyz\n";
+shaderText += "//          + translationVectors[int(index.y)]) * weight.y;\n";
 shaderText += "    totalRotation += weight.y * rotationMatrices[int(index.y)];\n";
-shaderText += "    totalTranslation += weight.y * translationVectors[int(index.y)];\n";
+shaderText += "    transformedPosition += weight.y * translationVectors[int(index.y)];\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 3 ) {
+shaderText += "//     transformedPosition +=\n";
+shaderText += "//         (rotationMatrices[int(index.z)] * gl_Vertex.xyz\n";
+shaderText += "//          + translationVectors[int(index.z)]) * weight.z;\n";
 shaderText += "    totalRotation += weight.z * rotationMatrices[int(index.z)];\n";
-shaderText += "    totalTranslation += weight.z * translationVectors[int(index.z)];\n";
+shaderText += "    transformedPosition += weight.z * translationVectors[int(index.z)];\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 4 ) {
+shaderText += "//     transformedPosition +=\n";
+shaderText += "//         (rotationMatrices[int(index.w)] * gl_Vertex.xyz\n";
+shaderText += "//          + translationVectors[int(index.w)]) * weight.w;\n";
 shaderText += "    totalRotation += weight.w * rotationMatrices[int(index.w)];\n";
-shaderText += "    totalTranslation += weight.w * translationVectors[int(index.w)];\n";
+shaderText += "    transformedPosition += weight.w * translationVectors[int(index.w)];\n";
 } // BONES_COUNT >= 4
 } // BONES_COUNT >= 3
 } // BONES_COUNT >= 2
 shaderText += "\n";
-shaderText += "    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;\n";
+shaderText += "    transformedPosition += totalRotation * gl_Vertex.xyz;\n";
 shaderText += "    gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);\n";
 shaderText += "    # ifdef __GLSL_CG_DATA_TYPES\n";
 shaderText += "//    if ( clipPlanesUsed )\n";

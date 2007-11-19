@@ -11,7 +11,7 @@ CXXFILES =\
 	SubMeshHardware.cpp \
 	SubMeshSoftware.cpp
 
-#OPTF='-march=k8 -ftree-vectorize -O2' # -fopenmp
+#OPTF='-march=k8 -ftree-vectorize -O2 -ffast-math' # -fopenmp
 
 INC     += -I/usr/local/OpenSceneGraph/include -I/usr/local/include
 

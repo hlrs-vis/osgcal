@@ -40,25 +40,37 @@ void main()
 #endif
 
 #if BONES_COUNT >= 1
+//     vec3 transformedPosition =
+//         (rotationMatrices[int(index.x)] * gl_Vertex.xyz
+//          + translationVectors[int(index.x)]) * weight.x;
     mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];
-    vec3 totalTranslation = weight.x * translationVectors[int(index.x)];
+    vec3 transformedPosition = weight.x * translationVectors[int(index.x)];
 
 #if BONES_COUNT >= 2
+//     transformedPosition +=
+//         (rotationMatrices[int(index.y)] * gl_Vertex.xyz
+//          + translationVectors[int(index.y)]) * weight.y;
     totalRotation += weight.y * rotationMatrices[int(index.y)];
-    totalTranslation += weight.y * translationVectors[int(index.y)];
+    transformedPosition += weight.y * translationVectors[int(index.y)];
 
 #if BONES_COUNT >= 3
+//     transformedPosition +=
+//         (rotationMatrices[int(index.z)] * gl_Vertex.xyz
+//          + translationVectors[int(index.z)]) * weight.z;
     totalRotation += weight.z * rotationMatrices[int(index.z)];
-    totalTranslation += weight.z * translationVectors[int(index.z)];
+    transformedPosition += weight.z * translationVectors[int(index.z)];
 
 #if BONES_COUNT >= 4
+//     transformedPosition +=
+//         (rotationMatrices[int(index.w)] * gl_Vertex.xyz
+//          + translationVectors[int(index.w)]) * weight.w;
     totalRotation += weight.w * rotationMatrices[int(index.w)];
-    totalTranslation += weight.w * translationVectors[int(index.w)];
+    transformedPosition += weight.w * translationVectors[int(index.w)];
 #endif // BONES_COUNT >= 4
 #endif // BONES_COUNT >= 3
 #endif // BONES_COUNT >= 2
 
-    vec3 transformedPosition = totalRotation * gl_Vertex.xyz + totalTranslation;
+    transformedPosition += totalRotation * gl_Vertex.xyz;
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
     # ifdef __GLSL_CG_DATA_TYPES
 //    if ( clipPlanesUsed )
