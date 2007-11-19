@@ -277,6 +277,8 @@ SwMeshStateSetCache::createSwMeshStateSet( const SoftwareMaterial& desc )
             break;
 
         case 2:
+            stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
+                               osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
             // two sided mesh -- force no culling (for sw mesh)
             stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
                                             osg::StateAttribute::OFF |
@@ -291,6 +293,8 @@ SwMeshStateSetCache::createSwMeshStateSet( const SoftwareMaterial& desc )
     // -- Check transparency modes --
     if ( isRGBAStateSet( stateSet ) || desc.diffuseColor.a() < 1 )
     {
+        stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
+                           osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
         setupTransparentStateSet( stateSet );
         // and force backface culling
         stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),

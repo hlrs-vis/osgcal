@@ -196,12 +196,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
         ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) );
 
     bool transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
-    bool twoSided = transparent || mesh->material.sides == 2;
-
-    if ( twoSided )
-    {
-        glEnable( GL_VERTEX_PROGRAM_TWO_SIDE_ARB );
-    }
 
     if ( transparent )
     {
@@ -216,13 +210,6 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     {
         glCallList( dl );        
         if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
-    }
-
-    if ( twoSided )
-    {
-        glDisable( GL_VERTEX_PROGRAM_TWO_SIDE_ARB );
-        // TODO: not good to enable/disable it many times but it is
-        // slow to keep it always enabled
     }
 }
 
