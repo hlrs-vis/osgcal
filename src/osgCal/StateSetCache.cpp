@@ -15,6 +15,7 @@
    License along with this library; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+#include <osg/observer_ptr>
 #include <osg/Texture2D>
 #include <osg/Image>
 #include <osg/BlendFunc>
@@ -33,8 +34,6 @@ using namespace osgCal;
 
 StateSetCache::StateSetCache()
 {
-    //setThreadSafeRefUnref( true );
-
     TexturesCache* texturesCache = new TexturesCache();
     swMeshStateSetCache = new SwMeshStateSetCache( new MaterialsCache(),
                                                    texturesCache );
@@ -62,24 +61,53 @@ StateSetCache::instance()
 
 // -- Caches --
 
+/**
+ * Observer which removes objects from cache when they are no more
+ * used.
+ */
+template < typename Map >
+class CachedObjectObserver : public osg::Observer
+{
+    public:
+        CachedObjectObserver( Map* _map,
+                              const typename Map::key_type& _key,
+                              osg::Referenced* _container )
+            : map( _map )
+            , key( _key )
+            , container( _container )
+        {}
+        
+        virtual void objectDeleted( void* )
+        {
+            //std::cout << "erasing: "/* << key*/ << std::endl;
+            map->erase( key );
+            delete this;
+        }
+
+    private:
+        Map* map;
+        typename Map::key_type key;
+        osg::ref_ptr< osg::Referenced > container;
+};
+
+
 template < typename Key, typename Value, typename Class >
 Value*
-getOrCreate( std::map< Key, osg::ref_ptr< Value > >& map,
-             const Key&                              key,
-             Class*                                  obj,
-             Value*                        ( Class::*create )( const Key& ) )
+getOrCreate( std::map< Key, Value* >& map,
+             const Key&               key,
+             Class*                   obj,
+             Value*        ( Class::*create )( const Key& ) )
 {
-    typename std::map< Key, osg::ref_ptr< Value > >::const_iterator i = map.find( key );
+    typename std::map< Key, Value* >::const_iterator i = map.find( key );
     if ( i != map.end() )
     {
-        return i->second.get();
+        return i->second;
     }
     else
     {
         Value* v = (obj ->* create)( key ); // damn c++!
-        //v->setThreadSafeRefUnref( true );
-        //obj->setThreadSafeRefUnref( true );
         map[ key ] = v;
+        v->addObserver( new CachedObjectObserver< std::map< Key, Value* > >( &map, key, obj ) );
         return v;
     }
 }

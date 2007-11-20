@@ -51,7 +51,7 @@ namespace osgCal
             osg::Material* get( const OsgMaterial& md );
 
         private:
-            typedef std::map< OsgMaterial, osg::ref_ptr< osg::Material > > Map;
+            typedef std::map< OsgMaterial, osg::Material* > Map;
             Map cache;
 
             osg::Material* createMaterial( const OsgMaterial& desc );
@@ -63,7 +63,7 @@ namespace osgCal
             osg::Texture2D* get( const TextureDesc& td );
 
         private:
-            typedef std::map< TextureDesc, osg::ref_ptr< osg::Texture2D > > Map;
+            typedef std::map< TextureDesc, osg::Texture2D* > Map;
             Map cache;
             
             osg::Texture2D* createTexture( const TextureDesc& fileName )
@@ -79,7 +79,7 @@ namespace osgCal
             osg::StateSet* get( const SoftwareMaterial& swsd );
 
         private:
-            typedef std::map< SoftwareMaterial, osg::ref_ptr< osg::StateSet > > Map;
+            typedef std::map< SoftwareMaterial, osg::StateSet* > Map;
 
             Map cache;
             osg::ref_ptr< MaterialsCache > materialsCache;
@@ -103,7 +103,7 @@ namespace osgCal
         private:
             // map from < state desc, bones count >
             typedef std::map< std::pair< Material, int >,
-                              osg::ref_ptr< osg::StateSet > > Map;
+                              osg::StateSet* > Map;
 
             Map cache;
             osg::ref_ptr< SwMeshStateSetCache > swMeshStateSetCache;
@@ -127,7 +127,7 @@ namespace osgCal
 
         private:
             // map from < bone count, sides count > to stateset
-            typedef std::map< std::pair< int, int >, osg::ref_ptr< osg::StateSet > > Map;
+            typedef std::map< std::pair< int, int >, osg::StateSet* > Map;
 
             Map cache;
             osg::ref_ptr< ShadersCache >        shadersCache;

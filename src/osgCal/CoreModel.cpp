@@ -29,8 +29,8 @@ using namespace osgCal;
 CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
-//    stateSetCache = StateSetCache::instance();
-    stateSetCache = new StateSetCache;
+    stateSetCache = StateSetCache::instance();
+//    stateSetCache = new StateSetCache;
 }
 
 CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
@@ -39,8 +39,26 @@ CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
     throw std::runtime_error( "CoreModel copying is not supported" );
 }
 
+#include <cal3d/coretrack.h>
+
 CoreModel::~CoreModel()
 {
+    // TODO: report CoreTrack memory leak problem to cal3d maintainers
+    for ( int i = 0; i < calCoreModel->getCoreAnimationCount(); i++ )
+    {
+        CalCoreAnimation* a = calCoreModel->getCoreAnimation( i );
+        std::list<CalCoreTrack *>& ct = a->getListCoreTrack();
+        for ( std::list<CalCoreTrack *>::iterator
+                  t = ct.begin(),
+                  tEnd = ct.end();
+              t != tEnd; ++t )
+        {
+            (*t)->destroy();
+            delete (*t);
+        }
+        ct.clear();
+    }
+
     // cleanup of non-auto released resources
     delete calCoreModel;
 }
