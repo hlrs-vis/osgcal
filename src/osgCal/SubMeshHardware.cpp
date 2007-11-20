@@ -391,67 +391,6 @@ mul3( const osg::Matrix3& m,
                        m(0,2)*v.x() + m(1,2)*v.y() + m(2,2)*v.z() );
 }
 
-static
-inline
-osg::Matrix3
-operator * ( const osg::Matrix3& m,
-             float s )
-{
-    return osg::Matrix3( m(0,0)*s, m(0,1)*s, m(0,2)*s,
-                         m(1,0)*s, m(1,1)*s, m(1,2)*s,
-                         m(2,0)*s, m(2,1)*s, m(2,2)*s );
-}
-
-static
-inline
-osg::Matrix3&
-operator += ( osg::Matrix3& d,
-              const osg::Matrix3& s )
-{
-    d[0] += s[0];
-    d[1] += s[1];
-    d[2] += s[2];
-    d[3] += s[3];
-    d[4] += s[4];
-    d[5] += s[5];
-    d[6] += s[6];
-    d[7] += s[7];
-    d[8] += s[8];
-    return d;
-}
-
-static
-inline
-osg::Matrix3&
-mulAdd( osg::Matrix3& d,
-        const osg::Matrix3& s,
-        float k )
-{
-    d[0] += s[0] * k;
-    d[1] += s[1] * k;
-    d[2] += s[2] * k;
-    d[3] += s[3] * k;
-    d[4] += s[4] * k;
-    d[5] += s[5] * k;
-    d[6] += s[6] * k;
-    d[7] += s[7] * k;
-    d[8] += s[8] * k;
-    return d;
-}
-
-static
-inline
-osg::Vec3f&
-mulAdd( osg::Vec3f& d,
-        const osg::Vec3f& s,
-        float k )
-{
-    d[0] += s[0] * k;
-    d[1] += s[1] * k;
-    d[2] += s[2] * k;
-    return d;
-}
-
 void
 SubMeshHardware::update()
 {   
@@ -559,21 +498,6 @@ SubMeshHardware::update()
         *v = *sv;                                                       \
     }                                                                   
 
-// #define PROCESS_X( _process_y )                                         
-//     if ( mi->x() != 30 )                                                
-//         /* we have no zero weight vertices they all bound to 30th bone */ 
-//     {                                                                   
-//         osg::Matrix3 rm( rotationTranslationMatrices[mi->x()].first * w->x() ); 
-//         osg::Vec3f   tv( rotationTranslationMatrices[mi->x()].second * w->x() ); 
-//                                                                         
-//         _process_y;                                                     
-//         *v = (mul3(rm, *sv) + tv);                                      
-//     }                                                                   
-//     else                                                                
-//     {                                                                   
-//         *v = *sv;                                                       
-//     }
-
     // Strange, but multiplying each matrix on source vector works
     // faster than accumulating matrix and multiply at the end (as in
     // shader)
@@ -622,31 +546,6 @@ SubMeshHardware::update()
         const osg::Vec3f&   tv = rotationTranslationMatrices[mi->w()].second; \
         *v += (mul3(rm, *sv) + tv) * w->w();                            \
     }
-
-// #define PROCESS_Y( _process_z )                                         
-//     if ( w->y() )                                                       
-//     {                                                                   
-//         mulAdd( rm, rotationTranslationMatrices[mi->y()].first, w->y() ); 
-//         mulAdd( tv, rotationTranslationMatrices[mi->y()].second, w->y() ); 
-//                                                                         
-//         _process_z;                                                     
-//     }                                                       
-
-// #define PROCESS_Z( _process_w )                                         
-//     if ( w->z() )                                                       
-//     {                                                                   
-//         mulAdd( rm, rotationTranslationMatrices[mi->z()].first, w->z() ); 
-//         mulAdd( tv, rotationTranslationMatrices[mi->z()].second, w->z() ); 
-//                                                                         
-//         _process_w;                                                     
-//     }                                                       
-
-// #define PROCESS_W()                                         
-//     if ( w->w() )                                           
-//     {                                                       
-//         mulAdd( rm, rotationTranslationMatrices[mi->w()].first, w->w() ); 
-//         mulAdd( tv, rotationTranslationMatrices[mi->w()].second, w->w() ); 
-//     }
 
 #define STOP
 

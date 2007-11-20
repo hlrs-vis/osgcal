@@ -83,6 +83,9 @@ ShadersCache::get( int flags )
 //         flags |= SHADER_FLAG_BONES(4);
 //     }
 //     BTW, not so much difference between always 4 bone and per-bones count shaders
+    // also it is not working now since we specify bones count as
+    // weight/matrixIndex arrays element size when constructing
+    // display list, so no values for additional bones exists.
 
     if ( flags & SHADER_FLAG_DEPTH_ONLY )
     {
