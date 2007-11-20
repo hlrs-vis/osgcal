@@ -67,12 +67,10 @@ namespace osgCal
             virtual const char* libraryName() const { return "osgCal"; }
             virtual const char* className() const { return "SubMeshHardware"; }
 
-            /**
-             * Creates a submesh for one model given the mesh and submesh of this mesh
-             */
             SubMeshHardware( CoreModel*             coreModel,
                              ModelData*             modelData,
-                             const CoreModel::Mesh* mesh );
+                             const CoreModel::Mesh* mesh,
+                             bool                   useDepthFirstMesh = false );
             ~SubMeshHardware();
 
 
@@ -86,7 +84,6 @@ namespace osgCal
 
             virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
 
-            void create();
             virtual void update();
 
             osg::BoundingBox computeBound() const { return boundingBox; }

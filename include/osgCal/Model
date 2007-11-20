@@ -104,8 +104,8 @@ namespace osgCal {
     // -- Model data --
 
     /**
-     * Contains CalModel and some utility functions. It is separated
-     * from Model to remove circular references from submeshes to
+     * Contains CalModel and skeleton updating functions. It is separated
+     * from Model to remove circular references between submeshes and
      * model.
      */
     class ModelData : public osg::Referenced
@@ -179,7 +179,7 @@ namespace osgCal {
     
     // -- Model --    
     
-    class OSGCAL_EXPORT Model : public osg::Group//osg::Geode
+    class OSGCAL_EXPORT Model : public osg::Group
     {
 
         public:
@@ -198,7 +198,26 @@ namespace osgCal {
                        MeshTyper* meshTyper = 0,
                        MeshFilter* meshFilter = 0 );
 
+            /**
+             * Add core model mesh with specified parameters to model.
+             */
+            void addMesh( const CoreModel::Mesh* mesh,
+                          MeshType meshType = MT_HARDWARE,
+                          bool useDepthFirstMesh = false );
+
+            /**
+             * Add user node to specified bone.
+             */
+            void addNode( int boneId,
+                          osg::Node* node );
+            /**
+             * Add user drawable to specified bone.
+             */
+            void addDrawable( int boneId,
+                              osg::Drawable* drawable );
+
             CoreModel* getCoreModel() { return coreModelReference.get(); }
+            ModelData* getModelData() { return modelData.get(); }
 
             /**
              * Update meshes.

@@ -48,31 +48,6 @@ SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
     setUseVertexBufferObjects( false ); // false is default
     setStateSet( mesh->stateSets->software.get() );
 
-    create();
-
-    setUserData( getStateSet() /*any referenced*/ );
-    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
-}
-
-osg::Object*
-SubMeshSoftware::cloneType() const
-{
-    throw std::runtime_error( "cloneType() is not implemented" );
-}
-
-osg::Object*
-SubMeshSoftware::clone( const osg::CopyOp& ) const
-{
-    throw std::runtime_error( "clone() is not implemented" );
-}
-
-SubMeshSoftware::~SubMeshSoftware()
-{
-}
-
-void
-SubMeshSoftware::create()
-{
     if ( !mesh->data->normalBuffer.valid() )
     {
         throw std::runtime_error( "no normal buffer exists for software mesh, "
@@ -99,6 +74,25 @@ SubMeshSoftware::create()
     addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
 
     boundingBox = mesh->data->boundingBox;
+
+    setUserData( getStateSet() /*any referenced*/ );
+    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
+}
+
+osg::Object*
+SubMeshSoftware::cloneType() const
+{
+    throw std::runtime_error( "cloneType() is not implemented" );
+}
+
+osg::Object*
+SubMeshSoftware::clone( const osg::CopyOp& ) const
+{
+    throw std::runtime_error( "clone() is not implemented" );
+}
+
+SubMeshSoftware::~SubMeshSoftware()
+{
 }
 
 static

@@ -31,14 +31,13 @@ using namespace osgCal;
 
 SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
                                   ModelData*             _modelData,
-                                  const CoreModel::Mesh* _mesh )
+                                  const CoreModel::Mesh* _mesh,
+                                  bool                   useDepthFirstMesh )
     : coreModel( _coreModel )
     , modelData( _modelData )
     , mesh( _mesh )
     , deformed( false )
 {   
-    //setThreadSafeRefUnref( true );
-
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     // ^ no display lists since we create them manually
@@ -50,16 +49,27 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     // changed to skinning (in update() method when some animation
     // starts.
 
-    create();
+    if ( mesh->data->rigid )
+    {
+        setVertexArray( mesh->data->vertexBuffer.get() );
+    }
+    else
+    {
+        setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+    }
 
-// its too expensive to create different stateset for each submesh
-// which (stateset) differs only in two uniforms
-// its better to set them in drawImplementation
-//     setStateSet( new osg::StateSet( *mesh->stateSets->hardware.get(), osg::CopyOp::SHALLOW_COPY ) );
-//     getStateSet()->addUniform( new osg::Uniform( osg::Uniform::FLOAT_VEC3, "translationVectors",
-//                                                  30 /*OSGCAL_MAX_BONES_PER_MESH*/ ) );
-//     getStateSet()->addUniform( new osg::Uniform( osg::Uniform::FLOAT_MAT3, "rotationMatrices",
-//                                                  30 /*OSGCAL_MAX_BONES_PER_MESH*/ ) );
+    addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
+
+    boundingBox = mesh->data->boundingBox;
+
+    // create depth submesh for non-transparent meshes
+    if ( useDepthFirstMesh
+         &&
+         !(mesh->stateSets->staticHardware.get()->getRenderingHint()
+           & osg::StateSet::TRANSPARENT_BIN) )
+    {
+        depthSubMesh = new SubMeshDepth( this ); 
+    }
 
     setUserData( getStateSet() /*any referenced*/ );
     // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
@@ -352,32 +362,6 @@ SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 
     delete[] matrixIndexBuffer;
     delete[] weightBuffer;
-}
-
-void
-SubMeshHardware::create()
-{
-    if ( mesh->data->rigid )
-    {
-        setVertexArray( mesh->data->vertexBuffer.get() );
-    }
-    else
-    {
-        setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
-    }
-
-    addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
-
-    boundingBox = mesh->data->boundingBox;
-
-    // create depth submesh for non-transparent meshes
-    if ( (coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES)
-         &&
-         !(mesh->stateSets->staticHardware.get()->getRenderingHint()
-           & osg::StateSet::TRANSPARENT_BIN) )
-    {
-        depthSubMesh = new SubMeshDepth( this ); 
-    }
 }
 
 static

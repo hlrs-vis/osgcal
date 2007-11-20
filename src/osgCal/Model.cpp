@@ -162,7 +162,7 @@ Model::load( CoreModel* coreModel,
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
         const CoreModel::Mesh& mesh = *(coreModel->getMeshes()[i]);
-        
+
         if ( meshFilter != NULL && meshFilter->filter( mesh ) == false )
         {
             continue;
@@ -321,6 +321,25 @@ Model::load( CoreModel* coreModel,
     updatableMeshes.swap( updatableMeshes ); // trim vector
 }
 
+
+void
+Model::addMesh( const CoreModel::Mesh* mesh,
+                MeshType meshType,
+                bool useDepthFirstMesh )
+{
+}
+
+void
+Model::addNode( int boneId,
+                osg::Node* node )
+{
+}
+
+void
+Model::addDrawable( int boneId,
+                    osg::Drawable* drawable )
+{
+}
 
 void
 Model::accept( osg::NodeVisitor& nv )
@@ -496,7 +515,7 @@ ModelData::update( float deltaTime )
         }
         s += ( t - b->translation ).length2();
 
-        if ( s < 1e-7 ) // usually 1e-8..1e-10
+        if ( s < 1e-7 ) // usually 1e-11..1e-12
         {
             b->changed = false;
         }
@@ -508,7 +527,8 @@ ModelData::update( float deltaTime )
             b->translation = t;
         }
         
-//         std::cout << "quaternion: "
+//         std::cout << "bone: " << b->bone->getCoreBone()->getName() << std::endl
+//                   << "quaternion: "
 //                   << rotation.x << ' '
 //                   << rotation.y << ' '
 //                   << rotation.z << ' '
@@ -516,7 +536,9 @@ ModelData::update( float deltaTime )
 //                   << "translation: "
 //                   << t.x() << ' ' << t.y() << ' ' << t.z()
 //                   << "; len = " << t.length()
-//                   << "; r = " << r // << std::endl
+//                   << "; s = " << s // << std::endl
+//                   << "; changed = " << b->changed // << std::endl
+//                   << "; deformed = " << b->deformed // << std::endl
 // //                  << "len / bbox.radius = " << translation.length() / boundingBox.radius()
 //                   << std::endl;
     }
