@@ -127,7 +127,7 @@ Model::~Model()
 // }
 
 void
-Model::load( CoreModel* coreModel,
+Model::load( CoreModel* _coreModel,
              MeshTyper* meshTyper,
              MeshFilter* meshFilter )
 {
@@ -136,7 +136,7 @@ Model::load( CoreModel* coreModel,
         throw std::runtime_error( "Model already load" );
     }
 
-    coreModelReference = coreModel; // save to not destroy core animations
+    coreModel = _coreModel;
 
     CalModel* calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
@@ -157,127 +157,18 @@ Model::load( CoreModel* coreModel,
     }
 
     // -- Process meshes --
-    osg::ref_ptr< osg::Geode > geode( new osg::Geode );
     
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
-        const CoreModel::Mesh& mesh = *(coreModel->getMeshes()[i]);
+        const CoreModel::Mesh* mesh = coreModel->getMeshes()[i].get();
 
-        if ( meshFilter != NULL && meshFilter->filter( mesh ) == false )
+        if ( meshFilter != NULL && meshFilter->filter( *mesh ) == false )
         {
             continue;
         }
 
-        osg::Geometry* g = 0;
-        osg::Drawable* depthSubMesh = 0;
-
-        switch ( meshTyper->type( mesh ) )
-        {
-            case MT_HARDWARE:
-            {
-                SubMeshHardware* smhw = new SubMeshHardware( coreModel, modelData.get(), &mesh );
-
-                g = smhw;
-                depthSubMesh = smhw->getDepthSubMesh();
-
-                // -- Add shader state sets for compilation --
-                usedStateSets[ mesh.stateSets->staticHardware.get() ] = true;
-
-                if ( !mesh.data->rigid )
-                {
-                    usedStateSets[ mesh.stateSets->hardware.get() ] = true;
-                }
-
-                if ( depthSubMesh )
-                {
-                    usedStateSets[ mesh.stateSets->staticDepthOnly.get() ] = true;
-                    if ( !mesh.data->rigid )
-                    {
-                        usedStateSets[ mesh.stateSets->depthOnly.get() ] = true;
-                    }
-                }
-                break;
-            }
-
-            case MT_SOFTWARE:
-                g = new SubMeshSoftware( coreModel, modelData.get(), &mesh );
-                usedStateSets[ mesh.stateSets->software.get() ] = true;
-                break;
-
-            default:
-                throw std::runtime_error( "Model::load - unknown mesh type" );
-        }
-
-        g->setName( mesh.data->name ); // for debug only, TODO: subject to remove
-
-        if ( mesh.data->rigid )
-        {
-            g->setDataVariance( STATIC );
-        }
-        else
-        {            
-            g->setDataVariance( DYNAMIC );
-            // ^ No drawing during updates. Otherwise there will be a
-            // crash in multithreaded osgViewer modes
-            // (first reported by Jan Ciger)
-        }
-
-        if ( depthSubMesh )
-        {
-            depthSubMesh->setDataVariance( g->getDataVariance() );
-        }
-
-        meshes[ mesh.data->name ] = g;
-
-        if ( mesh.data->rigid == false )
-        {
-            updatableMeshes.push_back( dynamic_cast< Updatable* >( g ) );
-        }
-
-        if ( mesh.data->rigid == false // deformable
-             || (mesh.data->rigid && mesh.data->rigidBoneId == -1) // unrigged
-             )
-        {
-            geode->addDrawable( g );
-            if ( depthSubMesh )
-            {
-                geode->addDrawable( depthSubMesh );
-            }
-        }
-        else
-        {
-            // for rigged rigid meshes we use bone
-            // transform w/o per-vertex transformations
-            std::map< int, osg::MatrixTransform* >::iterator
-                boneMT = rigidTransforms.find( mesh.data->rigidBoneId );
-
-            osg::MatrixTransform* mt = 0;
-                
-            if ( boneMT != rigidTransforms.end() )
-            {
-                // use ready bone matrix transform
-                mt = boneMT->second;
-            }
-            else
-            {
-                // create new matrix transform for bone
-                mt = new osg::MatrixTransform;
-
-                mt->setDataVariance( DYNAMIC );            
-                mt->setMatrix( osg::Matrix::identity() );
-
-                addChild( mt );
-                rigidTransforms[ mesh.data->rigidBoneId ] = mt;
-
-                mt->addChild( new osg::Geode );
-            }
-
-            static_cast< osg::Geode* >( mt->getChild( 0 ) )->addDrawable( g );
-            if ( depthSubMesh )
-            {
-                static_cast< osg::Geode* >( mt->getChild( 0 ) )->addDrawable( depthSubMesh );
-            }
-        }
+        addMesh( mesh, meshTyper->type( *mesh ),
+                 coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES );
     }
 
     meshTyper->unref();
@@ -312,12 +203,6 @@ Model::load( CoreModel* coreModel,
 //         geode->addDrawable( linesDrawable( n, osg::Vec3( 0.0, 0.0, 1.0 ) ) );
 //     }
 
-    // -- Add resulting geodes --
-    if ( geode.valid() && geode->getNumDrawables() > 0 )
-    {
-        addChild( geode.get() );
-    }
-
     updatableMeshes.swap( updatableMeshes ); // trim vector
 }
 
@@ -327,18 +212,165 @@ Model::addMesh( const CoreModel::Mesh* mesh,
                 MeshType meshType,
                 bool useDepthFirstMesh )
 {
+    osg::Drawable* g = 0;
+    osg::Drawable* depthSubMesh = 0;
+
+    // -- Create mesh drawable --
+    switch ( meshType )
+    {
+        case MT_HARDWARE:
+        {
+            SubMeshHardware* smhw = new SubMeshHardware( coreModel.get(), modelData.get(), mesh,
+                                                         useDepthFirstMesh );
+
+            g = smhw;
+            depthSubMesh = smhw->getDepthSubMesh();
+
+            // -- Add shader state sets for compilation --
+            usedStateSets[ mesh->stateSets->staticHardware.get() ] = true;
+
+            if ( !mesh->data->rigid )
+            {
+                usedStateSets[ mesh->stateSets->hardware.get() ] = true;
+            }
+
+            if ( depthSubMesh )
+            {
+                usedStateSets[ mesh->stateSets->staticDepthOnly.get() ] = true;
+                if ( !mesh->data->rigid )
+                {
+                    usedStateSets[ mesh->stateSets->depthOnly.get() ] = true;
+                }
+            }
+            break;
+        }
+
+        case MT_SOFTWARE:
+            g = new SubMeshSoftware( coreModel.get(), modelData.get(), mesh );
+            usedStateSets[ mesh->stateSets->software.get() ] = true;
+            break;
+
+        default:
+            throw std::runtime_error( "Model::addMesh - unknown mesh type" );
+    }
+
+    // -- Remember drawable --
+    g->setName( mesh->data->name ); // for debug only, TODO: subject to remove
+    meshes[ mesh->data->name ].push_back( g );
+
+    // -- Setup data variance --
+    if ( mesh->data->rigid )
+    {
+        g->setDataVariance( STATIC );
+    }
+    else
+    {            
+        g->setDataVariance( DYNAMIC );
+        // ^ No drawing during updates. Otherwise there will be a
+        // crash in multithreaded osgCalViewer modes
+        // (first reported by Jan Ciger)
+    }
+
+    if ( depthSubMesh )
+    {
+        depthSubMesh->setDataVariance( g->getDataVariance() );
+    }
+
+    // -- Remember Updatable (and update) --
+    if ( mesh->data->rigid == false )
+    {
+        Updatable* u = dynamic_cast< Updatable* >( g );
+        u->update();
+        updatableMeshes.push_back( u );
+    }
+
+    // -- Add to geode or bone matrix transform --
+    if ( mesh->data->rigid == false // deformable
+         || (mesh->data->rigid && mesh->data->rigidBoneId == -1) // unrigged
+        )
+    {
+        if ( !geode.valid() )
+        {
+            geode = new osg::Geode;
+            addChild( geode.get() );
+        }
+        
+        geode->addDrawable( g );
+        if ( depthSubMesh )
+        {
+            geode->addDrawable( depthSubMesh );
+        }
+    }
+    else
+    {
+        TransformAndGeode& tg = getOrCreateTransformAndGeode( mesh->data->rigidBoneId );
+
+        if ( tg.second == NULL ) // no geode created yet
+        {
+            tg.second = new osg::Geode;
+            tg.first->addChild( tg.second );
+        }
+
+        tg.second->addDrawable( g );
+        if ( depthSubMesh )
+        {
+            tg.second->addDrawable( depthSubMesh );
+        }
+    }
+}
+
+Model::TransformAndGeode&
+Model::getOrCreateTransformAndGeode( int boneId )
+{
+    // for rigged rigid meshes we use bone
+    // transform w/o per-vertex transformations
+    RigidTransformsMap::iterator
+        boneMT = rigidTransforms.find( boneId );
+
+    if ( boneMT != rigidTransforms.end() )
+    {
+        // use ready bone matrix transform
+        return boneMT->second;
+    }
+    else
+    {
+        // create new matrix transform for bone
+        osg::MatrixTransform* mt = new osg::MatrixTransform;
+
+        mt->setDataVariance( DYNAMIC );            
+        mt->setMatrix( modelData->getBoneMatrix( boneId ) );
+
+        addChild( mt );
+
+        return rigidTransforms.insert(
+            RigidTransformsMap::value_type( boneId,
+                                            std::make_pair( mt, (osg::Geode*)NULL ) )
+            ).first->second;
+        // we only create MatrixTransform here, no geode is added, hence NULL
+    }
 }
 
 void
 Model::addNode( int boneId,
                 osg::Node* node )
 {
+    TransformAndGeode& tg = getOrCreateTransformAndGeode( boneId );
+    tg.first->addChild( node );
 }
 
 void
 Model::addDrawable( int boneId,
                     osg::Drawable* drawable )
 {
+    TransformAndGeode& tg = getOrCreateTransformAndGeode( boneId );
+
+    if ( tg.second == NULL ) // no geode created yet
+    {
+        tg.second = new osg::Geode;
+        tg.first->addChild( tg.second );
+    }
+
+    tg.second->addDrawable( drawable );
 }
 
 void
@@ -395,7 +427,7 @@ Model::update( double deltaTime )
     {
         if ( modelData->getBoneParams( t->first ).changed )
         {
-            t->second->setMatrix( modelData->getBoneMatrix( t->first ) );
+            t->second.first->setMatrix( modelData->getBoneMatrix( t->first ) );
         }
     }
 }
@@ -415,21 +447,23 @@ Model::clearCycle( int id,
     modelData->getCalMixer()->clearCycle( id, delay );
 }
 
-osg::Geometry*
-Model::getMesh( const std::string& name ) const throw (std::runtime_error)
+const Model::MeshesList&
+Model::getMeshes( const std::string& name ) const throw (std::runtime_error)
 {
     MeshMap::const_iterator i = meshes.find( name );
 
     if ( i != meshes.end() )
     {
-        return i->second.get();
+        return i->second;
     }
     else
     {
-        throw std::runtime_error( "Model::getMesh - can't find mesh \"" + name + "\"" );
+        throw std::runtime_error( "Model::getMeshes - can't find mesh \"" + name + "\"" );
     }
 }
 
+
+// -- ModelData --
 
 ModelData::ModelData( CalModel* cm )
     : calModel( cm )

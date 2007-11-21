@@ -101,6 +101,122 @@ namespace osgCal {
             bool filter( const CoreModel::Mesh& mesh ) { return mesh.data->name == meshName; }
     };
 
+
+    // -- Model --    
+    
+    class ModelData; // forward declaration, see after Model
+
+    class OSGCAL_EXPORT Model : public osg::Group
+    {
+
+        public:
+
+            META_Object(osgCal, Model);
+
+            Model();
+
+        public:
+
+            /**
+             * Create model from core model.
+             * This function may be called only once.
+             */
+            void load( CoreModel* coreModel,
+                       MeshTyper* meshTyper = 0,
+                       MeshFilter* meshFilter = 0 );
+
+            /**
+             * Add core model mesh with specified parameters to model.
+             */
+            void addMesh( const CoreModel::Mesh* mesh,
+                          MeshType meshType = MT_HARDWARE,
+                          bool useDepthFirstMesh = false );
+
+            /**
+             * Add user node to specified bone.
+             */
+            void addNode( int boneId,
+                          osg::Node* node );
+            /**
+             * Add user drawable to specified bone.
+             */
+            void addDrawable( int boneId,
+                              osg::Drawable* drawable );
+
+            CoreModel* getCoreModel() { return coreModel.get(); }
+            ModelData* getModelData() { return modelData.get(); }
+
+            /**
+             * Update meshes.
+             */
+            void update( double deltaTime );
+
+            /**
+             * Blend animation cycle to the specified weight
+             * in specified time.
+             */
+            void blendCycle( int id,
+                             float weight,
+                             float delay );
+
+            /**
+             * Clear animation cycle in specified amount of time.
+             */
+            void clearCycle( int id,
+                             float delay );
+
+            typedef std::vector< osg::Drawable* > MeshesList;
+
+            /**
+             * Return list of meshes corresponding to specified name.
+             */
+            const MeshesList& getMeshes( const std::string& name ) const
+                throw (std::runtime_error);
+
+            /**
+             * For compiling display lists when accept osgUtil::GLObjectsVisitor.
+             */
+            virtual void accept( osg::NodeVisitor& nv );
+
+        protected:
+
+            virtual ~Model();
+
+        private:
+
+            Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
+
+            osg::ref_ptr< CoreModel >   coreModel;
+            osg::ref_ptr< ModelData >   modelData;
+
+            typedef std::map< std::string, MeshesList > MeshMap;
+
+            MeshMap                     meshes;
+
+            /**
+             * Geode where deformable or non-rigged objects are placed.
+             */
+            osg::ref_ptr< osg::Geode >  geode;
+
+            // we use matrix transforms for rigid meshes and user nodes/drawables,
+            // one transform per bone
+            typedef std::pair< osg::MatrixTransform*, osg::Geode* > TransformAndGeode;
+            typedef std::map< int, TransformAndGeode > RigidTransformsMap;
+
+            RigidTransformsMap          rigidTransforms;
+
+            TransformAndGeode& getOrCreateTransformAndGeode( int boneId );
+
+            std::vector< Updatable* >   updatableMeshes;
+
+            /**
+             * Map of used state sets for compilation when
+             * GLObjectsVisitor is applied to model.
+             */
+            std::map< osg::StateSet*, bool > usedStateSets;
+
+    };
+
     // -- Model data --
 
     /**
@@ -177,106 +293,6 @@ namespace osgCal {
             BoneParamsVector            bones;
     };
     
-    // -- Model --    
-    
-    class OSGCAL_EXPORT Model : public osg::Group
-    {
-
-        public:
-
-            META_Object(osgCal, Model);
-
-            Model();
-
-        public:
-
-            /**
-             * Create model from core model.
-             * This function may be called only once.
-             */
-            void load( CoreModel* coreModel,
-                       MeshTyper* meshTyper = 0,
-                       MeshFilter* meshFilter = 0 );
-
-            /**
-             * Add core model mesh with specified parameters to model.
-             */
-            void addMesh( const CoreModel::Mesh* mesh,
-                          MeshType meshType = MT_HARDWARE,
-                          bool useDepthFirstMesh = false );
-
-            /**
-             * Add user node to specified bone.
-             */
-            void addNode( int boneId,
-                          osg::Node* node );
-            /**
-             * Add user drawable to specified bone.
-             */
-            void addDrawable( int boneId,
-                              osg::Drawable* drawable );
-
-            CoreModel* getCoreModel() { return coreModelReference.get(); }
-            ModelData* getModelData() { return modelData.get(); }
-
-            /**
-             * Update meshes.
-             */
-            void update( double deltaTime );
-
-            /**
-             * Blend animation cycle to the specified weight
-             * in specified time.
-             */
-            void blendCycle( int id,
-                             float weight,
-                             float delay );
-
-            /**
-             * Clear animation cycle in specified amount of time.
-             */
-            void clearCycle( int id,
-                             float delay );
-
-            osg::Geometry* getMesh( const std::string& name ) const throw (std::runtime_error);
-            // TODO: return list of geometries
-
-            /**
-             * For compiling display lists when accept osgUtil::GLObjectsVisitor.
-             */
-            virtual void accept( osg::NodeVisitor& nv );
-
-        protected:
-
-            virtual ~Model();
-
-        private:
-
-            Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
-
-            /**
-             * Needed to not destroy animations and caches while model exists.
-             */
-            osg::ref_ptr< CoreModel >   coreModelReference;
-            osg::ref_ptr< ModelData >   modelData;
-
-            typedef std::map< std::string, osg::ref_ptr< osg::Geometry > > MeshMap;
-
-            MeshMap                     meshes;
-
-            // we use matrix transforms for rigid meshes, one transform per bone
-            typedef std::map< int, osg::MatrixTransform* > RigidTransformsMap;
-            RigidTransformsMap          rigidTransforms;
-            std::vector< Updatable* >   updatableMeshes;
-
-            /**
-             * Map of used state sets for compilation when
-             * GLObjectsVisitor is applied to model.
-             */
-            std::map< osg::StateSet*, bool > usedStateSets;
-
-    };
-
 }; // namespace osgCal
 
 #endif

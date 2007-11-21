@@ -47,12 +47,12 @@ namespace osgCal
 
             enum LoadFlags
             {
-//                 /**
-//                  * Draw meshes to depth buffer first, then draw meshes
-//                  * with pixel shaders (useful if pixel shading is a
-//                  * bottleneck).
-//                  */
-//                 USE_DEPTH_FIRST_MESHES = 0x2,
+                /**
+                 * Draw meshes to depth buffer first, then draw meshes
+                 * with pixel shaders (useful if pixel shading is a
+                 * bottleneck).
+                 */
+                USE_DEPTH_FIRST_MESHES = 0x2,
 
                 /**
                  * Show Tangent-Binormal-Normal basis.
