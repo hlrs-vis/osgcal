@@ -44,7 +44,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     
     setUseVertexBufferObjects( false ); // false is default
 
-    setStateSet( mesh->stateSets->staticHardware.get() );
+    setStateSet( mesh->stateSets->staticHardware[ useDepthFirstMesh ].get() );
     // Initially we use static (not skinning) state set. It will
     // changed to skinning (in update() method when some animation
     // starts.
@@ -65,7 +65,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     // create depth submesh for non-transparent meshes
     if ( useDepthFirstMesh
          &&
-         !(mesh->stateSets->staticHardware.get()->getRenderingHint()
+         !(mesh->stateSets->staticHardware[0].get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) )
     {
         depthSubMesh = new SubMeshDepth( this ); 
@@ -252,6 +252,27 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 }
 
 void
+SubMeshHardware::accept( osgUtil::GLObjectsVisitor* glv )
+{
+    glv->apply( *mesh->stateSets->staticHardware[depthSubMesh.valid()].get() );
+
+    if ( !mesh->data->rigid )
+    {
+        glv->apply( *mesh->stateSets->hardware[depthSubMesh.valid()].get() );
+    }
+
+    if ( depthSubMesh.valid() )
+    {
+        glv->apply( *mesh->stateSets->staticDepthOnly.get() );
+
+        if ( !mesh->data->rigid )
+        {
+            glv->apply( *mesh->stateSets->depthOnly.get() );
+        }
+    }
+}
+
+void
 SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
                                           GLuint               displayList ) const
 {   
@@ -406,11 +427,11 @@ SubMeshHardware::update()
 //    std::cout << "deformed = " << deformed << std::endl;
     if ( deformed )
     {
-        setStateSet( mesh->stateSets->hardware.get() );
+        setStateSet( mesh->stateSets->hardware[depthSubMesh.valid()].get() );
     }
     else
     {
-        setStateSet( mesh->stateSets->staticHardware.get() );
+        setStateSet( mesh->stateSets->staticHardware[depthSubMesh.valid()].get() );
         // for undeformed meshes we use static state set which not
         // perform vertex, normal, binormal and tangent deformations
         // in vertex shader

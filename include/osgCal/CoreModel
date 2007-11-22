@@ -48,13 +48,6 @@ namespace osgCal
             enum LoadFlags
             {
                 /**
-                 * Draw meshes to depth buffer first, then draw meshes
-                 * with pixel shaders (useful if pixel shading is a
-                 * bottleneck).
-                 */
-                USE_DEPTH_FIRST_MESHES = 0x2,
-
-                /**
                  * Show Tangent-Binormal-Normal basis.
                  */
                 SHOW_TBN = 0x10, // TODO: restore it
@@ -81,10 +74,14 @@ namespace osgCal
                               std::string&       errorText,
                               int                flags = 0 ) throw ();
 
-            CalCoreModel* getCalCoreModel() const  { return calCoreModel; }
+            CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
 
-            int           getFlags()        const  { return flags; }
+            int            getFlags()         const  { return flags; }
+            StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
 
+            /**
+             * List of state sets used by Model's meshes
+             */
             struct MeshStateSets : public osg::Referenced
             {
                 public:
@@ -94,13 +91,20 @@ namespace osgCal
                     
                     osg::ref_ptr< osg::StateSet >   software; ///< software state set
 
-                    osg::ref_ptr< osg::StateSet >   hardware;
-                    osg::ref_ptr< osg::StateSet >   staticHardware; ///< zero bones state set
+                    /**
+                     * First element -- w/o depth mesh, second -- with one.
+                     */
+                    osg::ref_ptr< osg::StateSet >   hardware[2];
+                    osg::ref_ptr< osg::StateSet >   staticHardware[2]; ///< zero bones state set
 
                     osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
                     osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
             };
 
+            /**
+             * Mesh geometry display lists. Display lists are created
+             * one per CoreModel::Mesh, not per Model's submesh
+             */
             struct MeshDisplayLists : public osg::Referenced
             {
                 public:
@@ -134,14 +138,29 @@ namespace osgCal
                     void checkAllDisplayListsCompiled( MeshData* data ) const;
 
             };
-            
+
+            /**
+             * Cal3d mesh prepared for fast creation.
+             */
             struct Mesh : public osg::Referenced
             {
                 public:
 
-                    Mesh( const Material& m )
-                        : material( m )
-                    {}
+                    /**
+                     * Creation of fresh mesh from data and material.
+                     * New display list is created in this case.
+                     */
+                    Mesh( const CoreModel* model,
+                          MeshData*        data,
+                          const Material&  material );
+
+                    /**
+                     * Creation of mesh with new material.
+                     * Display list is shared in this case.
+                     */
+                    Mesh( const CoreModel* model,
+                          const Mesh* mesh,
+                          const Material& newMaterial );
 
                     /**
                      * Mutable since we free some data after display lists compiled.

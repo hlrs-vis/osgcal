@@ -125,24 +125,10 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
               meshDataEnd = meshesData.end();
           meshData != meshDataEnd; ++meshData )
     {
-        // -- Setup some fields --
-        Mesh* m = new Mesh( Material( (*meshData)->coreMaterial, dir ) );
+        Mesh* m = new Mesh( this,
+                            (*meshData).get(),
+                            Material( (*meshData)->coreMaterial, dir ) );
 
-        m->data = meshData->get();
-        m->displayLists = new MeshDisplayLists;
-        m->stateSets = new MeshStateSets( stateSetCache.get(),
-                                          m->material,
-                                          m->data.get() );
-
-//         m->setThreadSafeRefUnref( true );
-//         m->data->setThreadSafeRefUnref( true );
-//         m->data->indexBuffer->setThreadSafeRefUnref( true );
-//         m->data->vertexBuffer->setThreadSafeRefUnref( true );
-//         m->data->normalBuffer->setThreadSafeRefUnref( true );
-//         m->displayLists->setThreadSafeRefUnref( true );
-//         m->stateSets->setThreadSafeRefUnref( true );        
-
-        // -- Done with mesh --
         meshes.push_back( m );
 
         osg::notify( osg::INFO )
@@ -184,12 +170,14 @@ CoreModel::MeshStateSets::MeshStateSets( StateSetCache*  c,
                                          const Material& m,
                                          const MeshData* d )
     : software( c->swMeshStateSetCache->get( *static_cast< const SoftwareMaterial* >( &m ) ) )
-    , staticHardware( c->hwMeshStateSetCache->get( m, 0 ) )
     , staticDepthOnly( c->depthMeshStateSetCache->get( m, 0 ) )
 {
+    staticHardware[ 0 ] = c->hwMeshStateSetCache->get( m, 0, false );
+    staticHardware[ 1 ] = c->hwMeshStateSetCache->get( m, 0, true );
     if ( d->rigid == false )
     {
-        hardware = c->hwMeshStateSetCache->get( m, d->maxBonesInfluence );
+        hardware[ 0 ] = c->hwMeshStateSetCache->get( m, d->maxBonesInfluence, false );
+        hardware[ 1 ] = c->hwMeshStateSetCache->get( m, d->maxBonesInfluence, true );
         depthOnly = c->depthMeshStateSetCache->get( m, d->maxBonesInfluence );
     }
 }
@@ -232,6 +220,30 @@ CoreModel::MeshDisplayLists::checkAllDisplayListsCompiled( MeshData* data ) cons
     data->normalBuffer = 0;
     data->texCoordBuffer = 0;
     data->tangentAndHandednessBuffer = 0;
+}
+
+CoreModel::Mesh::Mesh( const CoreModel* model,
+                       MeshData*        _data,
+                       const Material&  _material )
+    : data( _data )
+    , material( _material )
+    , displayLists( new MeshDisplayLists )
+    , stateSets( new MeshStateSets( model->getStateSetCache(),
+                                    _material,
+                                    _data ) )
+{
+}
+
+CoreModel::Mesh::Mesh( const CoreModel* model,
+                       const Mesh* mesh,
+                       const Material& newMaterial )
+    : data( mesh->data.get() )
+    , material( newMaterial )
+    , displayLists( mesh->displayLists.get() )
+    , stateSets( new MeshStateSets( model->getStateSetCache(),
+                                    newMaterial,
+                                    mesh->data.get() ) )
+{
 }
 
 

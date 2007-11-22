@@ -21,6 +21,7 @@
 #include <osg/Version>
 #include <osg/Geometry>
 #include <osg/PrimitiveSet>
+#include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Export>
 #include <osgCal/CoreModel>
@@ -101,6 +102,11 @@ namespace osgCal
              * buffer that must not be transformed for each model.
              */
             virtual bool supports( const AttributeFunctor& ) { return false; }
+
+            /**
+             * For compiling all statesets when Model accepts osgUtil::GLObjectsVisitor.
+             */
+            virtual void accept( osgUtil::GLObjectsVisitor* glv );
 
         private:
 

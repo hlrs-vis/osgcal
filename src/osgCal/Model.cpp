@@ -19,20 +19,11 @@
 #include <cal3d/model.h>
 
 #include <osg/Notify>
-#include <osg/BlendFunc>
-#include <osg/Image>
-#include <osg/Material>
 #include <osg/NodeCallback>
-#include <osg/ShapeDrawable>
-#include <osg/TexEnv>
-#include <osg/TexGen>
-#include <osg/TexEnv>
-#include <osg/TexMat>
-#include <osg/Texture2D>
 #include <osg/Timer>
+#include <osg/Geode>
 #include <osg/MatrixTransform>
 #include <osg/io_utils>
-#include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Model>
 #include <osgCal/SubMeshHardware>
@@ -95,8 +86,7 @@ class CalUpdateCallback: public osg::NodeCallback
 
 Model::Model()
 {
-//    setThreadSafeRefUnref( true ); 
-//    ^ not needed, since the model is not shared data
+    setDataVariance( DYNAMIC ); // we can add or remove objects dynamically
 }
 
 Model::Model( const Model&, const osg::CopyOp& )
@@ -127,9 +117,8 @@ Model::~Model()
 // }
 
 void
-Model::load( CoreModel* _coreModel,
-             MeshTyper* meshTyper,
-             MeshFilter* meshFilter )
+Model::load( CoreModel*      _coreModel,
+             BasicMeshAdder* _meshAdder )
 {
     if ( modelData.valid() )
     {
@@ -142,36 +131,18 @@ Model::load( CoreModel* _coreModel,
     calModel->update( 0 );
 
     modelData = new ModelData( calModel );
-    //modelData->setThreadSafeRefUnref( true );
 
     setUpdateCallback( new CalUpdateCallback() );
-//    setUserData( cm ); // <- maybe this helps to not FLATTEN_STATIC_TRANSFORMS?
 
-    if ( meshTyper == 0 )
-    {
-        meshTyper = new AllMeshesHardware();
-    }
-    else
-    {
-        meshTyper->ref();
-    }
+    osg::ref_ptr< BasicMeshAdder > meshAdder( _meshAdder ? _meshAdder :
+                                              new DefaultMeshAdder );
 
     // -- Process meshes --
     
     for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
     {
-        const CoreModel::Mesh* mesh = coreModel->getMeshes()[i].get();
-
-        if ( meshFilter != NULL && meshFilter->filter( *mesh ) == false )
-        {
-            continue;
-        }
-
-        addMesh( mesh, meshTyper->type( *mesh ),
-                 coreModel->getFlags() & CoreModel::USE_DEPTH_FIRST_MESHES );
+        meshAdder->add( this, coreModel->getMeshes()[i].get() );
     }
-
-    meshTyper->unref();
 
 //     // -- TBN debug --
 //     if ( coreModel->getFlags() & CoreModel::SHOW_TBN )
@@ -222,32 +193,15 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         {
             SubMeshHardware* smhw = new SubMeshHardware( coreModel.get(), modelData.get(), mesh,
                                                          useDepthFirstMesh );
+            hardwareMeshes.push_back( smhw );
 
             g = smhw;
             depthSubMesh = smhw->getDepthSubMesh();
-
-            // -- Add shader state sets for compilation --
-            usedStateSets[ mesh->stateSets->staticHardware.get() ] = true;
-
-            if ( !mesh->data->rigid )
-            {
-                usedStateSets[ mesh->stateSets->hardware.get() ] = true;
-            }
-
-            if ( depthSubMesh )
-            {
-                usedStateSets[ mesh->stateSets->staticDepthOnly.get() ] = true;
-                if ( !mesh->data->rigid )
-                {
-                    usedStateSets[ mesh->stateSets->depthOnly.get() ] = true;
-                }
-            }
             break;
         }
 
         case MT_SOFTWARE:
             g = new SubMeshSoftware( coreModel.get(), modelData.get(), mesh );
-            usedStateSets[ mesh->stateSets->software.get() ] = true;
             break;
 
         default:
@@ -292,6 +246,7 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         if ( !geode.valid() )
         {
             geode = new osg::Geode;
+            geode->setDataVariance( DYNAMIC ); // we can add or remove nodes dynamically
             addChild( geode.get() );
         }
         
@@ -308,6 +263,7 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         if ( tg.second == NULL ) // no geode created yet
         {
             tg.second = new osg::Geode;
+            tg.second->setDataVariance( DYNAMIC ); // we can add or remove nodes dynamically
             tg.first->addChild( tg.second );
         }
 
@@ -337,7 +293,9 @@ Model::getOrCreateTransformAndGeode( int boneId )
         // create new matrix transform for bone
         osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-        mt->setDataVariance( DYNAMIC );            
+        mt->setDataVariance( DYNAMIC );
+        // ^ we can add or remove nodes dynamically, plus we don't
+        // allow osgUtil::Optimizer to optimize out our transform
         mt->setMatrix( modelData->getBoneMatrix( boneId ) );
 
         addChild( mt );
@@ -367,38 +325,11 @@ Model::addDrawable( int boneId,
     if ( tg.second == NULL ) // no geode created yet
     {
         tg.second = new osg::Geode;
+        tg.second->setDataVariance( DYNAMIC ); // we can add or remove nodes dynamically
         tg.first->addChild( tg.second );
     }
 
     tg.second->addDrawable( drawable );
-}
-
-void
-Model::accept( osg::NodeVisitor& nv )
-{
-    osgUtil::GLObjectsVisitor* glv = dynamic_cast< osgUtil::GLObjectsVisitor* >( &nv );
-
-    if ( glv )
-    {
-        osg::notify( osg::INFO )
-            << "compiling shaders and display lists" << std::endl;
-
-        // -- Compile shaders --
-        for ( std::map< osg::StateSet*, bool >::iterator s = usedStateSets.begin();
-              s != usedStateSets.end(); ++s )
-        {
-            glv->apply( *(s->first) );
-        }
-
-        usedStateSets.clear();
-
-        // -- Compile display lists and (maybe) user assigned sub-nodes --
-        osg::Group::accept( nv );
-    }
-    else
-    {
-        osg::Group::accept( nv );        
-    }
 }
 
 void
@@ -459,6 +390,50 @@ Model::getMeshes( const std::string& name ) const throw (std::runtime_error)
     else
     {
         throw std::runtime_error( "Model::getMeshes - can't find mesh \"" + name + "\"" );
+    }
+}
+
+void
+Model::accept( osg::NodeVisitor& nv )
+{
+    osgUtil::GLObjectsVisitor* glv = dynamic_cast< osgUtil::GLObjectsVisitor* >( &nv );
+
+    if ( glv )
+    {
+        osg::notify( osg::INFO )
+            << "compiling shaders and display lists" << std::endl;
+
+        // -- Compile shaders --
+        for ( std::vector< SubMeshHardware* >::iterator
+                  h    = hardwareMeshes.begin(),
+                  hEnd = hardwareMeshes.end();
+              h != hEnd; ++h )
+        {
+            (*h)->accept( glv );
+        }
+    }
+
+    osg::Group::accept( nv );        
+}
+
+// -- MeshAdder --
+
+void
+DefaultMeshAdder::add( Model* model,
+                       const CoreModel::Mesh* mesh )
+{
+    model->addMesh( mesh, MT_HARDWARE );
+}
+
+void
+MeshAdder::add( Model* model,
+                const CoreModel::Mesh* mesh )
+{
+    if ( mf->filter( mesh ) )
+    {
+        model->addMesh( mesh,
+                        mt->type( mesh ),
+                        mt->useDepthFirstMesh( mesh ) );
     }
 }
 

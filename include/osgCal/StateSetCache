@@ -96,13 +96,14 @@ namespace osgCal
                                  ShadersCache*        sc );
             
             osg::StateSet* get( const Material& swsd,
-                                int             bonesCount );
+                                int             bonesCount,
+                                bool            useDepthFirstMesh );
 
             int flags;
 
         private:
-            // map from < state desc, bones count >
-            typedef std::map< std::pair< Material, int >,
+            // map from < state desc, < bones count, useDepthFirstMesh > >
+            typedef std::map< std::pair< Material, std::pair< int, bool > >,
                               osg::StateSet* > Map;
 
             Map cache;
@@ -110,7 +111,8 @@ namespace osgCal
             osg::ref_ptr< TexturesCache >       texturesCache;
             osg::ref_ptr< ShadersCache >        shadersCache;
 
-            osg::StateSet* createHwMeshStateSet( const std::pair< Material, int >& matAndBones );
+            osg::StateSet* createHwMeshStateSet(
+                const std::pair< Material, std::pair< int, bool > >& matAndBones );
     };
 
     class DepthMeshStateSetCache : public osg::Referenced

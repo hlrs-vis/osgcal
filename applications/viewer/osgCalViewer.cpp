@@ -38,13 +38,13 @@
 
 osg::Node*
 makeModel( osgCal::CoreModel* cm,
-           osgCal::MeshTyper* mtf,
-           osgCal::MeshFilter* mf,                
+           osgCal::MeshTyper* mt,
+           osgCal::MeshFilter* mf,
            int animNum = -1 )
 {
     osgCal::Model* model = new osgCal::Model();
 
-    model->load( cm, mtf, mf );
+    model->load( cm, new osgCal::MeshAdder( mf, mt ) );
 
     if ( animNum != -1 )
     {
@@ -92,7 +92,7 @@ addWindow( osgViewer::Viewer& viewer,
     camera->setDrawBuffer(buffer);
     camera->setReadBuffer(buffer);
 
-    // add this slave camra to the viewer, with a shift left of the projection matrix
+    // add this slave camera to the viewer, with a shift left of the projection matrix
     viewer.addSlave(camera.get(), osg::Matrixd::translate( xTranslate, yTranslate, 0.0),
                     osg::Matrixd());
 }
@@ -246,7 +246,9 @@ main( int argc,
     arguments.getApplicationUsage()->setCommandLineUsage("osgCalViewer [options] cal3d.cfg ...");
     arguments.getApplicationUsage()->addCommandLineOption("--sw", "Use software skinning and fixed-function drawing");
     arguments.getApplicationUsage()->addCommandLineOption("--hw", "Use hardware (GLSL) skinning and drawing");
+    arguments.getApplicationUsage()->addCommandLineOption("--df", "Use depth first meshes (improve performance when pixel shading is a bottleneck)");
     arguments.getApplicationUsage()->addCommandLineOption("--no-debug", "Don't display debug information");
+    arguments.getApplicationUsage()->addCommandLineOption("--four-window", "Run viewer in four window setup (to test multi-context applications)");
     arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display command line parameters");
     arguments.getApplicationUsage()->addCommandLineOption("--help-env","Display environmental variables available");
     arguments.getApplicationUsage()->addCommandLineOption("--help-all","Display all command line, env vars and keyboard & mouse bindings.");
@@ -306,7 +308,7 @@ main( int argc,
     { // scope for model ref_ptr
         osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
         int         animNum = -1;
-        osg::ref_ptr< osgCal::MeshFilter > meshFilter = 0;
+        osg::ref_ptr< osgCal::MeshFilter > meshFilter( new osgCal::AllMeshes );
 
         try
         {
@@ -370,10 +372,24 @@ main( int argc,
             return EXIT_FAILURE;
         }
 
-        osg::ref_ptr< osgCal::MeshTyper > meshTyper = new osgCal::AllMeshesHardware;
+        bool useDepthFirstMesh = false;
 
-        while ( arguments.read( "--sw" ) ) { meshTyper = new osgCal::AllMeshesSoftware; }
-        while ( arguments.read( "--hw" ) ) { meshTyper = new osgCal::AllMeshesHardware; }
+        while ( arguments.read( "--df" ) )
+        {
+            useDepthFirstMesh = true;
+        }
+
+        osg::ref_ptr< osgCal::MeshTyper > meshTyper( new osgCal::AllMeshesHardware( useDepthFirstMesh ) );
+
+        while ( arguments.read( "--sw" ) )
+        {
+            meshTyper = new osgCal::AllMeshesSoftware;
+        }
+
+        while ( arguments.read( "--hw" ) )
+        {
+            meshTyper = new osgCal::AllMeshesHardware( useDepthFirstMesh );
+        }
             
         root->addChild( makeModel( coreModel.get(),
                                    meshTyper.get(),
@@ -388,11 +404,14 @@ main( int argc,
 
     // -- Setup viewer --
     osgViewer::Viewer viewer;
-    
-//     addWindow( viewer,   0,   0, 640, 480,  1.0, -1.0 );
-//     addWindow( viewer, 640,   0, 640, 480, -1.0, -1.0 );
-//     addWindow( viewer,   0, 480, 640, 480,  1.0,  1.0 );
-//     addWindow( viewer, 640, 480, 640, 480, -1.0,  1.0 );
+
+    if ( arguments.read( "--four-window" ) )
+    {
+        addWindow( viewer,   0,   0, 640, 480,  1.0, -1.0 );
+        addWindow( viewer, 640,   0, 640, 480, -1.0, -1.0 );
+        addWindow( viewer,   0, 480, 640, 480,  1.0,  1.0 );
+        addWindow( viewer, 640, 480, 640, 480, -1.0,  1.0 );
+    }
 
     // add the state manipulator
     viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );

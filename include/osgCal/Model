@@ -55,55 +55,103 @@ namespace osgCal {
         MT_SOFTWARE = 1
     };
 
+    // -- Mesh adding for Model::load --
+
+    class Model; // forward
+
+    /**
+     * Mesh adder used at load stage. 
+     */
+    struct OSGCAL_EXPORT BasicMeshAdder : public osg::Referenced
+    {
+        virtual void add( Model* model,
+                          const CoreModel::Mesh* mesh ) = 0;
+    };
+
+    /**
+     * Default mesh adder -- it adds all meshes as hardware ones.
+     */
+    struct OSGCAL_EXPORT DefaultMeshAdder : public BasicMeshAdder
+    {
+        virtual void add( Model* model,
+                          const CoreModel::Mesh* mesh );
+    };
+
     struct OSGCAL_EXPORT MeshTyper : public osg::Referenced
     {
-            virtual ~MeshTyper() {};
-            virtual MeshType type( const CoreModel::Mesh& mesh ) = 0;
+        virtual MeshType type( const CoreModel::Mesh* mesh ) = 0;
+        virtual bool useDepthFirstMesh( const CoreModel::Mesh* mesh ) = 0;
     };
 
     struct OSGCAL_EXPORT AllMeshesHardware : public MeshTyper
     {
-            virtual MeshType type( const CoreModel::Mesh& )
-            {
-                return MT_HARDWARE;
-            }
+        bool _useDepthFirstMesh;
+        
+        AllMeshesHardware( bool useDepthFirstMesh = false )
+            : _useDepthFirstMesh( useDepthFirstMesh )
+        {}
+
+        virtual MeshType type( const CoreModel::Mesh* )
+        {
+            return MT_HARDWARE;
+        }
+        virtual bool useDepthFirstMesh( const CoreModel::Mesh* )
+        {
+            return _useDepthFirstMesh;
+        }
     };
 
     struct OSGCAL_EXPORT AllMeshesSoftware : public MeshTyper
     {
-            virtual MeshType type( const CoreModel::Mesh& )
-            {
-                return MT_SOFTWARE;
-            }
+        virtual MeshType type( const CoreModel::Mesh* )
+        {
+            return MT_SOFTWARE;
+        }
+        virtual bool useDepthFirstMesh( const CoreModel::Mesh* ) { return false; }
     };
     
-    // -- Mesh filtering for Model::load --
 
     struct OSGCAL_EXPORT MeshFilter : public osg::Referenced
     {
-            virtual ~MeshFilter() {};
-            virtual bool filter( const CoreModel::Mesh& mesh ) = 0;
+        virtual bool filter( const CoreModel::Mesh* mesh ) = 0;
     };
 
     struct OSGCAL_EXPORT AllMeshes : public MeshFilter
     {
-            bool filter( const CoreModel::Mesh& ) { return true; }
+        bool filter( const CoreModel::Mesh* ) { return true; }
     };
 
     struct OSGCAL_EXPORT OneMesh : public MeshFilter
     {
-            std::string meshName;
+        std::string meshName;
 
-            OneMesh( const std::string& mn )
-                : meshName( mn )
-            {}
+        OneMesh( const std::string& mn )
+            : meshName( mn )
+        {}
 
-            bool filter( const CoreModel::Mesh& mesh ) { return mesh.data->name == meshName; }
+        bool filter( const CoreModel::Mesh* mesh ) { return mesh->data->name == meshName; }
     };
 
+    class MeshAdder : public BasicMeshAdder
+    {
+        public:
+            MeshAdder( MeshFilter* f,
+                       MeshTyper*  t )
+                : mf( f )
+                , mt( t )
+            {}
+
+            virtual void add( Model* model,
+                              const CoreModel::Mesh* mesh );
+        private:
+            osg::ref_ptr< MeshFilter > mf;
+            osg::ref_ptr< MeshTyper >  mt;
+    };
 
     // -- Model --    
     
+    class SubMeshHardware; // forward
+
     class ModelData; // forward declaration, see after Model
 
     class OSGCAL_EXPORT Model : public osg::Group
@@ -122,8 +170,7 @@ namespace osgCal {
              * This function may be called only once.
              */
             void load( CoreModel* coreModel,
-                       MeshTyper* meshTyper = 0,
-                       MeshFilter* meshFilter = 0 );
+                       BasicMeshAdder* meshAdder = 0 );
 
             /**
              * Add core model mesh with specified parameters to model.
@@ -174,7 +221,7 @@ namespace osgCal {
                 throw (std::runtime_error);
 
             /**
-             * For compiling display lists when accept osgUtil::GLObjectsVisitor.
+             * Compiles hardware meshes state sets when accept osgUtil::GLObjectsVisitor.
              */
             virtual void accept( osg::NodeVisitor& nv );
 
@@ -210,10 +257,9 @@ namespace osgCal {
             std::vector< Updatable* >   updatableMeshes;
 
             /**
-             * Map of used state sets for compilation when
-             * GLObjectsVisitor is applied to model.
+             * Used hardware meshes, needed for compiling state sets.
              */
-            std::map< osg::StateSet*, bool > usedStateSets;
+            std::vector< SubMeshHardware* >   hardwareMeshes;
 
     };
 

@@ -384,17 +384,23 @@ HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
             
 osg::StateSet*
 HwMeshStateSetCache::get( const Material& swsd,
-                          int bonesCount )
+                          int bonesCount,
+                          bool useDepthFirstMesh )
 {
-    return getOrCreate( cache, std::make_pair( swsd, bonesCount ), this,
+    return getOrCreate( cache,
+                        std::make_pair( swsd,
+                                        std::make_pair( bonesCount, useDepthFirstMesh ) ),
+                        this,
                         &HwMeshStateSetCache::createHwMeshStateSet );
 }
 
 osg::StateSet*
-HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material, int >& matAndBones )
+HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
+                                           std::pair< int, bool > >& matAndBones )
 {
     const Material& material = matAndBones.first;
-    int bonesCount           = matAndBones.second;
+    int bonesCount           = matAndBones.second.first;
+    bool useDepthFirstMesh   = matAndBones.second.second;
     
     osg::StateSet* baseStateSet = swMeshStateSetCache->
         get( *static_cast< const SoftwareMaterial* >( &material ) );
@@ -453,9 +459,7 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material, int >& mat
     }
 
     // -- Depth first mode setup --
-    if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES
-         &&
-         !transparent )
+    if ( useDepthFirstMesh && !transparent )
     {
         stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                         osg::StateAttribute::ON |
@@ -463,9 +467,6 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material, int >& mat
         // ^ need LEQUAL instead of LESS since depth values are
         // already written, also there is no need to write depth
         // values
-        // TODO: depth first meshes are incompatible with transparent
-        // ones, since they need to be drawn last (TRANSPARENT_BIN) in
-        // back to fron order.
     }
     
 //     static osg::ref_ptr< osg::Uniform > clipPlanesUsed =
