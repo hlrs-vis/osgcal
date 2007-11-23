@@ -22,6 +22,7 @@
 #include <osg/CullFace>
 #include <osg/Depth>
 #include <osg/ColorMask>
+#include <osg/VertexProgram> // GL_VERTEX_PROGRAM_TWO_SIDE_ARB
 
 #include <osgDB/ReadFile>
 
