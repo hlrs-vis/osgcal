@@ -832,12 +832,18 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 			)
 			close f
 
-            -- Perform exporting of textures --            
-            ShellLaunch ("\""+scriptsPath+"cal3D_export\\export_textures_and_prepare_model.bat\"")\
-                        ("\""+maxFilePath + getFilenameFile maxFileName + "\"" + \
-                         " \""+ substring lblExportDir.text 1 (lblExportDir.text.count - 1) + "\"" \
-                         + " " + exportType)
+            -- Perform exporting of textures --
+            export_textures_bat = lblExportDir.text + "export_textures.bat"
+			f = createFile export_textures_bat
+            format "@cd %\n" ("\""+scriptsPath+"cal3D_export\"") to:f
+            format "@%\n" ("export_textures_and_prepare_model.bat " + \
+                          "\""+maxFilePath + getFilenameFile maxFileName + "\"" + \
+                          " \""+ substring lblExportDir.text 1 (lblExportDir.text.count - 1) + "\"" \
+                          + " " + exportType) to:f
                          -- we remove last backslash from path
+            close f
+            DOSCommand ("\"" + export_textures_bat + "\"")
+            deleteFile export_textures_bat
             )
 
             -- Write exported_from.txt for further reexports --
@@ -851,7 +857,8 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		(
             --if lblViewerPath.text == "" then
             (
-                DOSCommand ("\""+lblExportDir.text+"cal3d.cfg\"\n" )
+--                ShellLaunch "start" ("\""+lblExportDir.text+"cal3d.cfg\"" )
+                DOSCommand ("\""+lblExportDir.text+"cal3d.cfg\"")
             )
             --else
             --( doesn't work

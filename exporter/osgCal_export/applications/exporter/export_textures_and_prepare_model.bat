@@ -1,6 +1,6 @@
 @echo off
 
-cd cal3D_export
+rem cd cal3D_export
 
 python csv_edit.py --create-if-not-exists %1_textures.csv --sync-no-overwrite %1_current_textures.csv
 del %1_current_textures.csv
