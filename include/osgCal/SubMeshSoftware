@@ -30,9 +30,6 @@ namespace osgCal {
 
     class OSGCAL_EXPORT SubMeshSoftware : public osg::Geometry, public Updatable
     {
-        protected:
-            virtual ~SubMeshSoftware();
-
         public:
 
             osg::Object* cloneType() const;
@@ -45,7 +42,6 @@ namespace osgCal {
                              ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
 
-            void create();
             virtual void update();
 
             osg::BoundingBox computeBound() const { return boundingBox; }

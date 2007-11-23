@@ -72,7 +72,6 @@ namespace osgCal
                              ModelData*             modelData,
                              const CoreModel::Mesh* mesh,
                              bool                   useDepthFirstMesh = false );
-            ~SubMeshHardware();
 
 
             virtual void drawImplementation( osg::RenderInfo& renderInfo ) const;

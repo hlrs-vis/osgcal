@@ -91,10 +91,6 @@ SubMeshSoftware::clone( const osg::CopyOp& ) const
     throw std::runtime_error( "clone() is not implemented" );
 }
 
-SubMeshSoftware::~SubMeshSoftware()
-{
-}
-
 static
 inline
 osg::Vec3f

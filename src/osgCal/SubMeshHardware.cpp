@@ -79,11 +79,6 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
     // which takes too much memory
 }
 
-SubMeshHardware::~SubMeshHardware()
-{
-    releaseGLObjects(); // destroy our display lists
-}
-
 osg::Object*
 SubMeshHardware::cloneType() const
 {
