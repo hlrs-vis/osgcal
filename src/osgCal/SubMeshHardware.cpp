@@ -215,7 +215,7 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
     }
     else
     {
-        glCallList( dl );        
+        glCallList( dl );
         if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     }
 }

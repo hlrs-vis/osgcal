@@ -73,7 +73,7 @@ void main()
 #if TWO_SIDED == 1
 //    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,
                            // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB
-    if ( !gl_Color.a )
+    if ( gl_Color.a == 0.0 )
     {
         normal = -normal;
     }
