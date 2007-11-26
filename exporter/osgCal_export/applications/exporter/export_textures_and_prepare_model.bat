@@ -17,10 +17,9 @@ IF "%3" == "all" osgCalPreparer %2\cal3d.cfg
 
 IF ERRORLEVEL 2 goto error
 
-cd ../
-
+rem cd ../
 exit 0
 
 :error
-echo Export failed!
+echo EXPORT FAILED!!!
 pause

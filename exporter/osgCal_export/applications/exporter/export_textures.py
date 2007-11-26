@@ -46,9 +46,17 @@ Options:
         Display this list of options\
 """
 
-import getopt, sys, os, string, md5, binascii
+import getopt, sys, os, string, md5, binascii, traceback
 
 def main():
+    try:
+        export_textures()
+    except Exception:
+        print "Exception occured while exporting textures:"
+        traceback.print_exc(file=sys.stdout)
+        sys.exit(2)
+
+def export_textures():
 
     # Parse agrs
     
@@ -160,6 +168,43 @@ def main():
             except:
                 pass
 
+        def checked_os_system(command):
+            #print command
+            output_file_name = os.path.join(output_dir, "nvdxt.output")
+            cmd_result = os.system(command + " >\"" + output_file_name + "\"")
+            if cmd_result != 0:
+                print "FAILED\n"
+                print "EXIT CODE: %d" % cmd_result
+                print ""
+                try:
+                    output = file(output_file_name, "r").readlines()
+                    os.remove(output_file_name)
+                    if output != []:
+                        print "COMMAND OUTPUT:"
+                        sys.stdout.writelines(output)
+                        print ""
+                except:
+                    pass
+                sys.exit(2)
+            os.remove(output_file_name)
+#             in_out_err = os.popen3(command)
+#             stdout = in_out_err[1].readlines()
+#             stderr = in_out_err[2].readlines()
+#             if stderr != [] or stdout != []:
+#                 print "FAILED\n"
+#                 print "ERROR IN COMMAND:"
+#                 print command
+#                 print ""
+#                 #print "exit code: %d" % cmd_result
+#                 print "ERROR OUTPUT:"
+#                 sys.stdout.writelines(stderr)
+#                 print ""
+#                 if stdout != []:
+#                     print "COMMAND OUTPUT:"
+#                     sys.stdout.writelines(stdout)
+#                     print ""
+#                 sys.exit(2)
+
         def run_nvdxt(ifile, ofile, options):
             if os.path.splitext(ifile)[1].lower() == ".tga":
                 swaprgb = "-swap " # nvdxt thinks that tga files
@@ -178,12 +223,8 @@ def main():
                        + " -Box " # more sharp details on mipmaps
                        + swaprgb
                        + options # compression                       
-                       + " >NUL" # no output
                       )
-            #print command
-            if os.system(command) != 0:
-                print "failed"
-                sys.exit(2)
+            checked_os_system(command)
             
         # check compression is one of nvdxt support
         nvdxt_args = get_nvdxt_compression(compression)        
@@ -202,10 +243,7 @@ def main():
                            + (" -maxw %s" % max_width)
                            + (" -maxh %s" % max_height)
                            + nmexport_args)
-                #print command
-                if os.system(command) != 0:
-                    print "failed"
-                    sys.exit(2)
+                checked_os_system(command)
                     
             print "Exporting", texture_display_name, " ... ",
             # check for bump texture
