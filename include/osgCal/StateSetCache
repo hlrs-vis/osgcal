@@ -31,7 +31,41 @@
 
 namespace osgCal
 {
-   /**
+    template < typename T >
+    struct ref_ptr_less : std::binary_function< osg::ref_ptr< T >, osg::ref_ptr< T >, bool >
+    {
+            bool operator () ( const osg::ref_ptr< T >& a,
+                               const osg::ref_ptr< T >& b )
+            {
+                if ( a.get() == b.get() )
+                {
+                    return false;
+                }
+                else
+                {
+                    return *a.get() < *b.get();
+                }
+            }
+    };
+
+    template < typename T >
+    struct ref_ptr_less : std::binary_function< osg::ref_ptr< T >, osg::ref_ptr< T >, bool >
+    {
+            bool operator () ( const osg::ref_ptr< T >& a,
+                               const osg::ref_ptr< T >& b )
+            {
+                if ( a.get() == b.get() )
+                {
+                    return false;
+                }
+                else
+                {
+                    return *a.get() < *b.get();
+                }
+            }
+    };
+    
+    /**
      * To maximize state sharing we use separate caches for
      * osg::Material, osg::Texture2D, osg::StateSet (SoftwareMaterial,
      * for software meshes),
@@ -48,10 +82,12 @@ namespace osgCal
     class MaterialsCache : public osg::Referenced
     {
         public:
-            osg::Material* get( const OsgMaterial& md );
+            osg::Material* get( const OsgMaterial* md );
 
         private:
-            typedef std::map< OsgMaterial, osg::Material* > Map;
+            typedef std::map< osg::ref_ptr< const OsgMaterial >,
+                              osg::Material*,
+                              ref_ptr_less< const OsgMaterial > > Map;
             Map cache;
 
             osg::Material* createMaterial( const OsgMaterial& desc );
@@ -76,10 +112,13 @@ namespace osgCal
             SwMeshStateSetCache( MaterialsCache* mc,
                                  TexturesCache*  tc );
             
-            osg::StateSet* get( const SoftwareMaterial& swsd );
+            osg::StateSet* get( const SoftwareMaterial* swsd );
 
         private:
-            typedef std::map< SoftwareMaterial, osg::StateSet* > Map;
+            typedef std::map< osg::ref_ptr< const SoftwareMaterial >,
+                              osg::StateSet*,
+                              ref_ptr_less< const SoftwareMaterial >
+                              > Map;
 
             Map cache;
             osg::ref_ptr< MaterialsCache > materialsCache;
@@ -95,7 +134,7 @@ namespace osgCal
                                  TexturesCache*       tc,
                                  ShadersCache*        sc );
             
-            osg::StateSet* get( const Material& swsd,
+            osg::StateSet* get( const Material* swsd,
                                 int             bonesCount,
                                 bool            useDepthFirstMesh );
 
@@ -103,7 +142,7 @@ namespace osgCal
 
         private:
             // map from < state desc, < bones count, useDepthFirstMesh > >
-            typedef std::map< std::pair< Material, std::pair< int, bool > >,
+            typedef std::map< std::pair< osg::ref_ptr< Material >, std::pair< int, bool > >,
                               osg::StateSet* > Map;
 
             Map cache;

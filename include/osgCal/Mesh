@@ -21,6 +21,7 @@
 #include <osg/Version>
 #include <osg/Geometry>
 #include <osg/PrimitiveSet>
+#include <osg/Fog>
 #include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Export>
@@ -49,7 +50,7 @@ namespace osgCal
             osg::BoundingBox computeBound() const;
 
             /**
-             * See SubMesh::supports() for the comments.
+             * See Mesh::supports() for the comments.
              */
             virtual bool supports( const AttributeFunctor& ) { return false; }
 
@@ -57,9 +58,11 @@ namespace osgCal
 
             HardwareMesh* hwMesh;
 
+            // TODO: merge DepthMesh & HardwareMesh into one
+            // class and move all shared part into other structure.
     };
 
-
+    
     /**
      * \c osg::Drawable used to render \c CoreModel::Mesh.
      */
@@ -83,7 +86,7 @@ namespace osgCal
 
             /**
              * We don't support osgUtil::TransformAttributeFunctor
-             * since for non-animated models we share the same vertex
+             * since for ridig meshes we share the same vertex
              * buffer that must not be transformed for each model.
              */
             virtual bool supports( const AttributeFunctor& ) { return false; }
@@ -94,7 +97,7 @@ namespace osgCal
              */
             virtual void accept( osgUtil::GLObjectsVisitor* ) {}
 
-      private:
+            void changeDisplaySettings( const CoreModel::MeshDisplaySettings* );
 
       protected:
 
@@ -104,8 +107,7 @@ namespace osgCal
             osg::BoundingBox                      boundingBox;
             bool                                  deformed;
 
-            // TODO: merge DepthMesh & HardwareMesh into one
-            // class and move all shared part into other structure.
+            virtual void onDisplaySettingsChanged( const CoreModel::MeshDisplaySettings* ) {}
     };
 
 }; //namespace osgCal

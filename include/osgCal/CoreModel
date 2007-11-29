@@ -38,7 +38,7 @@ namespace osgCal
      * by creating a model which is in fact the real animated model and
      * object which can be inserted into an osg graph.
      */
-    class OSGCAL_EXPORT CoreModel: public osg::Object
+    class OSGCAL_EXPORT CoreModel : public osg::Object
     {
         public:
             META_Object(osgCal, CoreModel);
@@ -79,6 +79,33 @@ namespace osgCal
             int            getFlags()         const  { return flags; }
             StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
 
+            struct MeshDisplaySettings : osg::Referenced
+            {
+                public:
+                    MeshDisplaySettings();
+
+                    /**
+                     * Show Tangent-Binormal-Normal basis.
+                     */
+                    bool showTBN; // TODO: restore it
+
+                    /**
+                     * Enable fog in shader (exp, exp2 or linear mode),
+                     * 0 by default (no fog)
+                     */
+                    osg::Fog::Mode fogMode;
+
+                    /**
+                     * Draw depth only part of submesh first to reduce pixel
+                     * shading overhead of processing pixels that are not
+                     * visible.
+                     * Remark that this option also increases vertex
+                     * processing time, so it must be used only when pixel
+                     * shading is a bottleneck.
+                     */
+                    bool useDepthFirstMesh;
+            };
+
             /**
              * List of state sets used by Model's meshes
              */
@@ -87,15 +114,11 @@ namespace osgCal
                 public:
                     MeshStateSets( StateSetCache*  c,
                                    const Material& m,
+                                   const MeshDisplaySettings& ds,
                                    const MeshData* d );
                     
-                    osg::ref_ptr< osg::StateSet >   software; ///< software state set
-
-                    /**
-                     * First element -- w/o depth mesh, second -- with one.
-                     */
-                    osg::ref_ptr< osg::StateSet >   hardware[2];
-                    osg::ref_ptr< osg::StateSet >   staticHardware[2]; ///< zero bones state set
+                    osg::ref_ptr< osg::StateSet >   stateSet;
+                    osg::ref_ptr< osg::StateSet >   staticStateSet; ///< zero bones state set
 
                     osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
                     osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set

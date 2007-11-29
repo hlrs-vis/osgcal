@@ -34,7 +34,7 @@ namespace osgCal
      *
      * This structure is also used as cache key for osg::Material cache.
      */
-    class OSGCAL_EXPORT OsgMaterial
+    class OSGCAL_EXPORT OsgMaterial : public osg::Referenced
     {
         public:
             osg::Vec4      ambientColor;

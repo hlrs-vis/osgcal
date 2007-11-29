@@ -142,7 +142,6 @@ namespace osgCal {
     // -- Model --    
     
     class ModelData; // forward declaration, see after Model
-    class Mesh;
 
     class OSGCAL_EXPORT Model : public osg::Group
     {
@@ -203,12 +202,15 @@ namespace osgCal {
                              float delay );
 
             typedef std::vector< Mesh* > MeshesList;
+            typedef std::map< std::string, MeshesList > MeshMap;
 
             /**
              * Return list of meshes corresponding to specified name.
              */
             const MeshesList& getMeshes( const std::string& name ) const
                 throw (std::runtime_error);
+
+            const MeshMap& getMeshMap() const { return meshes; }
 
             /**
              * Compiles hardware meshes state sets when accept osgUtil::GLObjectsVisitor.
@@ -224,8 +226,6 @@ namespace osgCal {
             Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
             osg::ref_ptr< ModelData >   modelData;
-
-            typedef std::map< std::string, MeshesList > MeshMap;
 
             MeshMap                     meshes;
 

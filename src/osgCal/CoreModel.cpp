@@ -128,6 +128,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         Mesh* m = new Mesh( this,
                             (*meshData).get(),
                             Material( (*meshData)->coreMaterial, dir ) );
+        // TODO: add per-core model coreMaterialCache
 
         meshes.push_back( m );
 
