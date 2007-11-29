@@ -183,22 +183,17 @@ Model::addMesh( const CoreModel::Mesh* mesh,
                 MeshType meshType,
                 bool useDepthFirstMesh )
 {
-    osg::Drawable* g = 0;
+    SubMesh* g = 0;
     osg::Drawable* depthSubMesh = 0;
 
     // -- Create mesh drawable --
     switch ( meshType )
     {
         case MT_HARDWARE:
-        {
-            SubMeshHardware* smhw = new SubMeshHardware( coreModel.get(), modelData.get(), mesh,
-                                                         useDepthFirstMesh );
-            hardwareMeshes.push_back( smhw );
-
-            g = smhw;
-            depthSubMesh = smhw->getDepthSubMesh();
+            g = new SubMeshHardware( coreModel.get(), modelData.get(), mesh,
+                                     useDepthFirstMesh );
+            depthSubMesh = g->getDepthSubMesh();
             break;
-        }
 
         case MT_SOFTWARE:
             g = new SubMeshSoftware( coreModel.get(), modelData.get(), mesh );
@@ -233,9 +228,20 @@ Model::addMesh( const CoreModel::Mesh* mesh,
     // -- Remember Updatable (and update) --
     if ( mesh->data->rigid == false )
     {
-        Updatable* u = dynamic_cast< Updatable* >( g );
-        u->update();
-        updatableMeshes.push_back( u );
+        g->update();
+        updatableMeshes.push_back( g );
+//         if ( depthSubMesh ) -- not a SubMesh
+//         {
+//             updatableMeshes.push_back( depthSubMesh );
+//         }
+    }
+    else
+    {        
+        nonUpdatableMeshes.push_back( g );
+//         if ( depthSubMesh )
+//         {
+//             nonUpdatableMeshes.push_back( depthSubMesh );
+//         }
     }
 
     // -- Add to geode or bone matrix transform --
@@ -343,7 +349,7 @@ Model::update( double deltaTime )
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-    for ( std::vector< Updatable* >::iterator
+    for ( std::vector< SubMesh* >::iterator
               u    = updatableMeshes.begin(),
               uEnd = updatableMeshes.end();
           u < uEnd; ++u )
@@ -404,12 +410,20 @@ Model::accept( osg::NodeVisitor& nv )
             << "compiling shaders and display lists" << std::endl;
 
         // -- Compile shaders --
-        for ( std::vector< SubMeshHardware* >::iterator
-                  h    = hardwareMeshes.begin(),
-                  hEnd = hardwareMeshes.end();
+        for ( std::vector< SubMesh* >::iterator
+                  h    = updatableMeshes.begin(),
+                  hEnd = updatableMeshes.end();
               h != hEnd; ++h )
         {
             (*h)->accept( glv );
+        }
+
+        for ( std::vector< SubMesh* >::iterator
+                  h    = nonUpdatableMeshes.begin(),
+                  hEnd = nonUpdatableMeshes.end();
+              h != hEnd; ++h )
+        {
+            (*h)->accept( glv ); // <- is it needed, they don't change state set
         }
     }
 

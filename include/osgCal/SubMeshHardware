@@ -18,47 +18,11 @@
 #ifndef __OSGCAL__SUBMESHHARDWARE_H__
 #define __OSGCAL__SUBMESHHARDWARE_H__
 
-#include <osg/Version>
-#include <osg/Geometry>
-#include <osg/PrimitiveSet>
-#include <osgUtil/GLObjectsVisitor>
-
-#include <osgCal/Export>
-#include <osgCal/CoreModel>
-#include <osgCal/Model>
+#include <osgCal/SubMesh>
 
 namespace osgCal
 {
-    class SubMeshHardware; // forward
-
-    /**
-     * Submesh which is only draw depth part of specified hardware submesh.
-     */
-    class SubMeshDepth :  public /*osg::Drawable //*/osg::Geometry
-    {
-        public:
-           
-            SubMeshDepth( SubMeshHardware* hw );
-
-            virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
-            void update( bool deformed, bool changed );
-
-            virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
-
-            osg::BoundingBox computeBound() const;
-
-            /**
-             * See SubMeshHardware::supports() for the comments.
-             */
-            virtual bool supports( const AttributeFunctor& ) { return false; }
-
-        private:
-
-            SubMeshHardware* hwMesh;
-
-    };
-
-    class /*OSGCAL_EXPORT*/ SubMeshHardware : public /*osg::Drawable //*/osg::Geometry, public Updatable
+    class SubMeshHardware : public SubMesh
     {
         public:
            
@@ -86,35 +50,12 @@ namespace osgCal
 
             virtual void update();
 
-            osg::BoundingBox computeBound() const { return boundingBox; }
-
-            const CoreModel::Mesh* getCoreModelMesh() const { return mesh.get(); }
-
-            /**
-             * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
-             */
-            SubMeshDepth* getDepthSubMesh() { return depthSubMesh.get(); }
-
-            /**
-             * We don't support osgUtil::TransformAttributeFunctor
-             * since for non-animated models we share the same vertex
-             * buffer that must not be transformed for each model.
-             */
-            virtual bool supports( const AttributeFunctor& ) { return false; }
-
             /**
              * For compiling all statesets when Model accepts osgUtil::GLObjectsVisitor.
              */
             virtual void accept( osgUtil::GLObjectsVisitor* glv );
 
         private:
-
-            osg::ref_ptr< CoreModel >             coreModel;
-            osg::ref_ptr< ModelData >             modelData;
-            osg::ref_ptr< const CoreModel::Mesh > mesh;
-            osg::BoundingBox                      boundingBox;
-            osg::ref_ptr< SubMeshDepth > depthSubMesh;
-            bool                        deformed;
 
             // TODO: merge SubMeshDepth & SubMeshHardware into one
             // class and move all shared part into other structure.

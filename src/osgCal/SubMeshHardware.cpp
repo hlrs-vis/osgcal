@@ -33,10 +33,7 @@ SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
                                   ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh,
                                   bool                   useDepthFirstMesh )
-    : coreModel( _coreModel )
-    , modelData( _modelData )
-    , mesh( _mesh )
-    , deformed( false )
+    : SubMesh( _coreModel, _modelData, _mesh )
 {   
     setUseDisplayList( false );
     setSupportsDisplayList( false );

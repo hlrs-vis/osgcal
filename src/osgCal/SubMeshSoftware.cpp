@@ -28,9 +28,7 @@ using namespace osgCal;
 SubMeshSoftware::SubMeshSoftware( CoreModel*             _coreModel,
                                   ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh )
-    : coreModel( _coreModel )
-    , modelData( _modelData )
-    , mesh( _mesh )
+    : SubMesh( _coreModel, _modelData, _mesh )
 {
     //setThreadSafeRefUnref( true );
 

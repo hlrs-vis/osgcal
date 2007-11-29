@@ -8,6 +8,7 @@ CXXFILES =\
 	StateSetCache.cpp \
 	CoreModel.cpp \
 	Model.cpp \
+	SubMesh.cpp \
 	SubMeshHardware.cpp \
 	SubMeshSoftware.cpp
 
