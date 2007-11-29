@@ -32,8 +32,7 @@ namespace osgCal
             virtual const char* libraryName() const { return "osgCal"; }
             virtual const char* className() const { return "SubMeshHardware"; }
 
-            SubMeshHardware( CoreModel*             coreModel,
-                             ModelData*             modelData,
+            SubMeshHardware( ModelData*             modelData,
                              const CoreModel::Mesh* mesh,
                              bool                   useDepthFirstMesh = false );
 

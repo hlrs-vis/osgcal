@@ -29,11 +29,10 @@ using namespace osgCal;
 
 
 
-SubMeshHardware::SubMeshHardware( CoreModel*             _coreModel,
-                                  ModelData*             _modelData,
+SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
                                   const CoreModel::Mesh* _mesh,
                                   bool                   useDepthFirstMesh )
-    : SubMesh( _coreModel, _modelData, _mesh )
+    : SubMesh( _modelData, _mesh )
 {   
     setUseDisplayList( false );
     setSupportsDisplayList( false );

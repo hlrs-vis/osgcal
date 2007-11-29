@@ -180,8 +180,8 @@ namespace osgCal {
             void addDrawable( int boneId,
                               osg::Drawable* drawable );
 
-            CoreModel* getCoreModel() { return coreModel.get(); }
-            ModelData* getModelData() { return modelData.get(); }
+            const CoreModel* getCoreModel() const;
+            const ModelData* getModelData() const { return modelData.get(); }
 
             /**
              * Update meshes.
@@ -223,7 +223,6 @@ namespace osgCal {
 
             Model(const Model&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
-            osg::ref_ptr< CoreModel >   coreModel;
             osg::ref_ptr< ModelData >   modelData;
 
             typedef std::map< std::string, MeshesList > MeshMap;
@@ -279,7 +278,7 @@ namespace osgCal {
                     bool         changed;
             };
 
-            ModelData( CalModel* cm );
+            ModelData( CoreModel* cm );
             ~ModelData();
 
             /**
@@ -320,8 +319,11 @@ namespace osgCal {
                 return bones[ boneId ];
             }
 
+            const CoreModel* getCoreModel() const { return coreModel.get(); }
+
         private:
-            
+
+            osg::ref_ptr< CoreModel >   coreModel;
             CalModel*                   calModel;
             CalMixer*                   calMixer;
 

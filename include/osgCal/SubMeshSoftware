@@ -33,8 +33,7 @@ namespace osgCal {
             virtual const char* libraryName() const { return "osgCal"; }
             virtual const char* className() const { return "SubMeshSoftware"; }
 
-            SubMeshSoftware( CoreModel*             coreModel,
-                             ModelData*             modelData,
+            SubMeshSoftware( ModelData*             modelData,
                              const CoreModel::Mesh* mesh );
 
             virtual void update();

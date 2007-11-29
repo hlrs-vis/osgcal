@@ -125,12 +125,7 @@ Model::load( CoreModel*      _coreModel,
         throw std::runtime_error( "Model already load" );
     }
 
-    coreModel = _coreModel;
-
-    CalModel* calModel = new CalModel( coreModel->getCalCoreModel() );
-    calModel->update( 0 );
-
-    modelData = new ModelData( calModel );
+    modelData = new ModelData( _coreModel );
 
     setUpdateCallback( new CalUpdateCallback() );
 
@@ -138,10 +133,11 @@ Model::load( CoreModel*      _coreModel,
                                               new DefaultMeshAdder );
 
     // -- Process meshes --
+    const CoreModel::MeshVector& meshes = modelData->getCoreModel()->getMeshes();
     
-    for ( size_t i = 0; i < coreModel->getMeshes().size(); i++ )
+    for ( size_t i = 0; i < meshes.size(); i++ )
     {
-        meshAdder->add( this, coreModel->getMeshes()[i].get() );
+        meshAdder->add( this, meshes[i].get() );
     }
 
 //     // -- TBN debug --
@@ -190,13 +186,13 @@ Model::addMesh( const CoreModel::Mesh* mesh,
     switch ( meshType )
     {
         case MT_HARDWARE:
-            g = new SubMeshHardware( coreModel.get(), modelData.get(), mesh,
+            g = new SubMeshHardware( modelData.get(), mesh,
                                      useDepthFirstMesh );
             depthSubMesh = g->getDepthSubMesh();
             break;
 
         case MT_SOFTWARE:
-            g = new SubMeshSoftware( coreModel.get(), modelData.get(), mesh );
+            g = new SubMeshSoftware( modelData.get(), mesh );
             break;
 
         default:
@@ -384,6 +380,12 @@ Model::clearCycle( int id,
     modelData->getCalMixer()->clearCycle( id, delay );
 }
 
+const CoreModel*
+Model::getCoreModel() const
+{
+    return modelData->getCoreModel();
+}
+
 const Model::MeshesList&
 Model::getMeshes( const std::string& name ) const throw (std::runtime_error)
 {
@@ -454,10 +456,13 @@ MeshAdder::add( Model* model,
 
 // -- ModelData --
 
-ModelData::ModelData( CalModel* cm )
-    : calModel( cm )
-    , calMixer( (CalMixer*)cm->getAbstractMixer() )
+ModelData::ModelData( CoreModel* cm )
+    : coreModel( cm )
 {
+    calModel = new CalModel( coreModel->getCalCoreModel() );
+    calModel->update( 0 );
+    calMixer = (CalMixer*)calModel->getAbstractMixer();
+
     const std::vector< CalBone* >& vectorBone = calModel->getSkeleton()->getVectorBone();
 
     bones.resize( vectorBone.size() );

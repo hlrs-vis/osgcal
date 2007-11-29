@@ -67,8 +67,7 @@ namespace osgCal
     {
         public:
            
-            SubMesh( CoreModel*             coreModel,
-                     ModelData*             modelData,
+            SubMesh( ModelData*             modelData,
                      const CoreModel::Mesh* mesh );
 
             virtual void update() = 0;
@@ -100,7 +99,6 @@ namespace osgCal
       protected:
 
             osg::ref_ptr< SubMeshDepth >          depthSubMesh;
-            osg::ref_ptr< CoreModel >             coreModel;
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;

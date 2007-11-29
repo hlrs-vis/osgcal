@@ -16,17 +16,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include <osgCal/SubMesh>
-#include <osgCal/SubMeshHardware>
 
 using namespace osgCal;
 
 
 
-SubMesh::SubMesh( CoreModel*             _coreModel,
-                  ModelData*             _modelData,
+SubMesh::SubMesh( ModelData*             _modelData,
                   const CoreModel::Mesh* _mesh )
     : depthSubMesh( 0 )
-    , coreModel( _coreModel )
     , modelData( _modelData )
     , mesh( _mesh )
     , deformed( false )
