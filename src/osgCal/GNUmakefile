@@ -2,15 +2,15 @@ TOPDIR = ../..
 include $(TOPDIR)/Make/makedefs 
 
 CXXFILES =\
-	Meshes.cpp \
+	MeshLoader.cpp \
 	Material.cpp \
 	ShadersCache.cpp \
 	StateSetCache.cpp \
 	CoreModel.cpp \
 	Model.cpp \
-	SubMesh.cpp \
-	SubMeshHardware.cpp \
-	SubMeshSoftware.cpp
+	Mesh.cpp \
+	HardwareMesh.cpp \
+	SoftwareMesh.cpp
 
 #OPTF='-march=k8 -ftree-vectorize -O2 -ffast-math' # -fopenmp
 

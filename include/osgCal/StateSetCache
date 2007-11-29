@@ -26,7 +26,7 @@
 #include <osg/Fog>
 #include <osgCal/Export>
 #include <osgCal/Material>
-#include <osgCal/Meshes>
+#include <osgCal/MeshLoader>
 #include <osgCal/ShadersCache>
 
 namespace osgCal

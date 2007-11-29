@@ -26,8 +26,8 @@
 #include <osg/io_utils>
 
 #include <osgCal/Model>
-#include <osgCal/SubMeshHardware>
-#include <osgCal/SubMeshSoftware>
+#include <osgCal/HardwareMesh>
+#include <osgCal/SoftwareMesh>
 
 using namespace osgCal;
 
@@ -179,20 +179,20 @@ Model::addMesh( const CoreModel::Mesh* mesh,
                 MeshType meshType,
                 bool useDepthFirstMesh )
 {
-    SubMesh* g = 0;
-    osg::Drawable* depthSubMesh = 0;
+    Mesh* g = 0;
+    osg::Drawable* depthMesh = 0;
 
     // -- Create mesh drawable --
     switch ( meshType )
     {
         case MT_HARDWARE:
-            g = new SubMeshHardware( modelData.get(), mesh,
-                                     useDepthFirstMesh );
-            depthSubMesh = g->getDepthSubMesh();
+            g = new HardwareMesh( modelData.get(), mesh,
+                                  useDepthFirstMesh );
+            depthMesh = g->getDepthMesh();
             break;
 
         case MT_SOFTWARE:
-            g = new SubMeshSoftware( modelData.get(), mesh );
+            g = new SoftwareMesh( modelData.get(), mesh );
             break;
 
         default:
@@ -216,9 +216,9 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         // (first reported by Jan Ciger)
     }
 
-    if ( depthSubMesh )
+    if ( depthMesh )
     {
-        depthSubMesh->setDataVariance( g->getDataVariance() );
+        depthMesh->setDataVariance( g->getDataVariance() );
     }
 
     // -- Remember Updatable (and update) --
@@ -226,17 +226,17 @@ Model::addMesh( const CoreModel::Mesh* mesh,
     {
         g->update();
         updatableMeshes.push_back( g );
-//         if ( depthSubMesh ) -- not a SubMesh
+//         if ( depthMesh ) -- not a SubMesh
 //         {
-//             updatableMeshes.push_back( depthSubMesh );
+//             updatableMeshes.push_back( depthMesh );
 //         }
     }
     else
     {        
         nonUpdatableMeshes.push_back( g );
-//         if ( depthSubMesh )
+//         if ( depthMesh )
 //         {
-//             nonUpdatableMeshes.push_back( depthSubMesh );
+//             nonUpdatableMeshes.push_back( depthMesh );
 //         }
     }
 
@@ -253,9 +253,9 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         }
         
         geode->addDrawable( g );
-        if ( depthSubMesh )
+        if ( depthMesh )
         {
-            geode->addDrawable( depthSubMesh );
+            geode->addDrawable( depthMesh );
         }
     }
     else
@@ -270,9 +270,9 @@ Model::addMesh( const CoreModel::Mesh* mesh,
         }
 
         tg.second->addDrawable( g );
-        if ( depthSubMesh )
+        if ( depthMesh )
         {
-            tg.second->addDrawable( depthSubMesh );
+            tg.second->addDrawable( depthMesh );
         }
     }
 }
@@ -345,7 +345,7 @@ Model::update( double deltaTime )
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-    for ( std::vector< SubMesh* >::iterator
+    for ( std::vector< Mesh* >::iterator
               u    = updatableMeshes.begin(),
               uEnd = updatableMeshes.end();
           u < uEnd; ++u )
@@ -412,7 +412,7 @@ Model::accept( osg::NodeVisitor& nv )
             << "compiling shaders and display lists" << std::endl;
 
         // -- Compile shaders --
-        for ( std::vector< SubMesh* >::iterator
+        for ( std::vector< Mesh* >::iterator
                   h    = updatableMeshes.begin(),
                   hEnd = updatableMeshes.end();
               h != hEnd; ++h )
@@ -420,7 +420,7 @@ Model::accept( osg::NodeVisitor& nv )
             (*h)->accept( glv );
         }
 
-        for ( std::vector< SubMesh* >::iterator
+        for ( std::vector< Mesh* >::iterator
                   h    = nonUpdatableMeshes.begin(),
                   hEnd = nonUpdatableMeshes.end();
               h != hEnd; ++h )

@@ -26,7 +26,7 @@
 
 #include <osgCal/Export>
 #include <osgCal/Material>
-#include <osgCal/Meshes>
+#include <osgCal/MeshLoader>
 #include <osgCal/StateSetCache>
 
 namespace osgCal

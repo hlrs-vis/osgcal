@@ -30,16 +30,16 @@
 namespace osgCal
 {
     class ModelData;
-    class SubMeshHardware; // forward
+    class HardwareMesh; // forward
 
     /**
      * Submesh which is only draws depth part of specified hardware submesh.
      */
-    class SubMeshDepth :  public /*osg::Drawable //*/osg::Geometry
+    class DepthMesh :  public /*osg::Drawable //*/osg::Geometry
     {
         public:
            
-            SubMeshDepth( SubMeshHardware* hw );
+            DepthMesh( HardwareMesh* hw );
 
             virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
             void update( bool deformed, bool changed );
@@ -55,20 +55,20 @@ namespace osgCal
 
         private:
 
-            SubMeshHardware* hwMesh;
+            HardwareMesh* hwMesh;
 
     };
 
 
     /**
-     * \c osg::Drawable used to render \c CoreModel::SubMesh.
+     * \c osg::Drawable used to render \c CoreModel::Mesh.
      */
-    class OSGCAL_EXPORT SubMesh : public osg::Geometry
+    class OSGCAL_EXPORT Mesh : public osg::Geometry
     {
         public:
            
-            SubMesh( ModelData*             modelData,
-                     const CoreModel::Mesh* mesh );
+            Mesh( ModelData*             modelData,
+                  const CoreModel::Mesh* mesh );
 
             virtual void update() = 0;
 
@@ -79,7 +79,7 @@ namespace osgCal
             /**
              * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
              */
-            SubMeshDepth* getDepthSubMesh() { return depthSubMesh.get(); }
+            DepthMesh* getDepthMesh() { return depthMesh.get(); }
 
             /**
              * We don't support osgUtil::TransformAttributeFunctor
@@ -98,13 +98,13 @@ namespace osgCal
 
       protected:
 
-            osg::ref_ptr< SubMeshDepth >          depthSubMesh;
+            osg::ref_ptr< DepthMesh >             depthMesh;
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;
             bool                                  deformed;
 
-            // TODO: merge SubMeshDepth & SubMeshHardware into one
+            // TODO: merge DepthMesh & HardwareMesh into one
             // class and move all shared part into other structure.
     };
 

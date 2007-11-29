@@ -23,16 +23,16 @@
 //#include <osg/GL2Extensions>
 #include <osg/CullFace>
 
-#include <osgCal/SubMeshHardware>
+#include <osgCal/HardwareMesh>
 
 using namespace osgCal;
 
 
 
-SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
-                                  const CoreModel::Mesh* _mesh,
-                                  bool                   useDepthFirstMesh )
-    : SubMesh( _modelData, _mesh )
+HardwareMesh::HardwareMesh( ModelData*             _modelData,
+                            const CoreModel::Mesh* _mesh,
+                            bool                   useDepthFirstMesh )
+    : Mesh( _modelData, _mesh )
 {   
     setUseDisplayList( false );
     setSupportsDisplayList( false );
@@ -64,7 +64,7 @@ SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
          !(mesh->stateSets->staticHardware[0].get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) )
     {
-        depthSubMesh = new SubMeshDepth( this ); 
+        depthMesh = new DepthMesh( this ); 
     }
 
     setUserData( getStateSet() /*any referenced*/ );
@@ -76,19 +76,19 @@ SubMeshHardware::SubMeshHardware( ModelData*             _modelData,
 }
 
 osg::Object*
-SubMeshHardware::cloneType() const
+HardwareMesh::cloneType() const
 {
     throw std::runtime_error( "cloneType() is not implemented" );
 }
 
 osg::Object*
-SubMeshHardware::clone( const osg::CopyOp& ) const
+HardwareMesh::clone( const osg::CopyOp& ) const
 {
     throw std::runtime_error( "clone() is not implemented" );
 }
 
 void
-SubMeshHardware::drawImplementation( osg::RenderInfo& renderInfo ) const
+HardwareMesh::drawImplementation( osg::RenderInfo& renderInfo ) const
 {
     drawImplementation( renderInfo, getStateSet() );
 }
@@ -105,14 +105,14 @@ getProgram( osg::State& state,
 
     if ( stateProgram == 0 )
     {
-        throw std::runtime_error( "SubMeshHardware::drawImplementation(): can't get program (shader compilation failed?" );
+        throw std::runtime_error( "HardwareMesh::drawImplementation(): can't get program (shader compilation failed?" );
     }
 
     return stateProgram->getPCP( state.getContextID() );
 }
 
 void
-SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
+HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
                                      const osg::StateSet* stateSet ) const
 {
     osg::State& state = *renderInfo.getState();
@@ -217,7 +217,7 @@ SubMeshHardware::drawImplementation( osg::RenderInfo&     renderInfo,
 }
 
 void
-SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
+HardwareMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
     Geometry::compileGLObjects( renderInfo );
 
@@ -243,16 +243,16 @@ SubMeshHardware::compileGLObjects(osg::RenderInfo& renderInfo) const
 }
 
 void
-SubMeshHardware::accept( osgUtil::GLObjectsVisitor* glv )
+HardwareMesh::accept( osgUtil::GLObjectsVisitor* glv )
 {
-    glv->apply( *mesh->stateSets->staticHardware[depthSubMesh.valid()].get() );
+    glv->apply( *mesh->stateSets->staticHardware[depthMesh.valid()].get() );
 
     if ( !mesh->data->rigid )
     {
-        glv->apply( *mesh->stateSets->hardware[depthSubMesh.valid()].get() );
+        glv->apply( *mesh->stateSets->hardware[depthMesh.valid()].get() );
     }
 
-    if ( depthSubMesh.valid() )
+    if ( depthMesh.valid() )
     {
         glv->apply( *mesh->stateSets->staticDepthOnly.get() );
 
@@ -264,7 +264,7 @@ SubMeshHardware::accept( osgUtil::GLObjectsVisitor* glv )
 }
 
 void
-SubMeshHardware::innerDrawImplementation( osg::RenderInfo&     renderInfo,
+HardwareMesh::innerDrawImplementation( osg::RenderInfo&     renderInfo,
                                           GLuint               displayList ) const
 {   
 #define glError()                                                       \
@@ -388,7 +388,7 @@ mul3( const osg::Matrix3& m,
 }
 
 void
-SubMeshHardware::update()
+HardwareMesh::update()
 {   
     // -- Setup rotation matrices & translation vertices --
     typedef std::pair< osg::Matrix3, osg::Vec3f > RTPair;
@@ -418,20 +418,20 @@ SubMeshHardware::update()
 //    std::cout << "deformed = " << deformed << std::endl;
     if ( deformed )
     {
-        setStateSet( mesh->stateSets->hardware[depthSubMesh.valid()].get() );
+        setStateSet( mesh->stateSets->hardware[depthMesh.valid()].get() );
     }
     else
     {
-        setStateSet( mesh->stateSets->staticHardware[depthSubMesh.valid()].get() );
+        setStateSet( mesh->stateSets->staticHardware[depthMesh.valid()].get() );
         // for undeformed meshes we use static state set which not
         // perform vertex, normal, binormal and tangent deformations
         // in vertex shader
     }
 
-    // -- Update depthSubMesh --
-    if ( depthSubMesh.valid() )
+    // -- Update depthMesh --
+    if ( depthMesh.valid() )
     {
-        depthSubMesh->update( deformed, changed );
+        depthMesh->update( deformed, changed );
     }
 
     // -- Check changes --
@@ -580,7 +580,7 @@ SubMeshHardware::update()
 
 // -- Depth submesh --
 
-SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
+DepthMesh::DepthMesh( HardwareMesh* hw )
     : hwMesh( hw )
 {
     //setThreadSafeRefUnref( true );
@@ -596,19 +596,19 @@ SubMeshDepth::SubMeshDepth( SubMeshHardware* hw )
 }
 
 void
-SubMeshDepth::drawImplementation(osg::RenderInfo& renderInfo) const
+DepthMesh::drawImplementation(osg::RenderInfo& renderInfo) const
 {
     hwMesh->drawImplementation( renderInfo, getStateSet() );
 }
 
 void
-SubMeshDepth::compileGLObjects(osg::RenderInfo& renderInfo) const
+DepthMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
     hwMesh->compileGLObjects( renderInfo );
 }
 
 void
-SubMeshDepth::update( bool deformed, bool changed )
+DepthMesh::update( bool deformed, bool changed )
 {
     if ( deformed )
     {
@@ -626,7 +626,7 @@ SubMeshDepth::update( bool deformed, bool changed )
 }
 
 osg::BoundingBox
-SubMeshDepth::computeBound() const
+DepthMesh::computeBound() const
 {
     return hwMesh->computeBound();
 }

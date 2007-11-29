@@ -29,7 +29,7 @@
 
 #include <osgCal/Export>
 #include <osgCal/CoreModel>
-#include <osgCal/SubMesh>
+#include <osgCal/Mesh>
 
 namespace osgCal {
 
@@ -142,7 +142,7 @@ namespace osgCal {
     // -- Model --    
     
     class ModelData; // forward declaration, see after Model
-    class SubMesh;
+    class Mesh;
 
     class OSGCAL_EXPORT Model : public osg::Group
     {
@@ -202,7 +202,7 @@ namespace osgCal {
             void clearCycle( int id,
                              float delay );
 
-            typedef std::vector< SubMesh* > MeshesList;
+            typedef std::vector< Mesh* > MeshesList;
 
             /**
              * Return list of meshes corresponding to specified name.
@@ -243,12 +243,12 @@ namespace osgCal {
 
             TransformAndGeode& getOrCreateTransformAndGeode( int boneId );
 
-            std::vector< SubMesh* >     updatableMeshes;
+            std::vector< Mesh* >     updatableMeshes;
 
             /**
              * Non updatable (rigid) meshes, needed for compiling state sets.
              */
-            std::vector< SubMesh* >     nonUpdatableMeshes;
+            std::vector< Mesh* >     nonUpdatableMeshes;
 
     };
 

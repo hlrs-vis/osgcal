@@ -19,15 +19,15 @@
 #include <cal3d/cal3d.h>
 
 #include <osg/Notify>
-#include <osgCal/SubMeshSoftware>
+#include <osgCal/SoftwareMesh>
 
 #include <iostream>
 
 using namespace osgCal;
 
-SubMeshSoftware::SubMeshSoftware( ModelData*             _modelData,
-                                  const CoreModel::Mesh* _mesh )
-    : SubMesh( _modelData, _mesh )
+SoftwareMesh::SoftwareMesh( ModelData*             _modelData,
+                            const CoreModel::Mesh* _mesh )
+    : Mesh( _modelData, _mesh )
 {
     //setThreadSafeRefUnref( true );
 
@@ -77,13 +77,13 @@ SubMeshSoftware::SubMeshSoftware( ModelData*             _modelData,
 }
 
 osg::Object*
-SubMeshSoftware::cloneType() const
+SoftwareMesh::cloneType() const
 {
     throw std::runtime_error( "cloneType() is not implemented" );
 }
 
 osg::Object*
-SubMeshSoftware::clone( const osg::CopyOp& ) const
+SoftwareMesh::clone( const osg::CopyOp& ) const
 {
     throw std::runtime_error( "clone() is not implemented" );
 }
@@ -124,7 +124,7 @@ mul3( const osg::Matrix3& m,
 }
 
 void
-SubMeshSoftware::update()
+SoftwareMesh::update()
 {
     // hmm. is it good to copy/paste? its nearly the same algorithm
     

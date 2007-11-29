@@ -16,25 +16,25 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#ifndef __OSGCAL__SUBMESHSOFTWARE_H__
-#define __OSGCAL__SUBMESHSOFTWARE_H__
+#ifndef __OSGCAL__SOFTWAREMESH_H__
+#define __OSGCAL__SOFTWAREMESH_H__
 
-#include <osgCal/SubMesh>
+#include <osgCal/Mesh>
 
 namespace osgCal {
 
-    class SubMeshSoftware : public SubMesh
+    class SoftwareMesh : public Mesh
     {
         public:
 
             osg::Object* cloneType() const;
             osg::Object* clone( const osg::CopyOp& ) const;
-            virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const SubMeshSoftware *>(obj)!=NULL; }
+            virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const SoftwareMesh *>(obj)!=NULL; }
             virtual const char* libraryName() const { return "osgCal"; }
-            virtual const char* className() const { return "SubMeshSoftware"; }
+            virtual const char* className() const { return "SoftwareMesh"; }
 
-            SubMeshSoftware( ModelData*             modelData,
-                             const CoreModel::Mesh* mesh );
+            SoftwareMesh( ModelData*             modelData,
+                          const CoreModel::Mesh* mesh );
 
             virtual void update();
 

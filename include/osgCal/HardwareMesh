@@ -15,31 +15,31 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#ifndef __OSGCAL__SUBMESHHARDWARE_H__
-#define __OSGCAL__SUBMESHHARDWARE_H__
+#ifndef __OSGCAL__HARDWAREMESH_H__
+#define __OSGCAL__HARDWAREMESH_H__
 
-#include <osgCal/SubMesh>
+#include <osgCal/Mesh>
 
 namespace osgCal
 {
-    class SubMeshHardware : public SubMesh
+    class HardwareMesh : public Mesh
     {
         public:
            
             osg::Object* cloneType() const;
             osg::Object* clone( const osg::CopyOp& ) const;
-            virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const SubMeshHardware *>(obj)!=NULL; }
+            virtual bool isSameKindAs(const osg::Object* obj) const { return dynamic_cast<const HardwareMesh *>(obj)!=NULL; }
             virtual const char* libraryName() const { return "osgCal"; }
-            virtual const char* className() const { return "SubMeshHardware"; }
+            virtual const char* className() const { return "HardwareMesh"; }
 
-            SubMeshHardware( ModelData*             modelData,
-                             const CoreModel::Mesh* mesh,
-                             bool                   useDepthFirstMesh = false );
+            HardwareMesh( ModelData*             modelData,
+                          const CoreModel::Mesh* mesh,
+                          bool                   useDepthFirstMesh = false );
 
 
             virtual void drawImplementation( osg::RenderInfo& renderInfo ) const;
             /**
-             * Real draw implementation called from SubMeshHardware & SubMeshDepth.
+             * Real draw implementation called from HardwareMesh & MeshDepth.
              * They differ in only in state sets so pass it explicitly.
              */
             void drawImplementation( osg::RenderInfo&     renderInfo,
@@ -56,7 +56,7 @@ namespace osgCal
 
         private:
 
-            // TODO: merge SubMeshDepth & SubMeshHardware into one
+            // TODO: merge MeshDepth & HardwareMesh into one
             // class and move all shared part into other structure.
             
             /**
