@@ -33,8 +33,7 @@ namespace osgCal
             virtual const char* className() const { return "HardwareMesh"; }
 
             HardwareMesh( ModelData*             modelData,
-                          const CoreModel::Mesh* mesh,
-                          bool                   useDepthFirstMesh = false );
+                          const CoreModel::Mesh* mesh );
 
 
             virtual void drawImplementation( osg::RenderInfo& renderInfo ) const;

@@ -45,40 +45,6 @@ namespace osgCal
 
             CoreModel();
 
-            enum LoadFlags
-            {
-                /**
-                 * Show Tangent-Binormal-Normal basis.
-                 */
-                SHOW_TBN = 0x10, // TODO: restore it
-
-                /**
-                 * Enable fog in shader (exp, exp2 or linear mode)
-                 */
-                FOG_EXP = 0x20,
-                FOG_EXP2 = 0x40,
-                FOG_LINEAR = 0x20 + 0x40,
-            };
-
-            /**
-             * Loads cal3d core model and prepare all internal stuff for fast Models creation.
-             * This function may be called only once.
-             */
-            void load( const std::string& cfgFileName,
-                       int flags = 0 ) throw (std::runtime_error);
-
-            /**
-             * Same as load, but doesn't throw exceptions on error.
-             */
-            bool loadNoThrow( const std::string& cfgFileName,
-                              std::string&       errorText,
-                              int                flags = 0 ) throw ();
-
-            CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
-
-            int            getFlags()         const  { return flags; }
-            StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
-
             struct MeshDisplaySettings : osg::Referenced
             {
                 public:
@@ -113,6 +79,40 @@ namespace osgCal
                      */
                     bool useDepthFirstMesh;
             };
+
+//             enum LoadFlags
+//             {
+//                 /**
+//                  * Show Tangent-Binormal-Normal basis.
+//                  */
+//                 SHOW_TBN = 0x10, // TODO: restore it
+
+//                 /**
+//                  * Enable fog in shader (exp, exp2 or linear mode)
+//                  */
+//                 FOG_EXP = 0x20,
+//                 FOG_EXP2 = 0x40,
+//                 FOG_LINEAR = 0x20 + 0x40,
+//             };
+
+            /**
+             * Loads cal3d core model and prepare all internal stuff for fast Models creation.
+             * This function may be called only once.
+             */
+            void load( const std::string& cfgFileName,
+                       const MeshDisplaySettings* ds = 0 ) throw (std::runtime_error);
+
+            /**
+             * Same as load, but doesn't throw exceptions on error.
+             */
+            bool loadNoThrow( const std::string& cfgFileName,
+                              std::string&       errorText,
+                              int                flags = 0 ) throw ();
+
+            CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
+
+            int            getFlags()         const  { return flags; }
+            StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
 
             /**
              * List of state sets used by Model's meshes

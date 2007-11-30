@@ -33,19 +33,6 @@
 
 namespace osgCal {
 
-    // -- Mesh type selection for Model::load --
-
-    enum MeshType
-    {
-        MT_HARDWARE = 0,
-
-        /**
-         * Software meshes are only for testing purpouses. Don't use
-         * them in conjunction with hardware meshes.
-         */
-        MT_SOFTWARE = 1
-    };
-
     // -- Mesh adding for Model::load --
 
     class Model; // forward
@@ -60,84 +47,33 @@ namespace osgCal {
     };
 
     /**
-     * Default mesh adder -- it adds all meshes as hardware ones.
+     * Default mesh adder -- it adds all meshes with default materials
+     * and display settings.
      */
     struct OSGCAL_EXPORT DefaultMeshAdder : public BasicMeshAdder
     {
         virtual void add( Model* model,
                           const CoreModel::Mesh* mesh );
-    };
+    };   
 
-    struct OSGCAL_EXPORT MeshTyper : public osg::Referenced
-    {
-        virtual MeshType type( const CoreModel::Mesh* mesh ) = 0;
-        virtual bool useDepthFirstMesh( const CoreModel::Mesh* mesh ) = 0;
-    };
-
-    struct OSGCAL_EXPORT AllMeshesHardware : public MeshTyper
-    {
-        bool _useDepthFirstMesh;
-        
-        AllMeshesHardware( bool useDepthFirstMesh = false )
-            : _useDepthFirstMesh( useDepthFirstMesh )
-        {}
-
-        virtual MeshType type( const CoreModel::Mesh* )
-        {
-            return MT_HARDWARE;
-        }
-        virtual bool useDepthFirstMesh( const CoreModel::Mesh* )
-        {
-            return _useDepthFirstMesh;
-        }
-    };
-
-    struct OSGCAL_EXPORT AllMeshesSoftware : public MeshTyper
-    {
-        virtual MeshType type( const CoreModel::Mesh* )
-        {
-            return MT_SOFTWARE;
-        }
-        virtual bool useDepthFirstMesh( const CoreModel::Mesh* ) { return false; }
-    };
-    
-
-    struct OSGCAL_EXPORT MeshFilter : public osg::Referenced
-    {
-        virtual bool filter( const CoreModel::Mesh* mesh ) = 0;
-    };
-
-    struct OSGCAL_EXPORT AllMeshes : public MeshFilter
-    {
-        bool filter( const CoreModel::Mesh* ) { return true; }
-    };
-
-    struct OSGCAL_EXPORT OneMesh : public MeshFilter
+    struct OSGCAL_EXPORT OneMeshAdder : public DefaultMeshAdder
     {
         std::string meshName;
 
-        OneMesh( const std::string& mn )
+        OneMeshAdder( const std::string& mn )
             : meshName( mn )
         {}
 
-        bool filter( const CoreModel::Mesh* mesh ) { return mesh->data->name == meshName; }
+        virtual void add( Model* model,
+                          const CoreModel::Mesh* mesh )
+        {
+            if ( mesh->data->name == meshName )
+            {
+                DefaultMeshAdder::add( model, mesh );
+            }
+        }
     };
 
-    class MeshAdder : public BasicMeshAdder
-    {
-        public:
-            MeshAdder( MeshFilter* f,
-                       MeshTyper*  t )
-                : mf( f )
-                , mt( t )
-            {}
-
-            virtual void add( Model* model,
-                              const CoreModel::Mesh* mesh );
-        private:
-            osg::ref_ptr< MeshFilter > mf;
-            osg::ref_ptr< MeshTyper >  mt;
-    };
 
     // -- Model --    
     
@@ -163,11 +99,9 @@ namespace osgCal {
                        BasicMeshAdder* meshAdder = 0 );
 
             /**
-             * Add core model mesh with specified parameters to model.
+             * Add core model mesh to model.
              */
-            void addMesh( const CoreModel::Mesh* mesh,
-                          MeshType meshType = MT_HARDWARE,
-                          bool useDepthFirstMesh = false );
+            void addMesh( const CoreModel::Mesh* mesh );
 
             /**
              * Add user node to specified bone.

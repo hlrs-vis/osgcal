@@ -175,29 +175,22 @@ Model::load( CoreModel*      _coreModel,
 
 
 void
-Model::addMesh( const CoreModel::Mesh* mesh,
-                MeshType meshType,
-                bool useDepthFirstMesh )
+Model::addMesh( const CoreModel::Mesh* mesh )
 {
     Mesh* g = 0;
     osg::Drawable* depthMesh = 0;
 
     // -- Create mesh drawable --
-    switch ( meshType )
+    if ( mesh->displaySettings->software )
     {
-        case MT_HARDWARE:
-            g = new HardwareMesh( modelData.get(), mesh,
-                                  useDepthFirstMesh );
-            depthMesh = g->getDepthMesh();
-            break;
-
-        case MT_SOFTWARE:
-            g = new SoftwareMesh( modelData.get(), mesh );
-            break;
-
-        default:
-            throw std::runtime_error( "Model::addMesh - unknown mesh type" );
+        g = new SoftwareMesh( modelData.get(), mesh );
     }
+    else
+    {
+        g = new HardwareMesh( modelData.get(), mesh );
+    }
+
+    depthMesh = g->getDepthMesh();        
 
     // -- Remember drawable --
     g->setName( mesh->data->name ); // for debug only, TODO: subject to remove
@@ -438,19 +431,7 @@ void
 DefaultMeshAdder::add( Model* model,
                        const CoreModel::Mesh* mesh )
 {
-    model->addMesh( mesh, MT_HARDWARE );
-}
-
-void
-MeshAdder::add( Model* model,
-                const CoreModel::Mesh* mesh )
-{
-    if ( mf->filter( mesh ) )
-    {
-        model->addMesh( mesh,
-                        mt->type( mesh ),
-                        mt->useDepthFirstMesh( mesh ) );
-    }
+    model->addMesh( mesh );
 }
 
 

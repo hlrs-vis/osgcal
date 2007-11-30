@@ -30,8 +30,7 @@ using namespace osgCal;
 
 
 HardwareMesh::HardwareMesh( ModelData*             _modelData,
-                            const CoreModel::Mesh* _mesh,
-                            bool                   useDepthFirstMesh )
+                            const CoreModel::Mesh* _mesh )
     : Mesh( _modelData, _mesh )
 {   
     setUseDisplayList( false );
@@ -59,7 +58,7 @@ HardwareMesh::HardwareMesh( ModelData*             _modelData,
     boundingBox = mesh->data->boundingBox;
 
     // create depth submesh for non-transparent meshes
-    if ( useDepthFirstMesh
+    if ( mesh->displaySettings->useDepthFirstMesh
          &&
          !(mesh->stateSets->staticStateSet.get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) )
