@@ -142,6 +142,7 @@ namespace osgCal {
     // -- Model --    
     
     class ModelData; // forward declaration, see after Model
+    class Mesh;
 
     class OSGCAL_EXPORT Model : public osg::Group
     {

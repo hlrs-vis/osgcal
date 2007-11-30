@@ -92,23 +92,23 @@ class CachedObjectObserver : public osg::Observer
 };
 
 
-template < typename Key, typename Value, typename Class >
-Value*
-getOrCreate( std::map< Key, Value* >& map,
-             const Key&               key,
-             Class*                   obj,
-             Value*        ( Class::*create )( const Key& ) )
+template < typename Map, typename Class >
+typename Map::mapped_type
+getOrCreate( Map&                                map,
+             const typename Map::key_type&       key,
+             Class*                              obj,
+             typename Map::mapped_type   ( Class::*create )( const typename Map::key_type& ) )
 {
-    typename std::map< Key, Value* >::const_iterator i = map.find( key );
+    typename Map::const_iterator i = map.find( key );
     if ( i != map.end() )
     {
         return i->second;
     }
     else
     {
-        Value* v = (obj ->* create)( key ); // damn c++!
+        typename Map::mapped_type v = (obj ->* create)( key ); // damn c++!
         map[ key ] = v;
-        v->addObserver( new CachedObjectObserver< std::map< Key, Value* > >( &map, key, obj ) );
+        v->addObserver( new CachedObjectObserver< Map >( &map, key, obj ) );
         return v;
     }
 }
@@ -117,22 +117,23 @@ getOrCreate( std::map< Key, Value* >& map,
 // -- Materials cache --
 
 osg::Material*
-MaterialsCache::get( const OsgMaterial& md )
+MaterialsCache::get( const Key& md )
 {
-    return getOrCreate( cache, md, this, &MaterialsCache::createMaterial );
+    return getOrCreate< Map, MaterialsCache >( cache, md,
+                        this, &MaterialsCache::createMaterial );
 }
 
 osg::Material*
-MaterialsCache::createMaterial( const OsgMaterial& desc )
+MaterialsCache::createMaterial( const Key& desc )
 {
     osg::Material* material = new osg::Material();
 
     material->setColorMode( osg::Material::AMBIENT_AND_DIFFUSE );
-    material->setAmbient( osg::Material::FRONT_AND_BACK, desc.ambientColor );
-    material->setDiffuse( osg::Material::FRONT_AND_BACK, desc.diffuseColor );
-    material->setSpecular( osg::Material::FRONT_AND_BACK, desc.specularColor );
+    material->setAmbient( osg::Material::FRONT_AND_BACK, desc->ambientColor );
+    material->setDiffuse( osg::Material::FRONT_AND_BACK, desc->diffuseColor );
+    material->setSpecular( osg::Material::FRONT_AND_BACK, desc->specularColor );
     material->setShininess( osg::Material::FRONT_AND_BACK,
-                            desc.glossiness > 128.0 ? 128.0 : desc.glossiness );
+                            desc->glossiness > 128.0 ? 128.0 : desc->glossiness );
 
     return material;
 }
@@ -143,7 +144,7 @@ MaterialsCache::createMaterial( const OsgMaterial& desc )
 osg::Texture2D*
 TexturesCache::get( const TextureDesc& td )
 {
-    return getOrCreate( cache, td, this, &TexturesCache::createTexture );
+    return getOrCreate< Map, TexturesCache >( cache, td, this, &TexturesCache::createTexture );
 }
 
 osg::Texture2D*
@@ -271,30 +272,30 @@ SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
 {}
             
 osg::StateSet*
-SwMeshStateSetCache::get( const SoftwareMaterial& swsd )
+SwMeshStateSetCache::get( const Key& swsd )
 {
     return getOrCreate( cache, swsd, this,
                         &SwMeshStateSetCache::createSwMeshStateSet );
 }
 osg::StateSet*
-SwMeshStateSetCache::createSwMeshStateSet( const SoftwareMaterial& desc )
+SwMeshStateSetCache::createSwMeshStateSet( const Key& desc )
 {
     osg::StateSet* stateSet = new osg::StateSet();
 
     // -- setup material --
-    osg::Material* material = materialsCache->get( *static_cast< const OsgMaterial* >( &desc ) );
+    osg::Material* material = materialsCache->get( *(MaterialsCache::Key*)&desc );
     stateSet->setAttributeAndModes( material, osg::StateAttribute::ON );    
 
     // -- setup diffuse map --
-    if ( desc.diffuseMap != "" )
+    if ( desc->diffuseMap != "" )
     {
-        osg::Texture2D* texture = texturesCache->get( desc.diffuseMap );
+        osg::Texture2D* texture = texturesCache->get( desc->diffuseMap );
 
         stateSet->setTextureAttributeAndModes( 0, texture, osg::StateAttribute::ON );
     }
 
     // -- setup sidedness --
-    switch ( desc.sides )
+    switch ( desc->sides )
     {
         case 1:
             // one sided mesh -- force backface culling
@@ -320,7 +321,7 @@ SwMeshStateSetCache::createSwMeshStateSet( const SoftwareMaterial& desc )
     }
 
     // -- Check transparency modes --
-    if ( isRGBAStateSet( stateSet ) || desc.diffuseColor.a() < 1 )
+    if ( isRGBAStateSet( stateSet ) || desc->diffuseColor.a() < 1 )
     {
         stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
                            osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
@@ -384,7 +385,7 @@ HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
 {}
             
 osg::StateSet*
-HwMeshStateSetCache::get( const Material& swsd,
+HwMeshStateSetCache::get( const MKey& swsd,
                           int bonesCount,
                           bool useDepthFirstMesh )
 {
@@ -396,15 +397,14 @@ HwMeshStateSetCache::get( const Material& swsd,
 }
 
 osg::StateSet*
-HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
-                                           std::pair< int, bool > >& matAndBones )
+HwMeshStateSetCache::createHwMeshStateSet( const Key& matAndBones )
 {
-    const Material& material = matAndBones.first;
+    const MKey& material     = matAndBones.first;
     int bonesCount           = matAndBones.second.first;
     bool useDepthFirstMesh   = matAndBones.second.second;
     
     osg::StateSet* baseStateSet = swMeshStateSetCache->
-        get( *static_cast< const SoftwareMaterial* >( &material ) );
+        get( *(const SwMeshStateSetCache::Key*)&material );
 
     osg::StateSet* stateSet = new osg::StateSet( *baseStateSet );
 //    stateSet->merge( *baseStateSet );
@@ -415,7 +415,7 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
     int transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
 
     stateSet->setAttributeAndModes( shadersCache->get(
-                                        materialShaderFlags( material )
+                                        materialShaderFlags( *material )
                                         +
                                         SHADER_FLAG_BONES( bonesCount )
                                         +
@@ -426,12 +426,12 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
                                         ),
                                     osg::StateAttribute::ON );
 
-    stateSet->addUniform( newFloatUniform( "glossiness", material.glossiness ) );
+    stateSet->addUniform( newFloatUniform( "glossiness", material->glossiness ) );
 
     // -- setup normals map --
-    if ( material.normalsMap != "" )
+    if ( material->normalsMap != "" )
     {
-        osg::Texture2D* texture = texturesCache->get( material.normalsMap );
+        osg::Texture2D* texture = texturesCache->get( material->normalsMap );
 
         stateSet->setTextureAttributeAndModes( 1, texture, osg::StateAttribute::ON );
         static osg::ref_ptr< osg::Uniform > normalMap =
@@ -440,19 +440,19 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
     }
 
     // -- setup bump map --
-    if ( material.bumpMap != "" )
+    if ( material->bumpMap != "" )
     {
-        osg::Texture2D* texture = texturesCache->get( material.bumpMap );        
+        osg::Texture2D* texture = texturesCache->get( material->bumpMap );        
 
         stateSet->setTextureAttributeAndModes( 2, texture, osg::StateAttribute::ON );
         static osg::ref_ptr< osg::Uniform > bumpMap =
             newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 2 );
         stateSet->addUniform( bumpMap.get() );
-        stateSet->addUniform( newFloatUniform( "bumpMapAmount", material.bumpMapAmount ) );
+        stateSet->addUniform( newFloatUniform( "bumpMapAmount", material->bumpMapAmount ) );
     }
 
     // -- setup some uniforms --
-    if ( material.diffuseMap != "" )
+    if ( material->diffuseMap != "" )
     {
         static osg::ref_ptr< osg::Uniform > decalMap =
             newIntUniform( osg::Uniform::SAMPLER_2D, "decalMap", 0 );
@@ -478,10 +478,10 @@ HwMeshStateSetCache::createHwMeshStateSet( const std::pair< Material,
 }
 
 osg::StateSet*
-DepthMeshStateSetCache::get( const Material& m,
+DepthMeshStateSetCache::get( const Material* m,
                              int bonesCount )
 {
-    return getOrCreate( cache, std::make_pair( bonesCount, m.sides ), this,
+    return getOrCreate( cache, std::make_pair( bonesCount, m->sides ), this,
                         &DepthMeshStateSetCache::createDepthMeshStateSet );
 }
 

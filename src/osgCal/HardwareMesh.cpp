@@ -40,7 +40,7 @@ HardwareMesh::HardwareMesh( ModelData*             _modelData,
     
     setUseVertexBufferObjects( false ); // false is default
 
-    setStateSet( mesh->stateSets->staticHardware[ useDepthFirstMesh ].get() );
+    setStateSet( mesh->stateSets->staticStateSet.get() );
     // Initially we use static (not skinning) state set. It will
     // changed to skinning (in update() method when some animation
     // starts.
@@ -61,7 +61,7 @@ HardwareMesh::HardwareMesh( ModelData*             _modelData,
     // create depth submesh for non-transparent meshes
     if ( useDepthFirstMesh
          &&
-         !(mesh->stateSets->staticHardware[0].get()->getRenderingHint()
+         !(mesh->stateSets->staticStateSet.get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) )
     {
         depthMesh = new DepthMesh( this ); 
@@ -245,11 +245,11 @@ HardwareMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 void
 HardwareMesh::accept( osgUtil::GLObjectsVisitor* glv )
 {
-    glv->apply( *mesh->stateSets->staticHardware[depthMesh.valid()].get() );
+    glv->apply( *mesh->stateSets->staticStateSet.get() );
 
     if ( !mesh->data->rigid )
     {
-        glv->apply( *mesh->stateSets->hardware[depthMesh.valid()].get() );
+        glv->apply( *mesh->stateSets->stateSet.get() );
     }
 
     if ( depthMesh.valid() )
@@ -418,11 +418,11 @@ HardwareMesh::update()
 //    std::cout << "deformed = " << deformed << std::endl;
     if ( deformed )
     {
-        setStateSet( mesh->stateSets->hardware[depthMesh.valid()].get() );
+        setStateSet( mesh->stateSets->stateSet.get() );
     }
     else
     {
-        setStateSet( mesh->stateSets->staticHardware[depthMesh.valid()].get() );
+        setStateSet( mesh->stateSets->staticStateSet.get() );
         // for undeformed meshes we use static state set which not
         // perform vertex, normal, binormal and tangent deformations
         // in vertex shader

@@ -15,8 +15,8 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#ifndef __OSGCAL__SUBMESH_H__
-#define __OSGCAL__SUBMESH_H__
+#ifndef __OSGCAL__MESH_H__
+#define __OSGCAL__MESH_H__
 
 #include <osg/Version>
 #include <osg/Geometry>
@@ -101,11 +101,12 @@ namespace osgCal
 
       protected:
 
-            osg::ref_ptr< DepthMesh >             depthMesh;
             osg::ref_ptr< ModelData >             modelData;
             osg::ref_ptr< const CoreModel::Mesh > mesh;
             osg::BoundingBox                      boundingBox;
             bool                                  deformed;
+
+            osg::ref_ptr< DepthMesh >             depthMesh;
 
             virtual void onDisplaySettingsChanged( const CoreModel::MeshDisplaySettings* ) {}
     };

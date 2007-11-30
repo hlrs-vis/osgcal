@@ -43,7 +43,7 @@ SoftwareMesh::SoftwareMesh( ModelData*             _modelData,
     }
 
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( mesh->stateSets->software.get() );
+    setStateSet( mesh->stateSets->stateSet.get() );
 
     if ( !mesh->data->normalBuffer.valid() )
     {

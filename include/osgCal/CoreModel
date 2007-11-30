@@ -85,6 +85,14 @@ namespace osgCal
                     MeshDisplaySettings();
 
                     /**
+                     * Use fixed function pipeline for drawing.
+                     * Use it for testing purpouses only, many
+                     * features are not supported in software mode.
+                     * Also switching between hw/sw rendering is not supported.
+                     */
+                    bool software;
+                    
+                    /**
                      * Show Tangent-Binormal-Normal basis.
                      */
                     bool showTBN; // TODO: restore it
@@ -113,9 +121,9 @@ namespace osgCal
             {
                 public:
                     MeshStateSets( StateSetCache*  c,
-                                   const Material& m,
-                                   const MeshDisplaySettings& ds,
-                                   const MeshData* d );
+                                   const MeshData* d,
+                                   const Material* m,
+                                   const MeshDisplaySettings* ds );
                     
                     osg::ref_ptr< osg::StateSet >   stateSet;
                     osg::ref_ptr< osg::StateSet >   staticStateSet; ///< zero bones state set
@@ -175,21 +183,26 @@ namespace osgCal
                      */
                     Mesh( const CoreModel* model,
                           MeshData*        data,
-                          const Material&  material );
+                          const Material*  material,
+                          const MeshDisplaySettings* ds  );
 
                     /**
-                     * Creation of mesh with new material.
+                     * Creation of mesh with new material and display settings.
                      * Display list is shared in this case.
                      */
                     Mesh( const CoreModel* model,
                           const Mesh* mesh,
-                          const Material& newMaterial );
+                          const Material* newMaterial,
+                          const MeshDisplaySettings* newDs  );
 
                     /**
                      * Mutable since we free some data after display lists compiled.
                      */
                     mutable osg::ref_ptr< MeshData >    data;
-                    Material                            material;
+
+                    osg::ref_ptr< Material >            material;
+                    osg::ref_ptr< MeshDisplaySettings > displaySettings;
+
                     osg::ref_ptr< MeshDisplayLists >    displayLists;
                     osg::ref_ptr< MeshStateSets >       stateSets;
 

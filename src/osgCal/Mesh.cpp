@@ -20,18 +20,12 @@
 using namespace osgCal;
 
 
-MeshDisplaySettings::MeshDisplaySettings()
-    : showTBN( false )
-    , fogMode( static_cast< osg::Fog::Mode >( 0 ) )
-    , useDepthFirstMesh( false )
-{
-}
-
 Mesh::Mesh( ModelData*             _modelData,
             const CoreModel::Mesh* _mesh )
-    : depthMesh( 0 )
-    , modelData( _modelData )
+    : modelData( _modelData )
     , mesh( _mesh )
+    , boundingBox( _mesh->data->boundingBox )
     , deformed( false )
+    , depthMesh( 0 )
 {   
 }
