@@ -74,15 +74,14 @@ bool
 osgCal::operator < ( const OsgMaterial& om1,
                      const OsgMaterial& om2 )
 {
-    bool r = lt( om1.ambientColor,
-                 om2.ambientColor,
-                 lt( om1.diffuseColor,
-                     om2.diffuseColor,
-                     lt( om1.specularColor,
-                         om2.specularColor,
-                         lt( om1.glossiness,
-                             om2.glossiness, false ))));
-    return r;
+    return lt( om1.ambientColor,
+               om2.ambientColor,
+               lt( om1.diffuseColor,
+                   om2.diffuseColor,
+                   lt( om1.specularColor,
+                       om2.specularColor,
+                       lt( om1.glossiness,
+                           om2.glossiness, false ))));
 }
 
 // -- SoftwareMaterial --
@@ -91,13 +90,12 @@ bool
 osgCal::operator < ( const SoftwareMaterial& d1,
                      const SoftwareMaterial& d2 )
 {
-    bool r = lt( *static_cast< const OsgMaterial* >( &d1 ),
-                 *static_cast< const OsgMaterial* >( &d2 ),
-                 lt( d1.diffuseMap,
-                     d2.diffuseMap,
-                     lt( d1.sides,
-                         d2.sides, false )));
-    return r;
+    return lt( *static_cast< const OsgMaterial* >( &d1 ),
+               *static_cast< const OsgMaterial* >( &d2 ),
+               lt( d1.diffuseMap,
+                   d2.diffuseMap,
+                   lt( d1.sides,
+                       d2.sides, false )));
 }
 
 // -- HwStateDesc --
@@ -106,18 +104,17 @@ bool
 osgCal::operator < ( const Material& d1,
                      const Material& d2 )
 {
-    bool r = lt( *static_cast< const SoftwareMaterial* >( &d1 ),
-                 *static_cast< const SoftwareMaterial* >( &d2 ),
-                 lt( d1.normalsMap,
-                     d2.normalsMap,
-                     lt( d1.bumpMap,
-                         d2.bumpMap,
-                         lt( d1.normalsMapAmount,
-                             d2.normalsMapAmount,
-                             lt( d1.bumpMapAmount,
-                                 d2.bumpMapAmount,
-                                 false)))));
-    return r;
+    return lt( *static_cast< const SoftwareMaterial* >( &d1 ),
+               *static_cast< const SoftwareMaterial* >( &d2 ),
+               lt( d1.normalsMap,
+                   d2.normalsMap,
+                   lt( d1.bumpMap,
+                       d2.bumpMap,
+                       lt( d1.normalsMapAmount,
+                           d2.normalsMapAmount,
+                           lt( d1.bumpMapAmount,
+                               d2.bumpMapAmount,
+                               false)))));
 }
 
 #undef lt

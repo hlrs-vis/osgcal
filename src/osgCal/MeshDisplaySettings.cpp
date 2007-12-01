@@ -15,17 +15,22 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <osgCal/Mesh>
+#include <osgCal/MeshDisplaySettings>
 
 using namespace osgCal;
 
+MeshDisplaySettings::MeshDisplaySettings()
+    : software( false )
+    , showTBN( false )
+    , fogMode( (osg::Fog::Mode)0 )
+    , useDepthFirstMesh( false )
+{
+}
 
-Mesh::Mesh( ModelData*      _modelData,
-            const CoreMesh* _mesh )
-    : modelData( _modelData )
-    , mesh( _mesh )
-    , boundingBox( _mesh->data->boundingBox )
-    , deformed( false )
-    , depthMesh( 0 )
-{   
+static osg::ref_ptr< MeshDisplaySettings > defaultMeshDisplaySettings;
+
+MeshDisplaySettings* 
+DefaultMeshDisplaySettingsSelector::getDisplaySettings( const MeshData* )
+{
+    return defaultMeshDisplaySettings.get();
 }

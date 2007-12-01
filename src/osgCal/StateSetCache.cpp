@@ -27,7 +27,6 @@
 #include <osgDB/ReadFile>
 
 #include <osgCal/StateSetCache>
-#include <osgCal/CoreModel>
 
 using namespace osgCal;
 
@@ -375,11 +374,24 @@ newIntUniform( osg::Uniform::Type type,
     return u;
 }
 
+#define lt( a, b, t ) (a < b ? true : ( b < a ? false : t ))
+
+bool osgCal::operator < ( const HwMeshStateSetCache::HWKey& k1,
+                          const HwMeshStateSetCache::HWKey& k2 )
+{
+    return lt( k1.bonesCount,
+               k2.bonesCount,
+               lt( k1.fogMode,
+                   k2.fogMode,
+                   lt( k1.useDepthFirstMesh,
+                       k2.useDepthFirstMesh, false )));
+    
+}
+
 HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
                                           TexturesCache* tc,
                                           ShadersCache* sc )
-    : flags( 0 )
-    , swMeshStateSetCache( swssc )
+    : swMeshStateSetCache( swssc )
     , texturesCache( tc )
     , shadersCache( sc )
 {}
@@ -387,11 +399,11 @@ HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
 osg::StateSet*
 HwMeshStateSetCache::get( const MKey& swsd,
                           int bonesCount,
-                          bool useDepthFirstMesh )
+                          MeshDisplaySettings* ds )
 {
     return getOrCreate( cache,
                         std::make_pair( swsd,
-                                        std::make_pair( bonesCount, useDepthFirstMesh ) ),
+                                        HWKey( bonesCount, ds->fogMode, ds->useDepthFirstMesh ) ),
                         this,
                         &HwMeshStateSetCache::createHwMeshStateSet );
 }
@@ -400,8 +412,7 @@ osg::StateSet*
 HwMeshStateSetCache::createHwMeshStateSet( const Key& matAndBones )
 {
     const MKey& material     = matAndBones.first;
-    int bonesCount           = matAndBones.second.first;
-    bool useDepthFirstMesh   = matAndBones.second.second;
+    const HWKey& params      = matAndBones.second;
     
     osg::StateSet* baseStateSet = swMeshStateSetCache->
         get( *(const SwMeshStateSetCache::Key*)&material );
@@ -413,14 +424,16 @@ HwMeshStateSetCache::createHwMeshStateSet( const Key& matAndBones )
     // -- Setup shader --
     int rgba = isRGBAStateSet( stateSet );
     int transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
+    int fogFlags = ( params.fogMode == osg::Fog::LINEAR ? SHADER_FLAG_FOG_MODE_LINEAR :
+                     params.fogMode == osg::Fog::EXP    ? SHADER_FLAG_FOG_MODE_EXP    :
+                     params.fogMode == osg::Fog::EXP2   ? SHADER_FLAG_FOG_MODE_EXP2   : 0 );
 
     stateSet->setAttributeAndModes( shadersCache->get(
                                         materialShaderFlags( *material )
                                         +
-                                        SHADER_FLAG_BONES( bonesCount )
+                                        SHADER_FLAG_BONES( params.bonesCount )
                                         +
-                                        ( flags & CoreModel::FOG_LINEAR ) / CoreModel::FOG_EXP
-                                        * SHADER_FLAG_FOG_MODE_EXP
+                                        fogFlags
                                         +
                                         rgba * (SHADER_FLAG_RGBA | SHADER_FLAG_TWO_SIDED)
                                         ),
@@ -460,7 +473,7 @@ HwMeshStateSetCache::createHwMeshStateSet( const Key& matAndBones )
     }
 
     // -- Depth first mode setup --
-    if ( useDepthFirstMesh && !transparent )
+    if ( params.useDepthFirstMesh && !transparent )
     {
         stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
                                         osg::StateAttribute::ON |

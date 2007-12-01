@@ -29,8 +29,8 @@ using namespace osgCal;
 
 
 
-HardwareMesh::HardwareMesh( ModelData*             _modelData,
-                            const CoreModel::Mesh* _mesh )
+HardwareMesh::HardwareMesh( ModelData*      _modelData,
+                            const CoreMesh* _mesh )
     : Mesh( _modelData, _mesh )
 {   
     setUseDisplayList( false );
@@ -587,7 +587,7 @@ DepthMesh::DepthMesh( HardwareMesh* hw )
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( hwMesh->getCoreModelMesh()->stateSets->staticDepthOnly.get() );
+    setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
     dirtyBound();
 
     setUserData( getStateSet() /*any referenced*/ );
@@ -611,11 +611,11 @@ DepthMesh::update( bool deformed, bool changed )
 {
     if ( deformed )
     {
-        setStateSet( hwMesh->getCoreModelMesh()->stateSets->depthOnly.get() );
+        setStateSet( hwMesh->getCoreMesh()->stateSets->depthOnly.get() );
     }
     else
     {
-        setStateSet( hwMesh->getCoreModelMesh()->stateSets->staticDepthOnly.get() );
+        setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
     }
 
     if ( changed )

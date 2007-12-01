@@ -2,10 +2,15 @@ TOPDIR = ../..
 include $(TOPDIR)/Make/makedefs 
 
 CXXFILES =\
+	MeshData.cpp \
 	MeshLoader.cpp \
 	Material.cpp \
 	ShadersCache.cpp \
 	StateSetCache.cpp \
+	MeshDisplaySettings.cpp \
+	MeshDisplayLists.cpp \
+	MeshStateSets.cpp \
+	CoreMesh.cpp \
 	CoreModel.cpp \
 	Model.cpp \
 	Mesh.cpp \

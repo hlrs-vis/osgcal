@@ -18,15 +18,16 @@
 #ifndef __OSGCAL__STATE_SET_CACHE_H__
 #define __OSGCAL__STATE_SET_CACHE_H__
 
+#include <stdexcept>
 #include <map>
 
 #include <osg/Texture2D>
 #include <osg/Referenced>
 #include <osg/Material>
-#include <osg/Fog>
 #include <osgCal/Export>
 #include <osgCal/Material>
-#include <osgCal/MeshLoader>
+#include <osgCal/MeshData>
+#include <osgCal/MeshDisplaySettings>
 #include <osgCal/ShadersCache>
 
 namespace osgCal
@@ -153,16 +154,29 @@ namespace osgCal
             
             osg::StateSet* get( const MKey& swsd,
                                 int         bonesCount,
-                                bool        useDepthFirstMesh );
+                                MeshDisplaySettings* ds );
 
-            int flags;
+            struct HWKey
+            {
+                    int bonesCount;
+                    osg::Fog::Mode fogMode;
+                    bool useDepthFirstMesh;
+
+                    HWKey( int _bonesCount,
+                           osg::Fog::Mode _fogMode,
+                           bool _useDepthFirstMesh )
+                        : bonesCount( _bonesCount )
+                        , fogMode( _fogMode )
+                        , useDepthFirstMesh( _useDepthFirstMesh )
+                    {}
+            };
 
         private:
             // map from < state desc, < bones count, useDepthFirstMesh > >
-            typedef std::pair< MKey, std::pair< int, bool > > Key;
+            typedef std::pair< MKey, HWKey > Key;
             typedef std::map< Key,
                               osg::StateSet*,
-                              ref_ptr_second_less< Material, std::pair< int, bool > >
+                              ref_ptr_second_less< Material, HWKey >
                               > Map;
 
             Map cache;
@@ -173,17 +187,17 @@ namespace osgCal
             osg::StateSet* createHwMeshStateSet( const Key& matAndBones );
     };
 
+    OSGCAL_EXPORT bool operator < ( const HwMeshStateSetCache::HWKey& k1,
+                                    const HwMeshStateSetCache::HWKey& k2 );
+
     class DepthMeshStateSetCache : public osg::Referenced
     {
         public:
             DepthMeshStateSetCache( ShadersCache* sc )
-                : flags( 0 )
-                , shadersCache( sc )                  
+                : shadersCache( sc )                  
             {}
             osg::StateSet* get( const Material* material,
                                 int             bonesCount );
-
-            int flags;
 
         private:
             // map from < bone count, sides count > to stateset

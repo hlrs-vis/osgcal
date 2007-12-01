@@ -38,13 +38,12 @@
 
 osg::Node*
 makeModel( osgCal::CoreModel* cm,
-           osgCal::MeshTyper* mt,
-           osgCal::MeshFilter* mf,
+           osgCal::BasicMeshAdder* ma,
            int animNum = -1 )
 {
     osgCal::Model* model = new osgCal::Model();
 
-    model->load( cm, new osgCal::MeshAdder( mf, mt ) );
+    model->load( cm, ma );
 
     if ( animNum != -1 )
     {
@@ -308,8 +307,24 @@ main( int argc,
     { // scope for model ref_ptr
         osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
         int         animNum = -1;
-        osg::ref_ptr< osgCal::MeshFilter > meshFilter( new osgCal::AllMeshes );
+        osg::ref_ptr< osgCal::BasicMeshAdder > meshAdder( new osgCal::DefaultMeshAdder );
+        osg::ref_ptr< osgCal::MeshDisplaySettings > ds( new osgCal::MeshDisplaySettings );
+            
+        while ( arguments.read( "--df" ) )
+        {
+            ds->useDepthFirstMesh = true;
+        }
 
+        while ( arguments.read( "--sw" ) )
+        {
+            ds->software = true;
+        }
+
+        while ( arguments.read( "--hw" ) )
+        {
+            ds->software = false; // default
+        }
+            
         try
         {
             std::string ext = osgDB::getLowerCaseFileExtension( fn );
@@ -323,7 +338,7 @@ main( int argc,
 
             if ( ext == "caf" )
             {
-                coreModel->load( dir + "/cal3d.cfg" );
+                coreModel->load( dir + "/cal3d.cfg", ds.get() );
 
                 for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
                 {
@@ -342,7 +357,7 @@ main( int argc,
                     std::cout << coreModel->getScale() << std::endl;
                     if ( coreModel->getScale() != 1 )
                     {
-                        // to eliminate scaling of the model by non-scaled anumation
+                        // to eliminate scaling of the model by non-scaled animation
                         // we scale model back, load animation, and rescale one more time
                         cm->scale( 1.0 / coreModel->getScale() );
                     }
@@ -357,12 +372,12 @@ main( int argc,
             }
             else if ( ext == "cmf" )
             {
-                coreModel->load( dir + "/cal3d.cfg" );
-                meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
+                coreModel->load( dir + "/cal3d.cfg", ds.get() );
+                meshAdder = new osgCal::OneMeshAdder( osgDB::getStrippedName( fn ) );
             }
             else
             {
-                coreModel->load( fn );
+                coreModel->load( fn, ds.get() );
             }
         }
         catch ( std::runtime_error& e )
@@ -372,35 +387,12 @@ main( int argc,
             return EXIT_FAILURE;
         }
 
-        bool useDepthFirstMesh = false;
-
-        while ( arguments.read( "--df" ) )
-        {
-            useDepthFirstMesh = true;
-        }
-
-        osg::ref_ptr< osgCal::MeshTyper > meshTyper( new osgCal::AllMeshesHardware( useDepthFirstMesh ) );
-
-        while ( arguments.read( "--sw" ) )
-        {
-            meshTyper = new osgCal::AllMeshesSoftware;
-        }
-
-        while ( arguments.read( "--hw" ) )
-        {
-            meshTyper = new osgCal::AllMeshesHardware( useDepthFirstMesh );
-        }
-            
         root->addChild( makeModel( coreModel.get(),
-                                   meshTyper.get(),
-                                   meshFilter.get(),
+                                   meshAdder.get(),
                                    animNum ) );
 
         animationNames = coreModel->getAnimationNames();
     } // end of model's ref_ptr scope
-
-    // set the display settings we can to request, OsgCameraGroup will read this.
-    osg::DisplaySettings::instance()->setMinimumNumAccumBits(8,8,8,8);
 
     // -- Setup viewer --
     osgViewer::Viewer viewer;

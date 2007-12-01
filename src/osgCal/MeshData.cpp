@@ -1,5 +1,5 @@
 /* -*- c++ -*-
-    Copyright (C) 2007 Vladimir Shabanov <vshabanoff@gmail.com>
+    Copyright (C) 2005 Vladimir Shabanov <vshabanoff@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -15,17 +15,5 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <osgCal/Mesh>
 
-using namespace osgCal;
-
-
-Mesh::Mesh( ModelData*      _modelData,
-            const CoreMesh* _mesh )
-    : modelData( _modelData )
-    , mesh( _mesh )
-    , boundingBox( _mesh->data->boundingBox )
-    , deformed( false )
-    , depthMesh( 0 )
-{   
-}
+#include <osgCal/MeshData>

@@ -25,7 +25,6 @@
 #include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Export>
-#include <osgCal/CoreModel>
 #include <osgCal/Model>
 
 namespace osgCal
@@ -64,20 +63,20 @@ namespace osgCal
 
     
     /**
-     * \c osg::Drawable used to render \c CoreModel::Mesh.
+     * \c osg::Drawable used to render \c Mesh.
      */
     class OSGCAL_EXPORT Mesh : public osg::Geometry
     {
         public:
            
-            Mesh( ModelData*             modelData,
-                  const CoreModel::Mesh* mesh );
+            Mesh( ModelData*      modelData,
+                  const CoreMesh* mesh );
 
             virtual void update() = 0;
 
             osg::BoundingBox computeBound() const { return boundingBox; }
 
-            const CoreModel::Mesh* getCoreModelMesh() const { return mesh.get(); }
+            const CoreMesh* getCoreMesh() const { return mesh.get(); }
 
             /**
              * Return depth submesh for this mesh, can be NULL (for non-opaque meshes).
@@ -97,18 +96,18 @@ namespace osgCal
              */
             virtual void accept( osgUtil::GLObjectsVisitor* ) {}
 
-            void changeDisplaySettings( const CoreModel::MeshDisplaySettings* );
+            void changeDisplaySettings( const MeshDisplaySettings* );
 
       protected:
 
             osg::ref_ptr< ModelData >             modelData;
-            osg::ref_ptr< const CoreModel::Mesh > mesh;
+            osg::ref_ptr< const CoreMesh >        mesh;
             osg::BoundingBox                      boundingBox;
             bool                                  deformed;
 
             osg::ref_ptr< DepthMesh >             depthMesh;
 
-            virtual void onDisplaySettingsChanged( const CoreModel::MeshDisplaySettings* ) {}
+            virtual void onDisplaySettingsChanged( const MeshDisplaySettings* ) {}
     };
 
 }; //namespace osgCal

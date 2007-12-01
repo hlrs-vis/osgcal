@@ -1,5 +1,5 @@
 /* -*- c++ -*-
-    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+    Copyright (C) 2007 Vladimir Shabanov <vshabanoff@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -15,38 +15,39 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#ifndef __OSGCAL__MESHLOADER_H__
-#define __OSGCAL__MESHLOADER_H__
+#ifndef __OSGCAL__MESH_STATE_SETS_H__
+#define __OSGCAL__MESH_STATE_SETS_H__
 
+#include <osg/StateSet>
 #include <stdexcept>
 
 #include <cal3d/cal3d.h>
 
 #include <osgCal/Export>
+#include <osgCal/StateSetCache>
 #include <osgCal/MeshData>
+#include <osgCal/Material>
+#include <osgCal/MeshDisplaySettings>
 
 namespace osgCal
 {
-    // -- MeshData I/O --
-
     /**
-     * Name of file with preprocessed meshes.
+     * List of state sets used by Model's meshes
      */
-    OSGCAL_EXPORT std::string meshesCacheFileName( const std::string& cfgFileName );
+    struct MeshStateSets : public osg::Referenced
+    {
+        public:
+            MeshStateSets( StateSetCache*  c,
+                           const MeshData* d,
+                           const Material* m,
+                           const MeshDisplaySettings* ds );
+                    
+            osg::ref_ptr< osg::StateSet >   stateSet;
+            osg::ref_ptr< osg::StateSet >   staticStateSet; ///< zero bones state set
 
-    OSGCAL_EXPORT void loadMeshes( const std::string&  fileName,
-                                   const CalCoreModel* calCoreModel,
-                                   MeshesVector& meshes )
-        throw (std::runtime_error);
-
-    OSGCAL_EXPORT void saveMeshes( const CalCoreModel* calCoreModel,
-                                   const MeshesVector& meshes,
-                                   const std::string&  fileName )
-        throw (std::runtime_error);
-
-    OSGCAL_EXPORT void loadMeshes( CalCoreModel* calCoreModel,
-                                   MeshesVector& meshes )
-        throw (std::runtime_error);
+            osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
+            osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
+    };
 
 }; // namespace osgCal
 

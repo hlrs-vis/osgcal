@@ -19,8 +19,9 @@
 #include <sys/stat.h>
 
 #include <osg/Notify>
-#include <osg/Drawable>
 #include <osgDB/FileNameUtils>
+
+#include <osgCal/MeshLoader>
 
 #include <osgCal/CoreModel>
 
@@ -73,21 +74,22 @@ isFileExists( const std::string& f )
 
 void
 CoreModel::load( const std::string& cfgFileNameOriginal,
-                 const MeshDisplaySettings* _ds ) throw (std::runtime_error)
+                 MeshDisplaySettingsSelector* _dss ) throw (std::runtime_error)
 {
-    std::ref_ptr< MeshDisplaySettings > ds( _ds ? _ds : new MeshDisplaySettings );
     if ( calCoreModel )
     {
         // reloading is not supported
         throw std::runtime_error( "model already loaded" );
     }
 
+    osg::ref_ptr< MeshDisplaySettingsSelector >
+        dss( _dss ? _dss : new ConstMeshDisplaySettingsSelector( new MeshDisplaySettings ) );
+
 //    _flags = SHOW_TBN;//USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
 //         | DONT_CALCULATE_VERTEX_IN_SHADER;
     
 //     flags = _flags;
 //     stateSetCache->hwMeshStateSetCache->flags = _flags;
-//     stateSetCache->depthMeshStateSetCache->flags = _flags;
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 
@@ -126,11 +128,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
               meshDataEnd = meshesData.end();
           meshData != meshDataEnd; ++meshData )
     {
-        Mesh* m = new Mesh( this,
-                            (*meshData).get(),
-                            new Material( (*meshData)->coreMaterial, dir ),
-                            new MeshDisplaySettings
-            );
+        MeshData* md = (*meshData).get();
+        CoreMesh* m = new CoreMesh( this,
+                                    md,
+                                    new Material( md->coreMaterial, dir ),
+                                    dss->getDisplaySettings( md ) );
         // TODO: add per-core model coreMaterialCache
 
         meshes.push_back( m );
@@ -156,11 +158,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 bool
 CoreModel::loadNoThrow( const std::string& cfgFileName,
                         std::string&       errorText,
-                        int                flags ) throw ()
+                        MeshDisplaySettingsSelector* dss ) throw ()
 {
     try
     {
-        load( cfgFileName, flags );
+        load( cfgFileName, dss );
         return true;
     }
     catch ( std::runtime_error& e )
@@ -169,118 +171,6 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
         return false;
     }
 }
-
-
-CoreModel::MeshDisplaySettings::MeshDisplaySettings()
-    : software( false )
-    , showTBN( false )
-    , fogMode( (osg::Fog::Mode)0 )
-    , useDepthFirstMesh( false )
-{
-}
-
-CoreModel::MeshStateSets::MeshStateSets( StateSetCache*  c,
-                                         const MeshData* d,
-                                         const Material* m,
-                                         const MeshDisplaySettings* ds )
-{
-    Material* ncm = const_cast< Material* >( m ); // material const, refCount isn't
-
-    if ( ds->software )
-    {
-        stateSet = c->swMeshStateSetCache->get( static_cast< SoftwareMaterial* >( ncm ) );
-    }
-    else
-    {
-        staticStateSet = c->hwMeshStateSetCache->get( ncm, 0, ds->useDepthFirstMesh );
-        if ( d->rigid == false )
-        {
-            stateSet = c->hwMeshStateSetCache->get( ncm, d->maxBonesInfluence,
-                                                    ds->useDepthFirstMesh );
-        }
-
-        if ( ds->useDepthFirstMesh )
-        {
-            staticDepthOnly = c->depthMeshStateSetCache->get( ncm, 0 );
-
-            if ( d->rigid == false )
-            {
-                depthOnly = c->depthMeshStateSetCache->get( ncm, d->maxBonesInfluence );
-            }
-        }
-    }
-}
-
-CoreModel::MeshDisplayLists::~MeshDisplayLists()
-{
-    OpenThreads::ScopedLock< OpenThreads::Mutex > lock( mutex ); 
-
-    for( size_t i = 0; i < lists.size(); i++ )
-    {
-        if ( lists[i] != 0 )
-        {
-            osg::Drawable::deleteDisplayList( i, lists[i], 0/*getGLObjectSizeHint()*/ );
-            lists[i] = 0;
-        }
-    }            
-}
-
-void
-CoreModel::MeshDisplayLists::checkAllDisplayListsCompiled( MeshData* data ) const
-{
-    size_t numOfContexts = osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();
-
-    OpenThreads::ScopedLock<OpenThreads::Mutex> lock( mutex ); 
-    
-    if ( lists.size() != numOfContexts )
-    {
-        return;
-    }
-    
-    for ( size_t i = 0; i < numOfContexts; i++ )
-    {
-        if ( lists[ i ] == 0 )
-        {
-            return;
-        }
-    }
-
-    // -- Free buffers that are no more needed --
-    data->normalBuffer = 0;
-    data->texCoordBuffer = 0;
-    data->tangentAndHandednessBuffer = 0;
-}
-
-CoreModel::Mesh::Mesh( const CoreModel* model,
-                       MeshData*        _data,
-                       const Material*  _material,
-                       const MeshDisplaySettings* _ds )
-    : data( _data )
-    , material( const_cast< Material* >( _material ) )
-    , displaySettings( const_cast< MeshDisplaySettings* >( _ds ) )
-    , displayLists( new MeshDisplayLists )
-    , stateSets( new MeshStateSets( model->getStateSetCache(),
-                                    _data,
-                                    _material,
-                                    _ds ) )
-{
-}
-
-CoreModel::Mesh::Mesh( const CoreModel* model,
-                       const Mesh* mesh,
-                       const Material*  newMaterial,
-                       const MeshDisplaySettings* newDs )
-    : data( mesh->data.get() )
-    , material( const_cast< Material* >( newMaterial ) )
-    , displaySettings( const_cast< MeshDisplaySettings* >( newDs ) )
-    , displayLists( mesh->displayLists.get() )
-    , stateSets( new MeshStateSets( model->getStateSetCache(),
-                                    mesh->data.get(),
-                                    newMaterial,
-                                    newDs ) )
-{
-}
-
 
 // -- CoreModel loading --
 

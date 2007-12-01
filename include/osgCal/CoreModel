@@ -25,9 +25,7 @@
 #include <cal3d/cal3d.h>
 
 #include <osgCal/Export>
-#include <osgCal/Material>
-#include <osgCal/MeshLoader>
-#include <osgCal/StateSetCache>
+#include <osgCal/CoreMesh>
 
 namespace osgCal
 {
@@ -45,172 +43,33 @@ namespace osgCal
 
             CoreModel();
 
-            struct MeshDisplaySettings : osg::Referenced
-            {
-                public:
-                    MeshDisplaySettings();
-
-                    /**
-                     * Use fixed function pipeline for drawing.
-                     * Use it for testing purpouses only, many
-                     * features are not supported in software mode.
-                     * Also switching between hw/sw rendering is not supported.
-                     */
-                    bool software;
-                    
-                    /**
-                     * Show Tangent-Binormal-Normal basis.
-                     */
-                    bool showTBN; // TODO: restore it
-
-                    /**
-                     * Enable fog in shader (exp, exp2 or linear mode),
-                     * 0 by default (no fog)
-                     */
-                    osg::Fog::Mode fogMode;
-
-                    /**
-                     * Draw depth only part of submesh first to reduce pixel
-                     * shading overhead of processing pixels that are not
-                     * visible.
-                     * Remark that this option also increases vertex
-                     * processing time, so it must be used only when pixel
-                     * shading is a bottleneck.
-                     */
-                    bool useDepthFirstMesh;
-            };
-
-//             enum LoadFlags
-//             {
-//                 /**
-//                  * Show Tangent-Binormal-Normal basis.
-//                  */
-//                 SHOW_TBN = 0x10, // TODO: restore it
-
-//                 /**
-//                  * Enable fog in shader (exp, exp2 or linear mode)
-//                  */
-//                 FOG_EXP = 0x20,
-//                 FOG_EXP2 = 0x40,
-//                 FOG_LINEAR = 0x20 + 0x40,
-//             };
-
             /**
              * Loads cal3d core model and prepare all internal stuff for fast Models creation.
              * This function may be called only once.
              */
             void load( const std::string& cfgFileName,
-                       const MeshDisplaySettings* ds = 0 ) throw (std::runtime_error);
+                       MeshDisplaySettingsSelector* dss = 0 ) throw (std::runtime_error);
+
+            void load( const std::string& cfgFileName,
+                       MeshDisplaySettings* ds ) throw (std::runtime_error)
+            {
+                load( cfgFileName, new ConstMeshDisplaySettingsSelector( ds ) );
+            }
 
             /**
              * Same as load, but doesn't throw exceptions on error.
              */
             bool loadNoThrow( const std::string& cfgFileName,
                               std::string&       errorText,
-                              int                flags = 0 ) throw ();
+                              MeshDisplaySettingsSelector* dss = 0 ) throw ();
 
             CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
 
-            int            getFlags()         const  { return flags; }
             StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
-
-            /**
-             * List of state sets used by Model's meshes
-             */
-            struct MeshStateSets : public osg::Referenced
-            {
-                public:
-                    MeshStateSets( StateSetCache*  c,
-                                   const MeshData* d,
-                                   const Material* m,
-                                   const MeshDisplaySettings* ds );
-                    
-                    osg::ref_ptr< osg::StateSet >   stateSet;
-                    osg::ref_ptr< osg::StateSet >   staticStateSet; ///< zero bones state set
-
-                    osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
-                    osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
-            };
-
-            /**
-             * Mesh geometry display lists. Display lists are created
-             * one per CoreModel::Mesh, not per Model's submesh
-             */
-            struct MeshDisplayLists : public osg::Referenced
-            {
-                public:
-                    typedef osg::buffered_value< GLuint > GLObjectList;
-
-                    /**
-                     * Hardware mesh display lists, once compiled for
-                     * one model they are shared for all core model
-                     * instances.
-                     */
-                    mutable GLObjectList        lists;
-                    mutable OpenThreads::Mutex  mutex;
-
-                    /**
-                     * Destroys display lists.
-                     */
-                    ~MeshDisplayLists();
-
-                    /**
-                     * Check that display lists are compiled for all
-                     * contexts and free mesh data that is needed only
-                     * for display lists (normals, tangents, texture
-                     * coordinates).
-                     *
-                     * Use
-                     * osg::DisplaySettings::instance()->setMaxNumberOfGraphicsContexts(N)
-                     * to set number of contexts you need (default
-                     * value is 32, so no mesh data or textures are
-                     * freed by default).
-                     */
-                    void checkAllDisplayListsCompiled( MeshData* data ) const;
-
-            };
-
-            /**
-             * Cal3d mesh prepared for fast creation.
-             */
-            struct Mesh : public osg::Referenced
-            {
-                public:
-
-                    /**
-                     * Creation of fresh mesh from data and material.
-                     * New display list is created in this case.
-                     */
-                    Mesh( const CoreModel* model,
-                          MeshData*        data,
-                          const Material*  material,
-                          const MeshDisplaySettings* ds  );
-
-                    /**
-                     * Creation of mesh with new material and display settings.
-                     * Display list is shared in this case.
-                     */
-                    Mesh( const CoreModel* model,
-                          const Mesh* mesh,
-                          const Material* newMaterial,
-                          const MeshDisplaySettings* newDs  );
-
-                    /**
-                     * Mutable since we free some data after display lists compiled.
-                     */
-                    mutable osg::ref_ptr< MeshData >    data;
-
-                    osg::ref_ptr< Material >            material;
-                    osg::ref_ptr< MeshDisplaySettings > displaySettings;
-
-                    osg::ref_ptr< MeshDisplayLists >    displayLists;
-                    osg::ref_ptr< MeshStateSets >       stateSets;
-
-            };
 
             float getScale() const { return scale; }
 
-            typedef std::vector< osg::ref_ptr< Mesh > > MeshVector;
+            typedef std::vector< osg::ref_ptr< CoreMesh > > MeshVector;
             
             const MeshVector&                   getMeshes()         const { return meshes; }
             const std::vector< std::string >&   getAnimationNames() const { return animationNames; }
@@ -220,7 +79,6 @@ namespace osgCal
             CoreModel(const CoreModel&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
             virtual ~CoreModel();
 
-            int                 flags;
             float               scale;
             CalCoreModel*       calCoreModel;
 

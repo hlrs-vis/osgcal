@@ -25,8 +25,8 @@
 
 using namespace osgCal;
 
-SoftwareMesh::SoftwareMesh( ModelData*             _modelData,
-                            const CoreModel::Mesh* _mesh )
+SoftwareMesh::SoftwareMesh( ModelData*      _modelData,
+                            const CoreMesh* _mesh )
     : Mesh( _modelData, _mesh )
 {
     //setThreadSafeRefUnref( true );

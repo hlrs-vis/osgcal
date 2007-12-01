@@ -175,7 +175,7 @@ Model::load( CoreModel*      _coreModel,
 
 
 void
-Model::addMesh( const CoreModel::Mesh* mesh )
+Model::addMesh( const CoreMesh* mesh )
 {
     Mesh* g = 0;
     osg::Drawable* depthMesh = 0;
@@ -429,7 +429,7 @@ Model::accept( osg::NodeVisitor& nv )
 
 void
 DefaultMeshAdder::add( Model* model,
-                       const CoreModel::Mesh* mesh )
+                       const CoreMesh* mesh )
 {
     model->addMesh( mesh );
 }

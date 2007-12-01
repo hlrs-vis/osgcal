@@ -43,7 +43,7 @@ namespace osgCal {
     struct OSGCAL_EXPORT BasicMeshAdder : public osg::Referenced
     {
         virtual void add( Model* model,
-                          const CoreModel::Mesh* mesh ) = 0;
+                          const CoreMesh* mesh ) = 0;
     };
 
     /**
@@ -53,7 +53,7 @@ namespace osgCal {
     struct OSGCAL_EXPORT DefaultMeshAdder : public BasicMeshAdder
     {
         virtual void add( Model* model,
-                          const CoreModel::Mesh* mesh );
+                          const CoreMesh* mesh );
     };   
 
     struct OSGCAL_EXPORT OneMeshAdder : public DefaultMeshAdder
@@ -65,7 +65,7 @@ namespace osgCal {
         {}
 
         virtual void add( Model* model,
-                          const CoreModel::Mesh* mesh )
+                          const CoreMesh* mesh )
         {
             if ( mesh->data->name == meshName )
             {
@@ -101,7 +101,7 @@ namespace osgCal {
             /**
              * Add core model mesh to model.
              */
-            void addMesh( const CoreModel::Mesh* mesh );
+            void addMesh( const CoreMesh* mesh );
 
             /**
              * Add user node to specified bone.
@@ -227,7 +227,7 @@ namespace osgCal {
             /**
              * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
              * Remark that you must pass not local bone index in mesh,
-             * but bone id (using CoreModel::Mesh::getBoneId(index)).
+             * but bone id (using CoreMesh::getBoneId(index)).
              */
             void getBoneRotationTranslation( int boneId,
                                              GLfloat* rotation,
