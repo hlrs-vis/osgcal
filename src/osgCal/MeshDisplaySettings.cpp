@@ -27,10 +27,25 @@ MeshDisplaySettings::MeshDisplaySettings()
 {
 }
 
-static osg::ref_ptr< MeshDisplaySettings > defaultMeshDisplaySettings;
+static osg::ref_ptr< MeshDisplaySettings > defaultMeshDisplaySettings( new MeshDisplaySettings );
+
+const MeshDisplaySettings*
+MeshDisplaySettings::defaults()
+{
+    return defaultMeshDisplaySettings.get();
+}
 
 MeshDisplaySettings* 
 DefaultMeshDisplaySettingsSelector::getDisplaySettings( const MeshData* )
 {
     return defaultMeshDisplaySettings.get();
+}
+
+static osg::ref_ptr< DefaultMeshDisplaySettingsSelector >
+defaultMeshDisplaySettingsSelector( new DefaultMeshDisplaySettingsSelector );
+
+DefaultMeshDisplaySettingsSelector*
+DefaultMeshDisplaySettingsSelector::instance()
+{
+    return defaultMeshDisplaySettingsSelector.get();
 }

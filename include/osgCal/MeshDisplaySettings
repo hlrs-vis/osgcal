@@ -1,6 +1,5 @@
 /* -*- c++ -*-
-    Copyright (C) 2003 <ryu@gpul.org>
-    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+    Copyright (C) 2007 Vladimir Shabanov <vshabanoff@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -31,6 +30,11 @@ namespace osgCal
     {
         public:
             MeshDisplaySettings();
+
+            /**
+             * Return global constant with default settings.
+             */
+            static const MeshDisplaySettings* defaults();
 
             /**
              * Use fixed function pipeline for drawing.
@@ -74,6 +78,12 @@ namespace osgCal
 
     struct DefaultMeshDisplaySettingsSelector : public MeshDisplaySettingsSelector
     {
+            // TODO: ^ shorter names?
+            /**
+             * Return global selector instance.
+             */
+            static DefaultMeshDisplaySettingsSelector* instance();
+            
             virtual MeshDisplaySettings* getDisplaySettings( const MeshData* );
     };
 

@@ -47,6 +47,8 @@ namespace osgCal
              */
             virtual bool supports( const AttributeFunctor& ) { return false; }
 
+            const HardwareMesh* getHardwareMesh() const { return hwMesh; }
+
         private:
 
             HardwareMesh* hwMesh;

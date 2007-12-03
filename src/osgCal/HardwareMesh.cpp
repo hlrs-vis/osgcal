@@ -39,11 +39,6 @@ HardwareMesh::HardwareMesh( ModelData*      _modelData,
     
     setUseVertexBufferObjects( false ); // false is default
 
-    setStateSet( mesh->stateSets->staticStateSet.get() );
-    // Initially we use static (not skinning) state set. It will
-    // changed to skinning (in update() method when some animation
-    // starts.
-
     if ( mesh->data->rigid )
     {
         setVertexArray( mesh->data->vertexBuffer.get() );
@@ -57,14 +52,7 @@ HardwareMesh::HardwareMesh( ModelData*      _modelData,
 
     boundingBox = mesh->data->boundingBox;
 
-    // create depth submesh for non-transparent meshes
-    if ( mesh->displaySettings->useDepthFirstMesh
-         &&
-         !(mesh->stateSets->staticStateSet.get()->getRenderingHint()
-           & osg::StateSet::TRANSPARENT_BIN) )
-    {
-        depthMesh = new DepthMesh( this ); 
-    }
+    onDisplaySettingsChanged( MeshDisplaySettings::defaults() );
 
     setUserData( getStateSet() /*any referenced*/ );
     // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
@@ -84,6 +72,36 @@ osg::Object*
 HardwareMesh::clone( const osg::CopyOp& ) const
 {
     throw std::runtime_error( "clone() is not implemented" );
+}
+
+
+void
+HardwareMesh::onDisplaySettingsChanged( const MeshDisplaySettings* previousDs )
+{
+    setStateSet( mesh->stateSets->staticStateSet.get() );
+    // Initially we use static (not skinning) state set. It will
+    // changed to skinning (in update() method when some animation
+    // starts.
+
+    // -- Add or remove depth mesh --
+    if ( !(mesh->stateSets->staticStateSet.get()->getRenderingHint()
+           & osg::StateSet::TRANSPARENT_BIN) ) // no depth meshes for transparent materials
+    {
+        if ( mesh->displaySettings->useDepthFirstMesh
+             &&
+             !previousDs->useDepthFirstMesh )
+        {
+            depthMesh = new DepthMesh( this );
+            modelData->getModel()->addDepthMesh( depthMesh.get() );
+        }
+        else if ( !mesh->displaySettings->useDepthFirstMesh
+                  &&
+                  previousDs->useDepthFirstMesh )
+        {
+            modelData->getModel()->removeDepthMesh( depthMesh.get() );
+            depthMesh = 0;
+        }        
+    }    
 }
 
 void

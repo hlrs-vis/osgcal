@@ -83,13 +83,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
     }
 
     osg::ref_ptr< MeshDisplaySettingsSelector >
-        dss( _dss ? _dss : new ConstMeshDisplaySettingsSelector( new MeshDisplaySettings ) );
-
-//    _flags = SHOW_TBN;//USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
-//         | DONT_CALCULATE_VERTEX_IN_SHADER;
-    
-//     flags = _flags;
-//     stateSetCache->hwMeshStateSetCache->flags = _flags;
+        dss( _dss ? _dss : DefaultMeshDisplaySettingsSelector::instance() );
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 

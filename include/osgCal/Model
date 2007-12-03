@@ -24,6 +24,7 @@
 
 #include <osg/Group>
 #include <osg/Geometry>
+#include <osg/observer_ptr>
 
 #include <cal3d/cal3d.h>
 
@@ -101,18 +102,36 @@ namespace osgCal {
             /**
              * Add core model mesh to model.
              */
-            void addMesh( const CoreMesh* mesh );
+            Mesh* addMesh( const CoreMesh* mesh );
+
+            /**
+             * Remove specified mesh from the model.
+             */
+            void removeMesh( Mesh* mesh );
 
             /**
              * Add user node to specified bone.
              */
             void addNode( int boneId,
                           osg::Node* node );
+
+           /**
+             * Remove user node from specified bone.
+             */
+            void removeNode( int boneId,
+                             osg::Node* node );
+
             /**
              * Add user drawable to specified bone.
              */
             void addDrawable( int boneId,
                               osg::Drawable* drawable );
+
+            /**
+             * Remove user drawable from specified bone.
+             */
+            void removeDrawable( int boneId,
+                                 osg::Drawable* drawable );
 
             const CoreModel* getCoreModel() const;
             const ModelData* getModelData() const { return modelData.get(); }
@@ -185,6 +204,28 @@ namespace osgCal {
              */
             std::vector< Mesh* >     nonUpdatableMeshes;
 
+            void addMeshDrawable( const CoreMesh* mesh,
+                                  osg::Drawable*  drawable );
+
+            void removeMeshDrawable( const CoreMesh* mesh,
+                                     osg::Drawable*  drawable );
+
+            friend class HardwareMesh; // for add/remove depth mesh
+
+            /**
+             * For internal use only.
+             * This function is called from \c HardwareMesh::onDisplaySettingsChanged
+             * when depth mesh is requested.
+             */
+            void addDepthMesh( DepthMesh* depthMesh );
+
+            /**
+             * For internal use only.
+             * This function is called from \c HardwareMesh::onDisplaySettingsChanged
+             * when depth mesh is requested.
+             */
+            void removeDepthMesh( DepthMesh* depthMesh );
+
     };
 
     // -- Model data --
@@ -213,7 +254,8 @@ namespace osgCal {
                     bool         changed;
             };
 
-            ModelData( CoreModel* cm );
+            ModelData( CoreModel* cm,
+                       Model*     m );
             ~ModelData();
 
             /**
@@ -256,9 +298,16 @@ namespace osgCal {
 
             const CoreModel* getCoreModel() const { return coreModel.get(); }
 
+            /**
+             * Returns associated model, throws error if the model was deleted.
+             */
+            Model* getModel()
+                throw (std::runtime_error);
+
         private:
 
             osg::ref_ptr< CoreModel >   coreModel;
+            osg::observer_ptr< Model >  model;
             CalModel*                   calModel;
             CalMixer*                   calMixer;
 

@@ -125,7 +125,7 @@ Model::load( CoreModel*      _coreModel,
         throw std::runtime_error( "Model already load" );
     }
 
-    modelData = new ModelData( _coreModel );
+    modelData = new ModelData( _coreModel, this );
 
     setUpdateCallback( new CalUpdateCallback() );
 
@@ -174,11 +174,10 @@ Model::load( CoreModel*      _coreModel,
 }
 
 
-void
+Mesh*
 Model::addMesh( const CoreMesh* mesh )
 {
     Mesh* g = 0;
-    osg::Drawable* depthMesh = 0;
 
     // -- Create mesh drawable --
     if ( mesh->displaySettings->software )
@@ -190,49 +189,66 @@ Model::addMesh( const CoreMesh* mesh )
         g = new HardwareMesh( modelData.get(), mesh );
     }
 
-    depthMesh = g->getDepthMesh();        
-
     // -- Remember drawable --
-    g->setName( mesh->data->name ); // for debug only, TODO: subject to remove
     meshes[ mesh->data->name ].push_back( g );
-
-    // -- Setup data variance --
-    if ( mesh->data->rigid )
-    {
-        g->setDataVariance( STATIC );
-    }
-    else
-    {            
-        g->setDataVariance( DYNAMIC );
-        // ^ No drawing during updates. Otherwise there will be a
-        // crash in multithreaded osgCalViewer modes
-        // (first reported by Jan Ciger)
-    }
-
-    if ( depthMesh )
-    {
-        depthMesh->setDataVariance( g->getDataVariance() );
-    }
 
     // -- Remember Updatable (and update) --
     if ( mesh->data->rigid == false )
     {
         g->update();
         updatableMeshes.push_back( g );
-//         if ( depthMesh ) -- not a SubMesh
-//         {
-//             updatableMeshes.push_back( depthMesh );
-//         }
     }
     else
     {        
         nonUpdatableMeshes.push_back( g );
-//         if ( depthMesh )
-//         {
-//             nonUpdatableMeshes.push_back( depthMesh );
-//         }
     }
 
+    addMeshDrawable( mesh, g );
+
+    return g;
+}
+
+template < typename T >
+void
+removeElement( std::vector< T* >& v,
+               T*                 e )
+{
+    typename std::vector< T* >::iterator i =
+        std::find( v.begin(), v.end(), e );
+
+    if ( i == v.end() )
+    {
+        throw std::runtime_error( "osgCal. removeElement: element not found" );
+    }
+    else
+    {
+        v.erase( i );
+    }
+}
+
+void
+Model::removeMesh( Mesh* mesh )
+{
+    // -- UnRemember drawable --
+    removeElement( meshes[ mesh->getCoreMesh()->data->name ], mesh );
+
+    // -- Remember Updatable (and update) --
+    if ( mesh->getCoreMesh()->data->rigid == false )
+    {
+        removeElement( updatableMeshes, mesh );
+    }
+    else
+    {        
+        removeElement( nonUpdatableMeshes, mesh );
+    }
+
+    removeMeshDrawable( mesh->getCoreMesh(), mesh );
+}
+
+void
+Model::addMeshDrawable( const CoreMesh* mesh,
+                        osg::Drawable*  drawable )
+{
     // -- Add to geode or bone matrix transform --
     if ( mesh->data->rigid == false // deformable
          || (mesh->data->rigid && mesh->data->rigidBoneId == -1) // unrigged
@@ -245,29 +261,47 @@ Model::addMesh( const CoreMesh* mesh )
             addChild( geode.get() );
         }
         
-        geode->addDrawable( g );
-        if ( depthMesh )
+        geode->addDrawable( drawable );
+    }
+    else
+    {
+        addDrawable( mesh->data->rigidBoneId, drawable );
+    }
+}
+
+void
+Model::removeMeshDrawable( const CoreMesh* mesh,
+                           osg::Drawable*  drawable )
+{
+    if ( mesh->data->rigid == false // deformable
+         || (mesh->data->rigid && mesh->data->rigidBoneId == -1) // unrigged
+        )
+    {
+        geode->removeDrawable( drawable );
+        if ( geode->getNumDrawables() == 0 )
         {
-            geode->addDrawable( depthMesh );
+            removeChild( geode.get() );
+            geode = 0;
         }
     }
     else
     {
-        TransformAndGeode& tg = getOrCreateTransformAndGeode( mesh->data->rigidBoneId );
-
-        if ( tg.second == NULL ) // no geode created yet
-        {
-            tg.second = new osg::Geode;
-            tg.second->setDataVariance( DYNAMIC ); // we can add or remove nodes dynamically
-            tg.first->addChild( tg.second );
-        }
-
-        tg.second->addDrawable( g );
-        if ( depthMesh )
-        {
-            tg.second->addDrawable( depthMesh );
-        }
+        removeDrawable( mesh->data->rigidBoneId, drawable );
     }
+}
+
+void
+Model::addDepthMesh( DepthMesh* depthMesh )
+{
+    addMeshDrawable( depthMesh->getHardwareMesh()->getCoreMesh(),
+                     depthMesh );
+}
+
+void
+Model::removeDepthMesh( DepthMesh* depthMesh )
+{
+    removeMeshDrawable( depthMesh->getHardwareMesh()->getCoreMesh(),
+                        depthMesh );
 }
 
 Model::TransformAndGeode&
@@ -312,6 +346,21 @@ Model::addNode( int boneId,
 }
 
 void
+Model::removeNode( int boneId,
+                   osg::Node* node )
+{
+    TransformAndGeode& tg = getOrCreateTransformAndGeode( boneId );
+    tg.first->removeChild( node );
+
+    if ( tg.first->getNumChildren() == 0 )
+    {
+        removeChild( tg.first );
+
+        rigidTransforms.erase( boneId );
+    }
+}
+
+void
 Model::addDrawable( int boneId,
                     osg::Drawable* drawable )
 {
@@ -325,6 +374,32 @@ Model::addDrawable( int boneId,
     }
 
     tg.second->addDrawable( drawable );
+}
+
+void
+Model::removeDrawable( int boneId,
+                       osg::Drawable* drawable )
+{
+    TransformAndGeode& tg = getOrCreateTransformAndGeode( boneId );
+
+    if ( tg.second == NULL ) // no geode created yet
+    {
+        throw std::runtime_error( "Model::removeDrawable -- no drawable was added" );
+    }
+
+    tg.second->removeDrawable( drawable );
+    if ( tg.second->getNumDrawables() == 0 )
+    {
+        tg.first->removeChild( tg.second );
+        geode = 0;
+    }
+
+    if ( tg.first->getNumChildren() == 0 )
+    {
+        removeChild( tg.first );
+
+        rigidTransforms.erase( boneId );
+    }
 }
 
 void
@@ -437,8 +512,10 @@ DefaultMeshAdder::add( Model* model,
 
 // -- ModelData --
 
-ModelData::ModelData( CoreModel* cm )
+ModelData::ModelData( CoreModel* cm,
+                      Model*     m )
     : coreModel( cm )
+    , model( m )
 {
     calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
@@ -461,6 +538,20 @@ ModelData::ModelData( CoreModel* cm )
 ModelData::~ModelData()
 {
     delete calModel;
+}
+
+Model*
+ModelData::getModel()
+    throw (std::runtime_error)
+{
+    if ( model.valid() )
+    {
+        return model.get();
+    }
+    else
+    {
+        throw std::runtime_error( "ModelData::getModel() -- model was already deleted" );
+    }
 }
 
 inline

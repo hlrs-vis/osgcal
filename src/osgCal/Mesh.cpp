@@ -28,4 +28,32 @@ Mesh::Mesh( ModelData*      _modelData,
     , deformed( false )
     , depthMesh( 0 )
 {   
+    setName( mesh->data->name ); // for debug only, TODO: subject to remove    
+    setDataVariance( mesh->data->rigid ? STATIC : DYNAMIC );
+    // ^ No drawing during updates. Otherwise there will be a
+    // crash in multithreaded osgCalViewer modes
+    // (first reported by Jan Ciger)
+}
+
+void
+Mesh::changeDisplaySettings( const MeshDisplaySettings* newDs )
+{    
+    const MeshDisplaySettings* prevDs = mesh->displaySettings.get();
+
+    if ( prevDs->software != newDs->software )
+    {
+        throw std::runtime_error( "Mesh::changeDisplaySettings: software/hardware switching is not supported" );
+    }
+    
+    mesh = new CoreMesh( modelData->getCoreModel(),
+                         mesh.get(),
+                         mesh->material.get(),
+                         newDs );
+    onDisplaySettingsChanged( prevDs );
+}
+
+void
+Mesh::onDisplaySettingsChanged( const MeshDisplaySettings* previousDs )
+{
+    (void)previousDs;
 }

@@ -77,7 +77,7 @@ namespace osgCal
 
             osg::ref_ptr< DepthMesh >             depthMesh;
 
-            virtual void onDisplaySettingsChanged( const MeshDisplaySettings* ) {}
+            virtual void onDisplaySettingsChanged( const MeshDisplaySettings* previousDs );
     };
 
 }; //namespace osgCal
