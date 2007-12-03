@@ -14,6 +14,7 @@ CXXFILES =\
 	CoreModel.cpp \
 	Model.cpp \
 	Mesh.cpp \
+	DepthMesh.cpp \
 	HardwareMesh.cpp \
 	SoftwareMesh.cpp
 

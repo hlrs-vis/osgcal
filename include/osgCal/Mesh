@@ -25,42 +25,12 @@
 #include <osgUtil/GLObjectsVisitor>
 
 #include <osgCal/Export>
+#include <osgCal/DepthMesh>
 #include <osgCal/Model>
 
 namespace osgCal
 {
     class ModelData;
-    class HardwareMesh; // forward
-
-    /**
-     * Submesh which is only draws depth part of specified hardware submesh.
-     */
-    class DepthMesh :  public /*osg::Drawable //*/osg::Geometry
-    {
-        public:
-           
-            DepthMesh( HardwareMesh* hw );
-
-            virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
-            void update( bool deformed, bool changed );
-
-            virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
-
-            osg::BoundingBox computeBound() const;
-
-            /**
-             * See Mesh::supports() for the comments.
-             */
-            virtual bool supports( const AttributeFunctor& ) { return false; }
-
-        private:
-
-            HardwareMesh* hwMesh;
-
-            // TODO: merge DepthMesh & HardwareMesh into one
-            // class and move all shared part into other structure.
-    };
-
     
     /**
      * \c osg::Drawable used to render \c Mesh.
