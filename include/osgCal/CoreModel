@@ -48,12 +48,12 @@ namespace osgCal
              * This function may be called only once.
              */
             void load( const std::string& cfgFileName,
-                       MeshDisplaySettingsSelector* dss = 0 ) throw (std::runtime_error);
+                       MeshParametersSelector* p = 0 ) throw (std::runtime_error);
 
             void load( const std::string& cfgFileName,
-                       MeshDisplaySettings* ds ) throw (std::runtime_error)
+                       MeshParameters* p ) throw (std::runtime_error)
             {
-                load( cfgFileName, new ConstMeshDisplaySettingsSelector( ds ) );
+                load( cfgFileName, new ConstMeshParametersSelector( p ) );
             }
 
             /**
@@ -61,7 +61,7 @@ namespace osgCal
              */
             bool loadNoThrow( const std::string& cfgFileName,
                               std::string&       errorText,
-                              MeshDisplaySettingsSelector* dss = 0 ) throw ();
+                              MeshParametersSelector* ps = 0 ) throw ();
 
             CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
 

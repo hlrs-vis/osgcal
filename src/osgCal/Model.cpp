@@ -180,7 +180,7 @@ Model::addMesh( const CoreMesh* mesh )
     Mesh* g = 0;
 
     // -- Create mesh drawable --
-    if ( mesh->displaySettings->software )
+    if ( mesh->parameters->software )
     {
         g = new SoftwareMesh( modelData.get(), mesh );
     }

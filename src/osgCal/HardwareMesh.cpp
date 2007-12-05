@@ -52,14 +52,7 @@ HardwareMesh::HardwareMesh( ModelData*      _modelData,
 
     boundingBox = mesh->data->boundingBox;
 
-    onDisplaySettingsChanged( MeshDisplaySettings::defaults() );
-
-    setUserData( getStateSet() /*any referenced*/ );
-    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
-    // (with merging & flattening turned on some color artefacts arise)
-    // TODO: how to completely disable FLATTEN_STATIC_TRANSFORMS on models?
-    // it copies vertex buffer (which is per model) for each submesh
-    // which takes too much memory
+    onParametersChanged( MeshParameters::defaults() );
 }
 
 osg::Object*
@@ -76,7 +69,7 @@ HardwareMesh::clone( const osg::CopyOp& ) const
 
 
 void
-HardwareMesh::onDisplaySettingsChanged( const MeshDisplaySettings* previousDs )
+HardwareMesh::onParametersChanged( const MeshParameters* previousDs )
 {
     setStateSet( mesh->stateSets->staticStateSet.get() );
     // Initially we use static (not skinning) state set. It will
@@ -87,14 +80,14 @@ HardwareMesh::onDisplaySettingsChanged( const MeshDisplaySettings* previousDs )
     if ( !(mesh->stateSets->staticStateSet.get()->getRenderingHint()
            & osg::StateSet::TRANSPARENT_BIN) ) // no depth meshes for transparent materials
     {
-        if ( mesh->displaySettings->useDepthFirstMesh
+        if ( mesh->parameters->useDepthFirstMesh
              &&
              !previousDs->useDepthFirstMesh )
         {
             depthMesh = new DepthMesh( this );
             modelData->getModel()->addDepthMesh( depthMesh.get() );
         }
-        else if ( !mesh->displaySettings->useDepthFirstMesh
+        else if ( !mesh->parameters->useDepthFirstMesh
                   &&
                   previousDs->useDepthFirstMesh )
         {

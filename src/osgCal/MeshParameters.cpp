@@ -15,11 +15,11 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <osgCal/MeshDisplaySettings>
+#include <osgCal/MeshParameters>
 
 using namespace osgCal;
 
-MeshDisplaySettings::MeshDisplaySettings()
+MeshParameters::MeshParameters()
     : software( false )
     , showTBN( false )
     , fogMode( (osg::Fog::Mode)0 )
@@ -27,25 +27,25 @@ MeshDisplaySettings::MeshDisplaySettings()
 {
 }
 
-static osg::ref_ptr< MeshDisplaySettings > defaultMeshDisplaySettings( new MeshDisplaySettings );
+static osg::ref_ptr< MeshParameters > defaultMeshParameters( new MeshParameters );
 
-const MeshDisplaySettings*
-MeshDisplaySettings::defaults()
+const MeshParameters*
+MeshParameters::defaults()
 {
-    return defaultMeshDisplaySettings.get();
+    return defaultMeshParameters.get();
 }
 
-MeshDisplaySettings* 
-DefaultMeshDisplaySettingsSelector::getDisplaySettings( const MeshData* )
+MeshParameters* 
+DefaultMeshParametersSelector::getParameters( const MeshData* )
 {
-    return defaultMeshDisplaySettings.get();
+    return defaultMeshParameters.get();
 }
 
-static osg::ref_ptr< DefaultMeshDisplaySettingsSelector >
-defaultMeshDisplaySettingsSelector( new DefaultMeshDisplaySettingsSelector );
+static osg::ref_ptr< DefaultMeshParametersSelector >
+defaultMeshParametersSelector( new DefaultMeshParametersSelector );
 
-DefaultMeshDisplaySettingsSelector*
-DefaultMeshDisplaySettingsSelector::instance()
+DefaultMeshParametersSelector*
+DefaultMeshParametersSelector::instance()
 {
-    return defaultMeshDisplaySettingsSelector.get();
+    return defaultMeshParametersSelector.get();
 }

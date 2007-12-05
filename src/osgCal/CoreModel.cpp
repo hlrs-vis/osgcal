@@ -74,7 +74,7 @@ isFileExists( const std::string& f )
 
 void
 CoreModel::load( const std::string& cfgFileNameOriginal,
-                 MeshDisplaySettingsSelector* _dss ) throw (std::runtime_error)
+                 MeshParametersSelector* _ps ) throw (std::runtime_error)
 {
     if ( calCoreModel )
     {
@@ -82,8 +82,8 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         throw std::runtime_error( "model already loaded" );
     }
 
-    osg::ref_ptr< MeshDisplaySettingsSelector >
-        dss( _dss ? _dss : DefaultMeshDisplaySettingsSelector::instance() );
+    osg::ref_ptr< MeshParametersSelector >
+        ps( _ps ? _ps : DefaultMeshParametersSelector::instance() );
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 
@@ -126,7 +126,7 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         CoreMesh* m = new CoreMesh( this,
                                     md,
                                     new Material( md->coreMaterial, dir ),
-                                    dss->getDisplaySettings( md ) );
+                                    ps->getParameters( md ) );
         // TODO: add per-core model coreMaterialCache
 
         meshes.push_back( m );
@@ -152,11 +152,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
 bool
 CoreModel::loadNoThrow( const std::string& cfgFileName,
                         std::string&       errorText,
-                        MeshDisplaySettingsSelector* dss ) throw ()
+                        MeshParametersSelector* ps ) throw ()
 {
     try
     {
-        load( cfgFileName, dss );
+        load( cfgFileName, ps );
         return true;
     }
     catch ( std::runtime_error& e )

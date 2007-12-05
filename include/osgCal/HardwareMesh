@@ -67,7 +67,7 @@ namespace osgCal
             void innerDrawImplementation( osg::RenderInfo& renderInfo,
                                           GLuint           displayList = 0 ) const;
 
-            virtual void onDisplaySettingsChanged( const MeshDisplaySettings* previousDs );
+            virtual void onParametersChanged( const MeshParameters* previousDs );
     };
 
 }; //namespace osgCal

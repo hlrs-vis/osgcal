@@ -21,7 +21,7 @@
 #include <osgCal/Export>
 #include <osgCal/MeshData>
 #include <osgCal/Material>
-#include <osgCal/MeshDisplaySettings>
+#include <osgCal/MeshParameters>
 #include <osgCal/MeshDisplayLists>
 #include <osgCal/MeshStateSets>
 
@@ -55,7 +55,7 @@ namespace osgCal
             CoreMesh( const CoreModel* model,
                       MeshData*        data,
                       const Material*  material,
-                      const MeshDisplaySettings* ds  );
+                      const MeshParameters* ds  );
 
             /**
              * Creation of mesh with new material and display settings.
@@ -64,7 +64,7 @@ namespace osgCal
             CoreMesh( const CoreModel* model,
                       const CoreMesh* mesh,
                       const Material* newMaterial,
-                      const MeshDisplaySettings* newDs  );
+                      const MeshParameters* newDs  );
 
             /**
              * Mutable since we free some data after display lists compiled.
@@ -72,7 +72,7 @@ namespace osgCal
             mutable osg::ref_ptr< MeshData >    data;
 
             osg::ref_ptr< Material >            material;
-            osg::ref_ptr< MeshDisplaySettings > displaySettings;
+            osg::ref_ptr< MeshParameters >      parameters;
 
             osg::ref_ptr< MeshDisplayLists >    displayLists;
             osg::ref_ptr< MeshStateSets >       stateSets;

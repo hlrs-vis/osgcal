@@ -399,11 +399,13 @@ HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
 osg::StateSet*
 HwMeshStateSetCache::get( const MKey& swsd,
                           int bonesCount,
-                          MeshDisplaySettings* ds )
+                          MeshParameters* p )
 {
     return getOrCreate( cache,
                         std::make_pair( swsd,
-                                        HWKey( bonesCount, ds->fogMode, ds->useDepthFirstMesh ) ),
+                                        HWKey( bonesCount,
+                                               p->fogMode,
+                                               p->useDepthFirstMesh ) ),
                         this,
                         &HwMeshStateSetCache::createHwMeshStateSet );
 }

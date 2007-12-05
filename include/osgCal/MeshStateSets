@@ -27,7 +27,7 @@
 #include <osgCal/StateSetCache>
 #include <osgCal/MeshData>
 #include <osgCal/Material>
-#include <osgCal/MeshDisplaySettings>
+#include <osgCal/MeshParameters>
 
 namespace osgCal
 {
@@ -40,7 +40,7 @@ namespace osgCal
             MeshStateSets( StateSetCache*  c,
                            const MeshData* d,
                            const Material* m,
-                           const MeshDisplaySettings* ds );
+                           const MeshParameters* p );
                     
             osg::ref_ptr< osg::StateSet >   stateSet;
             osg::ref_ptr< osg::StateSet >   staticStateSet; ///< zero bones state set

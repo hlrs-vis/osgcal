@@ -22,24 +22,24 @@ using namespace osgCal;
 MeshStateSets::MeshStateSets( StateSetCache*  c,
                               const MeshData* d,
                               const Material* m,
-                              const MeshDisplaySettings* ds )
+                              const MeshParameters* p )
 {
     Material* ncm = const_cast< Material* >( m ); // material const, refCount isn't
-    MeshDisplaySettings* ncds = const_cast< MeshDisplaySettings* >( ds ); // same
+    MeshParameters* ncp = const_cast< MeshParameters* >( p ); // same
 
-    if ( ds->software )
+    if ( p->software )
     {
         stateSet = c->swMeshStateSetCache->get( static_cast< SoftwareMaterial* >( ncm ) );
     }
     else
     {
-        staticStateSet = c->hwMeshStateSetCache->get( ncm, 0, ncds );
+        staticStateSet = c->hwMeshStateSetCache->get( ncm, 0, ncp );
         if ( d->rigid == false )
         {
-            stateSet = c->hwMeshStateSetCache->get( ncm, d->maxBonesInfluence, ncds );
+            stateSet = c->hwMeshStateSetCache->get( ncm, d->maxBonesInfluence, ncp );
         }
 
-        if ( ds->useDepthFirstMesh )
+        if ( p->useDepthFirstMesh )
         {
             staticDepthOnly = c->depthMeshStateSetCache->get( ncm, 0 );
 

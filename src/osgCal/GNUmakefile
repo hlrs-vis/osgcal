@@ -7,7 +7,7 @@ CXXFILES =\
 	Material.cpp \
 	ShadersCache.cpp \
 	StateSetCache.cpp \
-	MeshDisplaySettings.cpp \
+	MeshParameters.cpp \
 	MeshDisplayLists.cpp \
 	MeshStateSets.cpp \
 	CoreMesh.cpp \

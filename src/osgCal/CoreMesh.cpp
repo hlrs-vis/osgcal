@@ -23,29 +23,29 @@ using namespace osgCal;
 CoreMesh::CoreMesh( const CoreModel* model,
                     MeshData*        _data,
                     const Material*  _material,
-                    const MeshDisplaySettings* _ds )
+                    const MeshParameters* _p )
     : data( _data )
     , material( const_cast< Material* >( _material ) )
-    , displaySettings( const_cast< MeshDisplaySettings* >( _ds ) )
+    , parameters( const_cast< MeshParameters* >( _p ) )
     , displayLists( new MeshDisplayLists )
     , stateSets( new MeshStateSets( model->getStateSetCache(),
                                     _data,
                                     _material,
-                                    _ds ) )
+                                    _p ) )
 {
 }
 
 CoreMesh::CoreMesh( const CoreModel* model,
                     const CoreMesh*  mesh,
                     const Material*  newMaterial,
-                    const MeshDisplaySettings* newDs )
+                    const MeshParameters* newP )
     : data( mesh->data.get() )
     , material( const_cast< Material* >( newMaterial ) )
-    , displaySettings( const_cast< MeshDisplaySettings* >( newDs ) )
+    , parameters( const_cast< MeshParameters* >( newP ) )
     , displayLists( mesh->displayLists.get() )
     , stateSets( new MeshStateSets( model->getStateSetCache(),
                                     mesh->data.get(),
                                     newMaterial,
-                                    newDs ) )
+                                    newP ) )
 {
 }

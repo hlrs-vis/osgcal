@@ -33,27 +33,36 @@ Mesh::Mesh( ModelData*      _modelData,
     // ^ No drawing during updates. Otherwise there will be a
     // crash in multithreaded osgCalViewer modes
     // (first reported by Jan Ciger)
+
+    setUserData( const_cast< MeshParameters* >
+                 ( MeshParameters::defaults() ) /*any referenced*/ );
+    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
+    // (with merging & flattening turned on some color artefacts arise)
+    // TODO: how to completely disable FLATTEN_STATIC_TRANSFORMS on models?
+    // it copies vertex buffer (which is per model) for each submesh
+    // which takes too much memory
 }
 
 void
-Mesh::changeDisplaySettings( const MeshDisplaySettings* newDs )
+Mesh::changeParameters( const MeshParameters* newP )
 {    
-    const MeshDisplaySettings* prevDs = mesh->displaySettings.get();
+    const MeshParameters* prevP = mesh->parameters.get();
 
-    if ( prevDs->software != newDs->software )
+    if ( prevP->software != newP->software )
     {
-        throw std::runtime_error( "Mesh::changeDisplaySettings: software/hardware switching is not supported" );
+        throw std::runtime_error(
+            "Mesh::changeParameters: software/hardware switching is not supported" );
     }
     
     mesh = new CoreMesh( modelData->getCoreModel(),
                          mesh.get(),
                          mesh->material.get(),
-                         newDs );
-    onDisplaySettingsChanged( prevDs );
+                         newP );
+    onParametersChanged( prevP );
 }
 
 void
-Mesh::onDisplaySettingsChanged( const MeshDisplaySettings* previousDs )
+Mesh::onParametersChanged( const MeshParameters* previousParameters )
 {
-    (void)previousDs;
+    (void)previousParameters;
 }

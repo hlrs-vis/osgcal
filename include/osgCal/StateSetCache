@@ -27,7 +27,7 @@
 #include <osgCal/Export>
 #include <osgCal/Material>
 #include <osgCal/MeshData>
-#include <osgCal/MeshDisplaySettings>
+#include <osgCal/MeshParameters>
 #include <osgCal/ShadersCache>
 
 namespace osgCal
@@ -154,7 +154,7 @@ namespace osgCal
             
             osg::StateSet* get( const MKey& swsd,
                                 int         bonesCount,
-                                MeshDisplaySettings* ds );
+                                MeshParameters* p );
 
             struct HWKey
             {

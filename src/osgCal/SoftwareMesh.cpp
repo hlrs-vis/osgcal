@@ -71,9 +71,6 @@ SoftwareMesh::SoftwareMesh( ModelData*      _modelData,
     addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
 
     boundingBox = mesh->data->boundingBox;
-
-    setUserData( getStateSet() /*any referenced*/ );
-    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
 }
 
 osg::Object*

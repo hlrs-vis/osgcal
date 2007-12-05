@@ -15,8 +15,8 @@
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#ifndef __OSGCAL__MESH_DISPLAY_SETTINGS_H__
-#define __OSGCAL__MESH_DISPLAY_SETTINGS_H__
+#ifndef __OSGCAL__MESH_PARAMETERS_H__
+#define __OSGCAL__MESH_PARAMETERS_H__
 
 #include <osg/Referenced>
 #include <osg/Fog>
@@ -26,21 +26,29 @@
 
 namespace osgCal
 {
-    struct OSGCAL_EXPORT MeshDisplaySettings : osg::Referenced
+    /**
+     * Mesh specific parameters. They can be selected one for all
+     * meshes (at CoreModel::load stage), can be selected per core
+     * mesh in core model, can be used to create modified core meshes
+     * at Model::load stage, and can be used to change any specific mesh
+     * parameters using Mesh->changeParameters at any time.
+     */
+    struct OSGCAL_EXPORT MeshParameters : osg::Referenced
     {
         public:
-            MeshDisplaySettings();
+            MeshParameters();
 
             /**
-             * Return global constant with default settings.
+             * Return global constant with default parameters.
              */
-            static const MeshDisplaySettings* defaults();
+            static const MeshParameters* defaults();
 
             /**
              * Use fixed function pipeline for drawing.
              * Use it for testing purpouses only, many
              * features are not supported in software mode.
-             * Also switching between hw/sw rendering is not supported.
+             * Also switching between hw/sw rendering is not
+             * supported.
              */
             bool software;
                     
@@ -51,7 +59,7 @@ namespace osgCal
 
             /**
              * Enable fog in shader (exp, exp2 or linear mode),
-             * 0 by default (no fog)
+             * 0 by default (no fog). Not needed for software meshes.
              */
             osg::Fog::Mode fogMode;
 
@@ -69,34 +77,33 @@ namespace osgCal
     };
 
     /**
-     * Class which helps to select specific per-mesh display settings.
+     * Class which helps to select specific per-mesh parameters.
      */
-    struct MeshDisplaySettingsSelector : public osg::Referenced
+    struct MeshParametersSelector : public osg::Referenced
     {
-            virtual MeshDisplaySettings* getDisplaySettings( const MeshData* ) = 0;
+            virtual MeshParameters* getParameters( const MeshData* ) = 0;
     };
 
-    struct DefaultMeshDisplaySettingsSelector : public MeshDisplaySettingsSelector
+    struct DefaultMeshParametersSelector : public MeshParametersSelector
     {
-            // TODO: ^ shorter names?
             /**
              * Return global selector instance.
              */
-            static DefaultMeshDisplaySettingsSelector* instance();
+            static DefaultMeshParametersSelector* instance();
             
-            virtual MeshDisplaySettings* getDisplaySettings( const MeshData* );
+            virtual MeshParameters* getParameters( const MeshData* );
     };
 
-    struct ConstMeshDisplaySettingsSelector : public MeshDisplaySettingsSelector
+    struct ConstMeshParametersSelector : public MeshParametersSelector
     {
-            osg::ref_ptr< MeshDisplaySettings > ds;
-            ConstMeshDisplaySettingsSelector( MeshDisplaySettings* d )
-                : ds( d )
+            osg::ref_ptr< MeshParameters > mp;
+            ConstMeshParametersSelector( MeshParameters* p )
+                : mp( p )
             {}
                     
-            virtual MeshDisplaySettings* getDisplaySettings( const MeshData* )
+            virtual MeshParameters* getParameters( const MeshData* )
             {
-                return ds.get();
+                return mp.get();
             }
     };
 

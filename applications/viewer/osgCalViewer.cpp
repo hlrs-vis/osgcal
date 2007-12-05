@@ -308,21 +308,21 @@ main( int argc,
         osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
         int         animNum = -1;
         osg::ref_ptr< osgCal::BasicMeshAdder > meshAdder( new osgCal::DefaultMeshAdder );
-        osg::ref_ptr< osgCal::MeshDisplaySettings > ds( new osgCal::MeshDisplaySettings );
+        osg::ref_ptr< osgCal::MeshParameters > p( new osgCal::MeshParameters );
             
         while ( arguments.read( "--df" ) )
         {
-            ds->useDepthFirstMesh = true;
+            p->useDepthFirstMesh = true;
         }
 
         while ( arguments.read( "--sw" ) )
         {
-            ds->software = true;
+            p->software = true;
         }
 
         while ( arguments.read( "--hw" ) )
         {
-            ds->software = false; // default
+            p->software = false; // default
         }
             
         try
@@ -338,7 +338,7 @@ main( int argc,
 
             if ( ext == "caf" )
             {
-                coreModel->load( dir + "/cal3d.cfg", ds.get() );
+                coreModel->load( dir + "/cal3d.cfg", p.get() );
 
                 for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
                 {
@@ -372,12 +372,12 @@ main( int argc,
             }
             else if ( ext == "cmf" )
             {
-                coreModel->load( dir + "/cal3d.cfg", ds.get() );
+                coreModel->load( dir + "/cal3d.cfg", p.get() );
                 meshAdder = new osgCal::OneMeshAdder( osgDB::getStrippedName( fn ) );
             }
             else
             {
-                coreModel->load( fn, ds.get() );
+                coreModel->load( fn, p.get() );
             }
         }
         catch ( std::runtime_error& e )

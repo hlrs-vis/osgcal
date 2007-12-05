@@ -31,7 +31,8 @@ DepthMesh::DepthMesh( HardwareMesh* hw )
     setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
     dirtyBound();
 
-    setUserData( getStateSet() /*any referenced*/ );
+    setUserData( const_cast< MeshParameters* >
+                 ( MeshParameters::defaults() ) /*any referenced*/ );
     // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
 }
 
