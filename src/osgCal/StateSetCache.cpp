@@ -22,7 +22,7 @@
 #include <osg/CullFace>
 #include <osg/Depth>
 #include <osg/ColorMask>
-#include <osg/VertexProgram> // GL_VERTEX_PROGRAM_TWO_SIDE_ARB
+//#include <osg/VertexProgram> // GL_VERTEX_PROGRAM_TWO_SIDE_ARB
 
 #include <osgDB/ReadFile>
 
@@ -220,20 +220,14 @@ struct osgCalStateAttributes
         {
             blending = new osg::BlendFunc;
             blending->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-            //blending->setThreadSafeRefUnref( true );
 
             depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
-            //depthFuncLessWriteMaskTrue->setThreadSafeRefUnref( true );
             depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
-            //depthFuncLessWriteMaskFalse->setThreadSafeRefUnref( true );
             depthFuncLequalWriteMaskFalse = new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false );
-            //depthFuncLequalWriteMaskFalse->setThreadSafeRefUnref( true );
 
             backFaceCulling = new osg::CullFace( osg::CullFace::BACK );
-            //backFaceCulling->setThreadSafeRefUnref( true );
 
             noColorWrites = new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
-            //noColorWrites->setThreadSafeRefUnref( true );
         }
 };
 
@@ -306,11 +300,18 @@ SwMeshStateSetCache::createSwMeshStateSet( const Key& desc )
             break;
 
         case 2:
-            stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
-                               osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
-            // two sided mesh -- force no culling (for sw mesh)
+//             stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
+//                                osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
+//             // two sided mesh -- force no culling (for sw mesh)
+//             stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
+//                                             osg::StateAttribute::OFF |
+//                                             osg::StateAttribute::PROTECTED );
+            // ^^^ commented due to strange bugs on ATI X800,
+            // while it works on Radeon 9550 and GF 6600, 8600
+            // BTW: on 8600 two pass works faster. GPU: 6.75 => 6.35,
+            // but draw time increased: 3.4 => 4.2
             stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::OFF |
+                                            osg::StateAttribute::ON |
                                             osg::StateAttribute::PROTECTED );
             break;
 
@@ -322,8 +323,8 @@ SwMeshStateSetCache::createSwMeshStateSet( const Key& desc )
     // -- Check transparency modes --
     if ( isRGBAStateSet( stateSet ) || desc->diffuseColor.a() < 1 )
     {
-        stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
-                           osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
+//        stateSet->setMode( GL_VERTEX_PROGRAM_TWO_SIDE_ARB,
+//                           osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON );
         setupTransparentStateSet( stateSet );
         // and force backface culling
         stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
@@ -429,15 +430,18 @@ HwMeshStateSetCache::createHwMeshStateSet( const Key& matAndBones )
     int fogFlags = ( params.fogMode == osg::Fog::LINEAR ? SHADER_FLAG_FOG_MODE_LINEAR :
                      params.fogMode == osg::Fog::EXP    ? SHADER_FLAG_FOG_MODE_EXP    :
                      params.fogMode == osg::Fog::EXP2   ? SHADER_FLAG_FOG_MODE_EXP2   : 0 );
+    int twoSided = ( material->sides == 2 || rgba || transparent );
 
     stateSet->setAttributeAndModes( shadersCache->get(
                                         materialShaderFlags( *material )
-                                        +
+                                        |
                                         SHADER_FLAG_BONES( params.bonesCount )
-                                        +
+                                        |
                                         fogFlags
-                                        +
-                                        rgba * (SHADER_FLAG_RGBA | SHADER_FLAG_TWO_SIDED)
+                                        |
+                                        rgba * SHADER_FLAG_RGBA
+                                        |
+                                        twoSided * SHADER_FLAG_TWO_SIDED
                                         ),
                                     osg::StateAttribute::ON );
 

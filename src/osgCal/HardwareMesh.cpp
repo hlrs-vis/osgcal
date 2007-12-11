@@ -84,6 +84,7 @@ HardwareMesh::onParametersChanged( const MeshParameters* previousDs )
              &&
              !previousDs->useDepthFirstMesh )
         {
+//            std::cout << "Adding depth mesh to " << mesh->data->name << std::endl;
             depthMesh = new DepthMesh( this );
             modelData->getModel()->addDepthMesh( depthMesh.get() );
         }
@@ -91,6 +92,7 @@ HardwareMesh::onParametersChanged( const MeshParameters* previousDs )
                   &&
                   previousDs->useDepthFirstMesh )
         {
+//            std::cout << "Removing depth mesh from " << mesh->data->name << std::endl;
             modelData->getModel()->removeDepthMesh( depthMesh.get() );
             depthMesh = 0;
         }        
@@ -123,16 +125,16 @@ getProgram( osg::State& state,
 
 void
 HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
-                                     const osg::StateSet* stateSet ) const
+                                  const osg::StateSet* stateSet ) const
 {
     osg::State& state = *renderInfo.getState();
+
+    const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
+    const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
 
     // -- Setup rotation/translation uniforms --
     if ( deformed )
     {
-        const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
-        const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
-
         // -- Calculate and bind rotation/translation uniforms --
         GLint rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices" );
         if ( rotationMatricesAttrib < 0 )
@@ -156,8 +158,8 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
         GLfloat rotationMatrices[9*31];
         GLfloat translationVectors[3*31];
         
-
-        for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
+        for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
+             boneIndex < boneCount; boneIndex++ )
         {
             modelData->getBoneRotationTranslation( mesh->data->getBoneId( boneIndex ),
                                                    &rotationMatrices[boneIndex*9],
@@ -204,26 +206,40 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
     }
 
     // -- Call display list --
-    // get mesh material to restore glColor after glDrawElements call
-    const osg::Material* material = static_cast< const osg::Material* >
-        ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) );
-
     bool transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
+    GLint frontFacing = program->getUniformLocation( "frontFacing" );
 
     if ( transparent )
     {
         glCullFace( GL_FRONT ); // first draw only back faces
+        gl2extensions->glUniform1f( frontFacing, 0.0 );
         glCallList( dl );
-        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
         glCullFace( GL_BACK ); // then draw only front faces
+        gl2extensions->glUniform1f( frontFacing, 1.0 );
         glCallList( dl );
-        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    }
+    else if ( frontFacing >= 0 )
+    {
+        // first draw only front faces
+        gl2extensions->glUniform1f( frontFacing, 1.0 );
+        glCallList( dl );
+        // then draw only back faces
+        glCullFace( GL_FRONT ); 
+        gl2extensions->glUniform1f( frontFacing, 0.0 );
+        glCallList( dl );
+        glCullFace( GL_BACK ); // restore backfacing mode
     }
     else
     {
         glCallList( dl );
-        if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
     }
+
+//     // get mesh material to restore glColor after glDrawElements call
+//     const osg::Material* material = static_cast< const osg::Material* >
+//         ( state.getLastAppliedAttribute( osg::StateAttribute::MATERIAL ) );
+//     if ( material ) glColor4fv( material->getDiffuse( osg::Material::FRONT ).ptr() );
+    // ^ seems that material color restoring is not needed when
+    // glDrawElements call is placed into display list
 }
 
 void

@@ -31,6 +31,10 @@ shaderText += "varying vec3 transformedNormal;\n";
 shaderText += "\n";
 shaderText += "uniform float glossiness;\n";
 shaderText += "\n";
+if ( TWO_SIDED == 1 ) {
+shaderText += "uniform float frontFacing;\n";
+}
+shaderText += "\n";
 if ( FOG ) {
 shaderText += "varying vec3 eyeVec;\n";
 }
@@ -73,7 +77,8 @@ shaderText += "\n";
 if ( TWO_SIDED == 1 ) {
 shaderText += "//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,\n";
 shaderText += "                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB\n";
-shaderText += "    if ( gl_Color.a == 0.0 )\n";
+shaderText += "//    if ( gl_Color.a == 0.0 )\n";
+shaderText += "    if ( frontFacing == 0.0 )\n";
 shaderText += "    {\n";
 shaderText += "        normal = -normal;\n";
 shaderText += "    }\n";

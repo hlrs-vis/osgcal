@@ -158,7 +158,7 @@ ShadersCache::getVertexShader( int flags )
 {           
     flags &= ~SHADER_FLAG_RGBA
         & ~SHADER_FLAG_OPACITY
-//        & ~SHADER_FLAG_TWO_SIDED
+        & ~SHADER_FLAG_TWO_SIDED
         & ~SHADER_FLAG_SHINING;
     // remove irrelevant flags that can lead to
     // duplicate shaders in map
@@ -178,7 +178,7 @@ ShadersCache::getVertexShader( int flags )
     else
     {                
         PARSE_FLAGS;
-        (void)RGBA, (void)OPACITY, (void)SHINING, (void)FOG_MODE;
+        (void)RGBA, (void)OPACITY, (void)SHINING, (void)FOG_MODE, (void)TWO_SIDED;
         // remove unused variable warning
 
         std::string shaderText;

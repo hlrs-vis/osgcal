@@ -158,8 +158,8 @@ void main()
 
 #endif // BONES_COUNT >= 1
 
-#if TWO_SIDED == 1
-    gl_FrontColor.a = 1.0;
-    gl_BackColor.a =  0.0; // negative values not allowed
-#endif
+// #if TWO_SIDED == 1
+//     gl_FrontColor.a = 1.0;
+//     gl_BackColor.a =  0.0; // negative values not allowed
+// #endif
 }

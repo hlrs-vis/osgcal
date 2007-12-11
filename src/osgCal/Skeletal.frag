@@ -31,6 +31,10 @@ varying vec3 transformedNormal;
 
 uniform float glossiness;
 
+#if TWO_SIDED == 1
+uniform float frontFacing;
+#endif
+
 #if FOG
 varying vec3 eyeVec;
 #endif
@@ -73,7 +77,8 @@ void main()
 #if TWO_SIDED == 1
 //    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,
                            // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB
-    if ( gl_Color.a == 0.0 )
+//    if ( gl_Color.a == 0.0 )
+    if ( frontFacing == 0.0 )
     {
         normal = -normal;
     }
