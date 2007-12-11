@@ -12,6 +12,7 @@ shaderText += "{\n";
 if ( BONES_COUNT >= 1 ) {
 shaderText += "    mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];\n";
 shaderText += "    vec3 totalTranslation = weight.x * translationVectors[int(index.x)];\n";
+shaderText += "    // can't use W*(M*V+TV) here due to precision problems\n";
 shaderText += "\n";
 if ( BONES_COUNT >= 2 ) {
 shaderText += "    totalRotation += weight.y * rotationMatrices[int(index.y)];\n";
