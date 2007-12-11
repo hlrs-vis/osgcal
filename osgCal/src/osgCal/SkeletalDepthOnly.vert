@@ -12,6 +12,7 @@ void main()
 #if BONES_COUNT >= 1
     mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];
     vec3 totalTranslation = weight.x * translationVectors[int(index.x)];
+    // can't use W*(M*V+TV) here due to precision problems
 
 #if BONES_COUNT >= 2
     totalRotation += weight.y * rotationMatrices[int(index.y)];
