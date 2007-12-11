@@ -367,7 +367,7 @@ endif
     DEF             += -W -Wall -Wextra -fPIC -pipe
     OPTF            = -O2 
     DBGF            = -g -gstabs+ -DOSG_COMPILE_UNIT_TESTS 
-    SYSARCH           := $(shell arch)
+    SYSARCH           := $(shell uname -m)
     ifeq ($(SYSARCH),x86_64)
       ARCHARGS        =
       ARCH            = 64

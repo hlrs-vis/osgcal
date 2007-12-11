@@ -105,15 +105,15 @@ EOF1
 }
 
 
-[ -d $INST_SRC/Make ] || mkdir -m 0755 -p $INST_SRC/Make
+# [ -d $INST_SRC/Make ] || mkdir -m 0755 -p $INST_SRC/Make
 
-echo =========== Installing Example Source Code =================
+# echo =========== Installing Example Source Code =================
 
-echo "  generating make files ..."
-generate_makedefs > $INST_SRC/Make/makedefs
-generate_makerules > $INST_SRC/Make/makerules
+# echo "  generating make files ..."
+# generate_makedefs > $INST_SRC/Make/makedefs
+# generate_makerules > $INST_SRC/Make/makerules
 
-echo "  copying example files ..."
-copy_example_source
+# echo "  copying example files ..."
+# copy_example_source
 
 exit 0

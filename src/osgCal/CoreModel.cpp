@@ -17,361 +17,21 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include <sys/stat.h>
-#include <memory>
 
 #include <osg/Notify>
-#include <osg/Texture2D>
-#include <osg/Image>
-#include <osg/VertexProgram>
-#include <osg/Drawable>
-#include <osg/Vec4>
-#include <osg/BlendFunc>
-#include <osg/CullFace>
-#include <osg/Depth>
-#include <osg/ColorMask>
-#include <osg/DisplaySettings>
-#include <osg/io_utils>
-
 #include <osgDB/FileNameUtils>
-#include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
 
-#include <cal3d/coresubmesh.h>
-#include <cal3d/coremesh.h>
+#include <osgCal/MeshLoader>
 
 #include <osgCal/CoreModel>
 
-
-/**
- * Same as osg::VertexBufferObject, but unref osg::Array after all
- * GraphicsContexts are initialized.
- */
-class VertexBufferObject : public osg::BufferObject
-{
-    public:
-
-        virtual osg::Object* cloneType() const
-        {
-            throw std::runtime_error( "VertexBufferObject::cloneType unsupported");
-        }
-        virtual osg::Object* clone(const osg::CopyOp&) const
-        {
-            throw std::runtime_error( "VertexBufferObject::clone unsupported");
-        }
-       
-        VertexBufferObject( GLenum      target,
-                            osg::Array* a,
-                            bool        unref = true )
-            : BufferObject()
-            , array( a )
-            , unrefAfterApply( unref )
-        {
-            _target = target;
-            _usage = GL_STATIC_DRAW_ARB;
-            _totalSize = a->getTotalDataSize();
-            //_target = GL_ARRAY_BUFFER_ARB;//GL_ELEMENT_ARRAY_BUFFER_ARB
-        }
-
-        virtual bool needsCompile( unsigned int contextID ) const
-        {
-            return ( buffer( contextID ) == 0 );
-        }
-
-        virtual void compileBuffer(osg::State& state) const
-        {
-            unsigned int contextID = state.getContextID();
-            if (!isDirty(contextID) && !needsCompile(contextID)) return;
-    
-            Extensions* extensions = getExtensions( contextID, true );
-
-            GLuint& vbo = buffer( contextID );
-
-            if ( vbo == 0 )
-            {
-                extensions->glGenBuffers(1, &vbo);
-            }
-            extensions->glBindBuffer(_target, vbo);
-            extensions->glBufferData(_target, _totalSize, array->getDataPointer(),
-                                     _usage);
-
-            _compiledList[contextID] = 1;
-
-            if ( unrefAfterApply && array->getDataVariance() == STATIC && areAllArraysLoaded() )
-            {
-                array = 0;
-            }
-        }
-
-    private:
-        bool areAllArraysLoaded() const
-        {
-            for(unsigned int i=0;i<osg::DisplaySettings::instance()->getMaxNumberOfGraphicsContexts();++i)
-            {
-                if ( buffer( i ) == 0 ) return false;
-            }
-            return true;
-        }
-
-        mutable osg::ref_ptr< osg::Array > array;
-        bool unrefAfterApply;
-};
-
-
-
-// -- Shader cache --
-
-#define OSGCAL_MAX_BONES_PER_MESH       30
-#define OSGCAL_MAX_VERTEX_PER_MODEL     1000000
-
 using namespace osgCal;
-
-#define SHADER_FLAG_BONES(_nbones)      (0x10000 * (_nbones))
-#define SHADER_FLAG_DEPTH_ONLY            0x1000
-#define DEPTH_ONLY_MASK                  ~0x04FF // ignore aything except bones
-#define SHADER_FLAG_DONT_CALCULATE_VERTEX 0x0200
-#define SHADER_FLAG_GL_FRONT_FACING       0x0100
-#define SHADER_FLAG_BUMP_MAPPING          0x0080
-#define SHADER_FLAG_FOG_MODE_MASK        (0x0040 + 0x0020)
-#define SHADER_FLAG_FOG_MODE_LINEAR      (0x0040 + 0x0020)
-#define SHADER_FLAG_FOG_MODE_EXP2         0x0040
-#define SHADER_FLAG_FOG_MODE_EXP          0x0020
-#define SHADER_FLAG_RGBA                  0x0010 // enable blending of RGBA textures
-#define SHADER_FLAG_OPACITY               0x0008
-#define SHADER_FLAG_TEXTURING             0x0004
-#define SHADER_FLAG_NORMAL_MAPPING        0x0002
-#define SHADER_FLAG_SHINING               0x0001
-
-/**
- * Set of shaders with specific flags.
- */
-class SkeletalShadersSet : public osg::Referenced
-{
-    public:
-
-        ~SkeletalShadersSet()
-        {
-            osg::notify( osg::DEBUG_FP ) << "destroying SkeletalShadersSet... " << std::endl;
-            vertexShaders.clear();
-            fragmentShaders.clear();
-            programs.clear();
-            osg::notify( osg::DEBUG_FP ) << "SkeletalShadersSet destroyed" << std::endl;
-        }
-
-        osg::Program* get( int flags )
-        {
-            if ( flags & SHADER_FLAG_DEPTH_ONLY )
-            {
-                if ( flags & SHADER_FLAG_DONT_CALCULATE_VERTEX )
-                {
-                    flags = SHADER_FLAG_DEPTH_ONLY; // w/o bones at all
-                }
-                else
-                {
-                    flags &= DEPTH_ONLY_MASK; 
-                }
-            }
-
-            ProgramsMap::const_iterator pmi = programs.find( flags );
-
-            if ( pmi != programs.end() )
-            {
-                return pmi->second.get();
-            }
-            else
-            {
-#define PARSE_FLAGS                                                     \
-                int BONES_COUNT = flags / SHADER_FLAG_BONES(1);         \
-                int RGBA = ( SHADER_FLAG_RGBA & flags ) ? 1 : 0;        \
-                int FOG_MODE = ( SHADER_FLAG_FOG_MODE_MASK & flags );   \
-                int FOG = FOG_MODE != 0;                                \
-                int OPACITY = ( SHADER_FLAG_OPACITY & flags ) ? 1 : 0;  \
-                int TEXTURING = ( SHADER_FLAG_TEXTURING & flags ) ? 1 : 0; \
-                int NORMAL_MAPPING = ( SHADER_FLAG_NORMAL_MAPPING & flags ) ? 1 : 0; \
-                int BUMP_MAPPING = ( SHADER_FLAG_BUMP_MAPPING & flags ) ? 1 : 0; \
-                int SHINING = ( SHADER_FLAG_SHINING & flags ) ? 1 : 0;  \
-                int DEPTH_ONLY = ( SHADER_FLAG_DEPTH_ONLY & flags ) ? 1 : 0; \
-                int GL_FRONT_FACING = ( SHADER_FLAG_GL_FRONT_FACING & flags ) ? 1 : 0; \
-                int DONT_CALCULATE_VERTEX = ( SHADER_FLAG_DONT_CALCULATE_VERTEX & flags ) ? 1 : 0;
-
-                PARSE_FLAGS;
-                (void)FOG; // remove unused variable warning
-                
-                osg::Program* p = new osg::Program;
-
-                char name[ 256 ];
-                sprintf( name, "skeletal shader (%d bones%s%s%s%s%s%s%s%s%s%s)",
-                         BONES_COUNT,
-                         DEPTH_ONLY ? ", depth_only" : "",
-                         (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP ? ", fog_exp"
-                          : (FOG_MODE == SHADER_FLAG_FOG_MODE_EXP2 ? ", fog_exp2"
-                             : (FOG_MODE == SHADER_FLAG_FOG_MODE_LINEAR ? ", fog_linear" : ""))),
-                         RGBA ? ", rgba" : "",
-                         OPACITY ? ", opacity" : "",
-                         TEXTURING ? ", texturing" : "",
-                         NORMAL_MAPPING ? ", normal mapping" : "",
-                         BUMP_MAPPING ? ", bump mapping" : "",
-                         SHINING ? ", shining" : "",
-                         GL_FRONT_FACING ? ", gl_FrontFacing" : "",
-                         DONT_CALCULATE_VERTEX ? ", no vertex" : ""
-                    );
-                            
-                p->setName( name );
-
-                p->addShader( getVertexShader( flags ) );
-                p->addShader( getFragmentShader( flags ) );
-
-                //p->addBindAttribLocation( "position", 0 );
-                // Attribute location binding is needed for ATI.
-                // ATI will draw nothing until one of the attributes
-                // will bound to zero location (BTW, this behaviour
-                // described in OpenGL spec. don't know why on nVidia
-                // it works w/o binding).
-
-                programs[ flags ] = p;
-                return p;
-            }            
-        }
-        
-    private:
-
-        osg::Shader* getVertexShader( int flags )
-        {           
-            flags &= ~SHADER_FLAG_RGBA
-                & ~SHADER_FLAG_OPACITY
-                & ~SHADER_FLAG_SHINING
-                & ~SHADER_FLAG_GL_FRONT_FACING;
-            // remove irrelevant flags that can lead to
-            // duplicate shaders in map
-            if ( flags & SHADER_FLAG_FOG_MODE_MASK )
-            {
-                flags |= SHADER_FLAG_FOG_MODE_MASK;
-                // ^ vertex shader only need to know that FOG is needed
-                // fog mode is irrelevant
-            }
-//             if ( flags &
-//                  (SHADER_FLAG_BONES(1) | SHADER_FLAG_BONES(2)
-//                   | SHADER_FLAG_BONES(3) | SHADER_FLAG_BONES(4)) )
-//             {
-//                 flags &= ~SHADER_FLAG_BONES(0)
-//                     & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-//                     & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4);
-//                 flags |= SHADER_FLAG_BONES(4);
-//             }
-//           BTW, not so much difference between always 4 bone and per-bones count shaders
-
-            ShadersMap::const_iterator smi = vertexShaders.find( flags );
-
-            if ( smi != vertexShaders.end() )
-            {
-                return smi->second.get();
-            }
-            else
-            {                
-                PARSE_FLAGS;
-                (void)RGBA, (void)OPACITY, (void)SHINING, (void)GL_FRONT_FACING, (void)FOG_MODE;
-                // remove unused variable warning
-
-                std::string shaderText;
-
-                if ( DEPTH_ONLY )
-                {
-                     #include "shaders/SkeletalVertexShaderDepthOnly.h"
-                }
-                else
-                {                    
-                     #include "shaders/SkeletalVertexShader.h"
-                }
-
-                osg::Shader* vs = new osg::Shader( osg::Shader::VERTEX,
-                                                   shaderText.data() );
-                vertexShaders[ flags ] = vs;
-                return vs;
-            }
-        }
-
-        osg::Shader* getFragmentShader( int flags )
-        {
-            flags &= ~SHADER_FLAG_BONES(0)
-                   & ~SHADER_FLAG_BONES(1) & ~SHADER_FLAG_BONES(2)
-                   & ~SHADER_FLAG_BONES(3) & ~SHADER_FLAG_BONES(4)
-                   & ~SHADER_FLAG_DONT_CALCULATE_VERTEX;
-            // remove irrelevant flags that can lead to
-            // duplicate shaders in map  
-
-            ShadersMap::const_iterator smi = fragmentShaders.find( flags );
-
-            if ( smi != fragmentShaders.end() )
-            {
-                return smi->second.get();
-            }
-            else
-            {                
-                PARSE_FLAGS;
-                (void)BONES_COUNT, (void)DONT_CALCULATE_VERTEX; // remove unused variable warning
-
-                std::string shaderText;
-
-                if ( DEPTH_ONLY )
-                {
-                     #include "shaders/SkeletalFragmentShaderDepthOnly.h"
-                }
-                else
-                {                    
-                     #include "shaders/SkeletalFragmentShader.h"
-                }
-
-                osg::Shader* fs = new osg::Shader( osg::Shader::FRAGMENT,
-                                                   shaderText.data() );
-                fragmentShaders[ flags ] = fs;
-                return fs;
-            }
-        }
-
-        typedef std::map< int, osg::ref_ptr< osg::Program > > ProgramsMap;
-        ProgramsMap programs;
-
-        typedef std::map< int, osg::ref_ptr< osg::Shader > > ShadersMap;
-        ShadersMap vertexShaders;
-        ShadersMap fragmentShaders;
-};
-
-
-/**
- * Global instance of skeletalVertexProgram.
- * There is only one shader instance which is created with first CoreModel
- * and destroyed after last CoreModel destroyed ( and hence all Models destroyed also
- * since they are referred to CoreModel ).
- */
-//static osg::ref_ptr< SkeletalShadersSet > skeletalShadersSet;
-static SkeletalShadersSet* skeletalShadersSet = NULL;
-
 
 CoreModel::CoreModel()
     : calCoreModel( 0 )
-    , calHardwareModel( 0 )
 {
-//     std::cout << "CoreModel::CoreModel()" << std::endl;
-    texturesCache = new TexturesCache();
-    swMeshStateSetCache = new SwMeshStateSetCache( new MaterialsCache(),
-                                                   texturesCache );
-    hwMeshStateSetCache = new HwMeshStateSetCache( swMeshStateSetCache,
-                                                   texturesCache );
-    depthMeshStateSetCache = new DepthMeshStateSetCache();
-
-    // add initial reference since we are not keeping caches in osg::ref_ptr 
-    // and unref them manually (before destroying skeletal shader to which they are refer)
-    texturesCache->ref();
-    swMeshStateSetCache->ref();
-    hwMeshStateSetCache->ref();
-    depthMeshStateSetCache->ref();
-
-    // create and ref skeletal vertex shader
-    if ( !skeletalShadersSet )
-    {
-        skeletalShadersSet = new SkeletalShadersSet();
-    }
-
-    skeletalShadersSet->ref();
+    stateSetCache = StateSetCache::instance();
+//    stateSetCache = new StateSetCache;
 }
 
 CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
@@ -380,48 +40,41 @@ CoreModel::CoreModel(const CoreModel&, const osg::CopyOp&)
     throw std::runtime_error( "CoreModel copying is not supported" );
 }
 
+#include <cal3d/coretrack.h>
+
 CoreModel::~CoreModel()
 {
-    meshes.clear();
-    
-    // cleanup of non-auto released resources
-    delete calHardwareModel;
-    delete calCoreModel;
-
-    depthMeshStateSetCache->unref();
-    hwMeshStateSetCache->unref();
-    swMeshStateSetCache->unref();
-    texturesCache->unref();
-
-    // delete skeletalShadersSet when no references left
-    if ( skeletalShadersSet->referenceCount() == 1 )
+    // TODO: report CoreTrack memory leak problem to cal3d maintainers
+    for ( int i = 0; i < calCoreModel->getCoreAnimationCount(); i++ )
     {
-        skeletalShadersSet->unref();
-        skeletalShadersSet = NULL;
+        CalCoreAnimation* a = calCoreModel->getCoreAnimation( i );
+        std::list<CalCoreTrack *>& ct = a->getListCoreTrack();
+        for ( std::list<CalCoreTrack *>::iterator
+                  t = ct.begin(),
+                  tEnd = ct.end();
+              t != tEnd; ++t )
+        {
+            (*t)->destroy();
+            delete (*t);
+        }
+        ct.clear();
     }
-//     std::cout << "CoreModel::~CoreModel()" << std::endl;
+
+    // cleanup of non-auto released resources
+    delete calCoreModel;
 }
 
-std::ostream&
-operator << ( std::ostream& os,
-              osgCal::HwStateDesc sd )
+bool
+isFileExists( const std::string& f )
 {
-    os << "ambientColor     : " << sd.material.ambientColor << std::endl
-       << "diffuseColor     : " << sd.material.diffuseColor << std::endl
-       << "specularColor    : " << sd.material.specularColor << std::endl
-       << "glossiness       : " << sd.material.glossiness << std::endl
-       << "duffuseMap       : " << sd.diffuseMap << std::endl
-       << "normalsMap       : " << sd.normalsMap << std::endl
-//       << "normalsMapAmount : " << sd.normalsMapAmount << std::endl
-       << "bumpMap          : " << sd.bumpMap << std::endl
-       << "bumpMapAmount    : " << sd.bumpMapAmount << std::endl
-       << "sides            : " << sd.sides << std::endl;
-    return os;
+    struct stat st;
+
+    return ( stat( f.c_str(), &st ) == 0 );
 }
 
 void
 CoreModel::load( const std::string& cfgFileNameOriginal,
-                 int _flags ) throw (std::runtime_error)
+                 MeshParametersSelector* _ps ) throw (std::runtime_error)
 {
     if ( calCoreModel )
     {
@@ -429,12 +82,8 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         throw std::runtime_error( "model already loaded" );
     }
 
-//    _flags = SHOW_TBN;//USE_GL_FRONT_FACING | NO_SOFTWARE_MESHES | USE_DEPTH_FIRST_MESHES
-//         | DONT_CALCULATE_VERTEX_IN_SHADER;
-    
-    flags = _flags;
-    hwMeshStateSetCache->flags = _flags;
-    depthMeshStateSetCache->flags = _flags;
+    osg::ref_ptr< MeshParametersSelector >
+        ps( _ps ? _ps : DefaultMeshParametersSelector::instance() );
 
     std::string dir = osgDB::getFilePath( cfgFileNameOriginal );
 
@@ -450,205 +99,47 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         cfgFileName = cfgFileNameOriginal;
     }
 
-    std::vector< std::string > meshNames;
-    std::auto_ptr< VBOs > bos;
-
-    if ( isFileExists( HWModelCacheFileName( cfgFileName ) ) == false
-         || isFileExists( VBOsCacheFileName( cfgFileName ) ) == false )
+    MeshesVector meshesData;
+    
+    if ( isFileExists( meshesCacheFileName( cfgFileName ) ) == false )
     {
-        // -- Load model and hw model from model --
         calCoreModel = loadCoreModel( cfgFileName, scale );
-
-        calHardwareModel = new CalHardwareModel(calCoreModel);
-        bos = std::auto_ptr< VBOs >( loadVBOs( calHardwareModel ) );
-        //saveVBOs( bos, dir + "/vbos.cache" );
-        //saveHardwareModel( calHardwareModel, dir + "/hwmodel.cache" );
-        // ^ it's not loading task, cache preparation is export task
-        // see `applications/preparer' for this.
-
-        // -- Fill meshNames array --
-        for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-            hardwareMeshId++)
-        {
-            meshNames.push_back(
-                calCoreModel->
-                getCoreMesh( calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ].meshId )->
-                getName() );
-        }
+        loadMeshes( calCoreModel, meshesData );
     }
     else
     {
-        // -- Load cached hardware model --
-        if ( Cal::LIBRARY_VERSION != 1000 && Cal::LIBRARY_VERSION != 1100 && Cal::LIBRARY_VERSION != 1200 )
-        {
-            throw std::runtime_error( "caching was only tested on cal3d 0.10.0, 0.11.0 and 0.12.0" );
-        }
-        
-        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
-
-//         if ( isFileOlder( cfgFileName, VBOsCacheFileName( cfgFileName ) ) )
-//         {
         // We don't check file dates, since after `svn up' they can be
         // in any order. So, yes, if cache file doesn't correspond to
         // model we can SIGSEGV.
-        bos = std::auto_ptr< VBOs >( loadVBOs( VBOsCacheFileName( cfgFileName ) ) );
-        //std::cout << "loaded from cache" << std::endl;
-        //std::cout << "vertexCount = " << bos->vertexCount << std::endl;
-        //std::cout << "faceCount = "   << bos->faceCount << std::endl;
-        calHardwareModel = loadHardwareModel( calCoreModel,
-                                              HWModelCacheFileName( cfgFileName ),
-                                              meshNames );
-//         }
-//         else
-//         {
-//             throw std::runtime_error( "cache is older than .cfg" );
-//         }
-    }
+        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
+        loadMeshes( meshesCacheFileName( cfgFileName ),
+                    calCoreModel, meshesData );
+    }    
 
     // -- Preparing meshes and materials for fast Model creation --
-    bool needTBN = false; // TBN for normals map or bump map
-    bool needWeights = false; // weight and matrix index buffer for deformation
-    // ^ TODO: make per mesh buffer management to remove unnecessary buffer parts.
-    
-    for(int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount();
-        hardwareMeshId++)
+    for ( MeshesVector::iterator
+              meshData = meshesData.begin(),
+              meshDataEnd = meshesData.end();
+          meshData != meshDataEnd; ++meshData )
     {
-        // -- Setup some fields --
-        Mesh m;
+        MeshData* md = (*meshData).get();
+        CoreMesh* m = new CoreMesh( this,
+                                    md,
+                                    new Material( md->coreMaterial, dir ),
+                                    ps->getParameters( md ) );
+        // TODO: add per-core model coreMaterialCache
 
-        m.hardwareMeshId = hardwareMeshId;
-        m.hardwareMesh   = &calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
-        m.name           = meshNames[ hardwareMeshId ];
-
-        if ( m.hardwareMesh->faceCount == 0 )
-        {
-            continue; // rare case, first reported by Ovidiu Sabou
-                      // it not caused any bug on my machine,
-                      // but Ovidiu had osgCalViewer crash
-        }
-
-        // -- Calculate maxBonesInfluence & rigidness --
-        GLfloat* vertexBuffer = (GLfloat*) bos->vertexBuffer->getDataPointer();
-        MatrixIndexBuffer::value_type::value_type*
-            matrixIndexBuffer = (MatrixIndexBuffer::value_type::value_type*)
-            bos->matrixIndexBuffer->getDataPointer();
-        GLfloat* weightBuffer = (GLfloat*) bos->weightBuffer->getDataPointer();
-        GLuint*  indexBuffer = (GLuint*) bos->indexBuffer->getDataPointer();
-
-        GLuint* begin = &indexBuffer[ m.getIndexInVbo() ];
-        GLuint* end   = begin + m.getIndexesCount();
-
-        m.maxBonesInfluence = 0;
-        m.rigid = true;
-        
-        for ( ; begin < end; ++begin )
-        {
-            float* v = &vertexBuffer[ *begin * 3 ];
-            m.boundingBox.expandBy( v[0], v[1], v[2] );
-
-            if ( !( matrixIndexBuffer[ *begin * 4 ] == 0
-                    &&
-                    weightBuffer[ *begin * 4 ] == 1.0f ) )
-            {
-                m.rigid = false;
-            }
-
-            if ( m.maxBonesInfluence < 1 && weightBuffer[ *begin * 4 + 0 ] > 0.0 )
-                m.maxBonesInfluence = 1;
-            if ( m.maxBonesInfluence < 2 && weightBuffer[ *begin * 4 + 1 ] > 0.0 )
-                m.maxBonesInfluence = 2;
-            if ( m.maxBonesInfluence < 3 && weightBuffer[ *begin * 4 + 2 ] > 0.0 )
-                m.maxBonesInfluence = 3;
-            if ( m.maxBonesInfluence < 4 && weightBuffer[ *begin * 4 + 3 ] > 0.0 )
-                m.maxBonesInfluence = 4;
-
-//             std::cout << matrixIndexBuffer[ *begin * 4 + 0 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 1 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 2 ] << '\t'
-//                       << matrixIndexBuffer[ *begin * 4 + 3 ] << "\t\t"
-//                       << weightBuffer[ *begin * 4 + 0 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 1 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 2 ] << '\t'
-//                       << weightBuffer[ *begin * 4 + 3 ] << std::endl;
-        }
-
-        if ( m.rigid )
-        {
-            if ( m.getBonesCount() != 1 )
-            {
-                throw std::runtime_error( "must be one bone in this mesh" );
-            }
-
-            m.rigidBoneId = m.hardwareMesh->m_vectorBonesIndices[ 0 ];
-        }
-
-        if ( m.maxBonesInfluence == 0 ) // unrigged mesh
-        {
-            m.rigid = true; // mesh is rigid when all its vertices are
-                            // rigged to one bone with weight = 1.0,
-                            // or when no one vertex is rigged at all
-            m.rigidBoneId = -1; // no bone
-        }
-
-        if ( !m.rigid )
-        {
-            needWeights = true;
-        }
-
-        // -- Setup state sets --
-        m.hwStateDesc = HwStateDesc( m.hardwareMesh->pCoreMaterial, dir );
-        if ( !m.hwStateDesc.normalsMap.empty() || !m.hwStateDesc.bumpMap.empty() )
-        {
-            needTBN = true;
-        }
-//         calCoreModel->getCoreMaterial( m.coreSubMesh->getCoreMaterialThreadId() );
-//         coreMaterialId == coreMaterialThreadId - we made them equal on load phase
-        
-        m.stateSet = swMeshStateSetCache->get( static_cast< SwStateDesc >( m.hwStateDesc ) );
-
-        m.staticHardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
-        m.staticDepthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
-
-        m.hwStateDesc.shaderFlags |= SHADER_FLAG_BONES( m.maxBonesInfluence );
-
-        m.hardwareStateSet = hwMeshStateSetCache->get( m.hwStateDesc );
-        m.depthStateSet = depthMeshStateSetCache->get( m.hwStateDesc );
-
-        // -- Done with mesh --
         meshes.push_back( m );
 
         osg::notify( osg::INFO )
-            << "mesh: " << m.name << std::endl
-            << "material: " << m.hardwareMesh->pCoreMaterial->getName() << std::endl
-            << m.hwStateDesc << std::endl
-            << "  m.maxBonesInfluence       = " << m.maxBonesInfluence << std::endl
-            << "  m.hardwareMesh->meshId    = " << m.hardwareMesh->meshId << std::endl
-            << "  m.hardwareMesh->submeshId = " << m.hardwareMesh->submeshId << std::endl
-            << "  m.indexInVbo              = " << m.getIndexInVbo() << std::endl
-            << "  m.indexesCount            = " << m.getIndexesCount() << std::endl
-            << "  m.rigid                   = " << m.rigid << std::endl;
-    }
-
-    // -- Check zero weight bones --
-    {
-        MatrixIndexBuffer::iterator mi = bos->matrixIndexBuffer->begin();
-        WeightBuffer::iterator      w  = bos->weightBuffer->begin();
-
-        while ( mi < bos->matrixIndexBuffer->end() )
-        {
-            if ( (*w)[0] <= 0.0 ) // no influences at all
-            {
-                (*w)[0] = 1.0;
-                (*mi)[0] = 30;
-                // last+1 bone in shader is always identity matrix.
-                // we need this hack for meshes where some vertexes
-                // are rigged and some are not (so we create
-                // non-movable bone for them) (see #68)
-            }
-            
-            ++mi;
-            ++w;
-        }
+            << "mesh              : " << m->data->name << std::endl
+            << "maxBonesInfluence : " << m->data->maxBonesInfluence << std::endl
+            << "trianglesCount    : " << m->data->getIndicesCount() / 3 << std::endl
+            << "vertexCount       : " << m->data->vertexBuffer->size() << std::endl
+            << "rigid             : " << m->data->rigid << std::endl
+            << "rigidBoneId       : " << m->data->rigidBoneId << std::endl //<< std::endl
+//            << "-- material: " << m->data->coreMaterial->getName() << " --" << std::endl
+            << *m->material << std::endl;
     }
 
     // -- Collecting animation names --
@@ -656,65 +147,16 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
     {
         animationNames.push_back( calCoreModel->getCoreAnimation( i )->getName() );
     }
-    
-    // -- Save some buffers --
-    vertexBuffer        = bos->vertexBuffer;
-    indexBuffer         = bos->indexBuffer;
-
-    if ( needWeights )
-    {
-        weightBuffer        = bos->weightBuffer;
-        matrixIndexBuffer   = bos->matrixIndexBuffer;
-    }
-
-    if ( !(flags & NO_SOFTWARE_MESHES) )
-    {
-        texCoordBuffer      = bos->texCoordBuffer;
-        normalBuffer        = bos->normalBuffer;
-    }
-
-    if ( flags & SHOW_TBN )
-    {
-        tangentBuffer       = bos->tangentBuffer;
-        binormalBuffer      = bos->binormalBuffer;
-        normalBuffer        = bos->normalBuffer;
-    }
-
-    // -- Create vertex buffer objects --
-    vbos.resize( 8 );
-
-    vbos[ BI_VERTEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                bos->vertexBuffer.get() );
-    if ( needWeights )
-    {
-        vbos[ BI_WEIGHT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                    bos->weightBuffer.get() );
-        vbos[ BI_MATRIX_INDEX ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                          bos->matrixIndexBuffer.get() );
-    }
-    vbos[ BI_NORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                bos->normalBuffer.get() );
-    if ( needTBN )
-    {
-        vbos[ BI_TANGENT ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                     bos->tangentBuffer.get() );
-        vbos[ BI_BINORMAL ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                      bos->binormalBuffer.get() );
-    }
-    vbos[ BI_TEX_COORD ] = new VertexBufferObject( GL_ARRAY_BUFFER_ARB,
-                                                   bos->texCoordBuffer.get() );
-    vbos[ BI_INDEX ] = new VertexBufferObject( GL_ELEMENT_ARRAY_BUFFER_ARB,
-                                               bos->indexBuffer.get() );
 }
 
 bool
 CoreModel::loadNoThrow( const std::string& cfgFileName,
                         std::string&       errorText,
-                        int                flags ) throw ()
+                        MeshParametersSelector* ps ) throw ()
 {
     try
     {
-        load( cfgFileName, flags );
+        load( cfgFileName, ps );
         return true;
     }
     catch ( std::runtime_error& e )
@@ -724,641 +166,159 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
     }
 }
 
-osg::BufferObject*
-CoreModel::makeVbo( osg::Array* array )
+// -- CoreModel loading --
+
+CalCoreModel*
+osgCal::loadCoreModel( const std::string& cfgFileName,
+                       float& scale,
+                       bool ignoreMeshes )
+    throw (std::runtime_error)
 {
-    return new VertexBufferObject( GL_ARRAY_BUFFER_ARB, array );
-}
+    // -- Initial loading of model --
+    scale = 1.0f;
+    bool bScale = false;
 
-
-// -- MaterialDesc --
-
-osg::Vec4
-colorToVec4( const CalCoreMaterial::Color& color )
-{
-    return osg::Vec4( color.red / 255.f,
-                      color.green / 255.f,
-                      color.blue / 255.f,
-                      color.alpha == 0 ? 1.f : (color.alpha / 255.f) );
-}
-
-MaterialDesc::MaterialDesc( CalCoreMaterial* m,
-                            float glossiness,
-                            float opacity )
-    : ambientColor(  colorToVec4( m->getAmbientColor()  ) )
-    , diffuseColor(  colorToVec4( m->getDiffuseColor()  ) )
-    , specularColor( colorToVec4( m->getSpecularColor() ) * m->getShininess() ) 
-    , glossiness( glossiness )
-{
-    ambientColor.a() = opacity;
-    diffuseColor.a() = opacity;
-    specularColor.a() = opacity;
-}
-
-#define lt( a, b, t ) (a < b ? true : ( b < a ? false : t ))
-// // a < b || (!( b < a ) && t )
-    
-bool
-osgCal::operator < ( const MaterialDesc& md1,
-                     const MaterialDesc& md2 )
-{
-    bool r = lt( md1.ambientColor,
-                 md2.ambientColor,
-                 lt( md1.diffuseColor,
-                     md2.diffuseColor,
-                     lt( md1.specularColor,
-                         md2.specularColor,
-                         lt( md1.glossiness,
-                             md2.glossiness, false ))));
-    return r;
-}
-
-// -- SwStateDesc --
-
-bool
-osgCal::operator < ( const SwStateDesc& d1,
-                     const SwStateDesc& d2 )
-{
-    bool r = lt( d1.material,
-                 d2.material,
-                 lt( d1.diffuseMap,
-                     d2.diffuseMap,
-                     lt( d1.sides,
-                         d2.sides, false )));
-    return r;
-}
-
-// -- HwStateDesc --
-
-bool
-osgCal::operator < ( const HwStateDesc& d1,
-                     const HwStateDesc& d2 )
-{
-    bool r = lt( static_cast< SwStateDesc >( d1 ),
-                 static_cast< SwStateDesc >( d2 ),
-                 lt( d1.normalsMap,
-                     d2.normalsMap,
-                     lt( d1.bumpMap,
-                         d2.bumpMap,
-                         lt( d1.normalsMapAmount,
-                             d2.normalsMapAmount,
-                             lt( d1.bumpMapAmount,
-                                 d2.bumpMapAmount,
-                                 lt( d1.shaderFlags,
-                                     d2.shaderFlags, false ))))));
-    return r;
-}
-
-#undef lt
-
-float
-stringToFloat( const std::string& s )
-{
-    float r;
-    sscanf( s.c_str(), "%f", &r );
-    return r;
-}
-
-int
-stringToInt( const std::string& s )
-{
-    int r;
-    sscanf( s.c_str(), "%d", &r );
-    return r;
-}
-
-HwStateDesc::HwStateDesc( CalCoreMaterial* m,
-                          const std::string& dir )
-    : normalsMapAmount( 0 )
-    , bumpMapAmount( 0 )
-    , shaderFlags( 0 )
-{
-//     m->getVectorMap().clear();
-//     CalCoreMaterial::Color white = { 255, 255, 255, 255 };
-//     m->setAmbientColor( white );
-//     m->setDiffuseColor( white );
-//     m->setSpecularColor( white );
-//     m->setShininess( 0 );
-    // ^ not much is changed w/o different states, so state changes
-    // are not bottleneck
-    
-    float glossiness = 50;
-    float opacity = 1.0; //m->getDiffuseColor().alpha / 255.0;
-    // We can't set opacity to diffuse color's alpha because of some
-    // test models (cally, paladin, skeleton) have alpha components
-    // equal to zero (this is incorrect, but backward compatibility
-    // is more important).
-
-    // -- Scan maps (parameters) --
-    for ( int i = 0; i < m->getMapCount(); i++ )
+    FILE* f = fopen( cfgFileName.c_str(), "r" );
+    if( !f )
     {
-        const std::string& map = m->getMapFilename( i );
-        std::string prefix = getPrefix( map );
-        std::string suffix = getSuffix( map );
-        
-        if ( prefix == "DiffuseMap:" || prefix == "" )
+        throw std::runtime_error( "Can't open " + cfgFileName );
+    }
+
+    std::auto_ptr< CalCoreModel > calCoreModel( new CalCoreModel( "dummy" ) );
+
+    // Extract path from fileName
+    std::string dir = osgDB::getFilePath( cfgFileName );
+
+    static const int LINE_BUFFER_SIZE = 4096;
+    char buffer[LINE_BUFFER_SIZE];
+
+    while ( fgets( buffer, LINE_BUFFER_SIZE,f ) )
+    {
+        // Ignore comments or empty lines
+        if ( *buffer == '#' || *buffer == 0 )
+            continue;
+
+        char* equal = strchr( buffer, '=' );
+        if ( equal )
         {
-            diffuseMap = dir + "/" + suffix;
-            shaderFlags |= SHADER_FLAG_TEXTURING;
-        }
-        else if ( prefix == "NormalsMap:" )
-        {
-            normalsMap = dir + "/" + suffix;
-            shaderFlags |= SHADER_FLAG_NORMAL_MAPPING;
-        }
-        else if ( prefix == "BumpMap:" )
-        {
-            bumpMap = dir + "/" + suffix;
-            shaderFlags |= SHADER_FLAG_BUMP_MAPPING;
-        }
-        else if ( prefix == "BumpMapAmount:" )
-        {
-            bumpMapAmount = stringToFloat( suffix );
-        }
-        else if ( prefix == "Opacity:" )
-        {
-            opacity = stringToFloat( suffix );
-        }
-        else if ( prefix == "Glossiness:" )
-        {
-            glossiness = stringToFloat( suffix );
-        }
-        else if ( prefix == "Sides:" )
-        {
-            sides = stringToInt( suffix );
-        }
-        else if ( prefix == "SelfIllumination:" )
-        {
-            ;
-        }
-        else if ( prefix == "Shading:" )
-        {
-            ;
-        }
-    }
-
-    // -- Setup material --
-    material = MaterialDesc( m, glossiness, opacity );
-
-    if ( diffuseMap != "" ) // set diffuse color to white when texturing
-    {
-        material.diffuseColor.r() = 1.0;
-        material.diffuseColor.g() = 1.0;
-        material.diffuseColor.b() = 1.0;
-    }
-
-    // -- Setup additional shader flags --
-    if (    material.specularColor.r() != 0
-         || material.specularColor.g() != 0
-         || material.specularColor.b() != 0 )
-    {
-        shaderFlags |= SHADER_FLAG_SHINING;
-    }
-
-    if ( material.diffuseColor.a() < 1 )
-    {
-        shaderFlags |= SHADER_FLAG_OPACITY;
-    }
-}
-
-
-// -- Caches --
-
-template < typename Key, typename Value, typename Class >
-Value*
-getOrCreate( std::map< Key, osg::ref_ptr< Value > >& map,
-             const Key&                              key,
-             Class*                                  obj,
-             Value*                        ( Class::*create )( const Key& ) )
-{
-    typename std::map< Key, osg::ref_ptr< Value > >::const_iterator i = map.find( key );
-    if ( i != map.end() )
-    {
-        return i->second.get();
-    }
-    else
-    {
-        Value* v = (obj ->* create)( key ); // damn c++!
-        map[ key ] = v;
-        return v;
-    }
-}
-                 
-
-// -- Materials cache --
-
-osg::Material*
-MaterialsCache::get( const MaterialDesc& md )
-{
-    return getOrCreate( cache, md, this, &MaterialsCache::createMaterial );
-}
-
-osg::Material*
-MaterialsCache::createMaterial( const MaterialDesc& desc )
-{
-    osg::Material* material = new osg::Material();
-
-    material->setColorMode( osg::Material::AMBIENT_AND_DIFFUSE );
-    material->setAmbient( osg::Material::FRONT_AND_BACK, desc.ambientColor );
-    material->setDiffuse( osg::Material::FRONT_AND_BACK, desc.diffuseColor );
-    material->setSpecular( osg::Material::FRONT_AND_BACK, desc.specularColor );
-    material->setShininess( osg::Material::FRONT_AND_BACK,
-                            desc.glossiness > 128.0 ? 128.0 : desc.glossiness );
-    // TODO: test shininess in sw mode
-
-    return material;
-}
-
-
-// -- Textures cache --
-
-osg::Texture2D*
-TexturesCache::get( const TextureDesc& td )
-{
-    return getOrCreate( cache, td, this, &TexturesCache::createTexture );
-}
-
-osg::Texture2D*
-TexturesCache::createTexture( const TextureDesc& fileName )
-    throw ( std::runtime_error )
-{
-//    std::cout << "load texture: " << fileName << std::endl;
-    osg::Image* img = osgDB::readImageFile( fileName );
-
-    if ( !img )
-    {
-        throw std::runtime_error( "Can't load " + fileName );
-    }
-
-    osg::Texture2D* texture = new osg::Texture2D;
-
-    // these are default settings
-//     texture->setInternalFormatMode(osg::Texture::USE_IMAGE_DATA_FORMAT);
-//     texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-//     texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-
-    texture->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
-    texture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
-
-    texture->setImage( img );
-    img->setDataVariance( osg::Object::STATIC ); // unnecessary
-    texture->setUnRefImageDataAfterApply( true );
-
-    return texture;
-}
-
-
-// -- Software state set cache --
-
-/**
- * Is state set contains texture with alpha channel (that needs to be
- * blended)
- */
-static
-bool
-isRGBAStateSet( const osg::StateSet* stateSet )
-{
-    const osg::Texture2D* texture = static_cast< const osg::Texture2D* >(
-        stateSet->getTextureAttribute( 0, osg::StateAttribute::TEXTURE ) );
-    
-    return ( texture &&
-             (    texture->getInternalFormat() == 4
-               || texture->getInternalFormat() == GL_RGBA ) );
-}
-
-static
-bool
-isTransparentStateSet( osg::StateSet* stateSet )
-{
-    return ( stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN ) != 0;
-}
-
-/**
- * Some global state attributes. Just to not allocate new duplicated
- * attributes for each state set that use them. We get nearly no
- * performance nor memory benefit from this.
- */
-struct osgCalStateAttributes
-{
-        osg::ref_ptr< osg::BlendFunc > blending;
-        osg::ref_ptr< osg::Depth >     depthFuncLessWriteMaskTrue;
-        osg::ref_ptr< osg::Depth >     depthFuncLessWriteMaskFalse;
-        osg::ref_ptr< osg::Depth >     depthFuncLequalWriteMaskFalse;
-        osg::ref_ptr< osg::CullFace >  backFaceCulling;
-        osg::ref_ptr< osg::ColorMask > noColorWrites;
-
-        osgCalStateAttributes()
-        {
-            blending = new osg::BlendFunc;
-            blending->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-            depthFuncLessWriteMaskTrue = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, true );
-            depthFuncLessWriteMaskFalse = new osg::Depth( osg::Depth::LESS, 0.0, 1.0, false );
-            depthFuncLequalWriteMaskFalse = new osg::Depth( osg::Depth::LEQUAL, 0.0, 1.0, false );
-
-            backFaceCulling = new osg::CullFace( osg::CullFace::BACK );
-
-            noColorWrites = new osg::ColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
-        }
-};
-
-namespace osgCal
-{
-    static osgCalStateAttributes stateAttributes;
-}
-using osgCal::stateAttributes;
-
-static
-void
-setupTransparentStateSet( osg::StateSet* stateSet )
-{
-    if ( isTransparentStateSet( stateSet ) )
-    {
-        return; // already setup
-    }
-
-    stateSet->setRenderingHint( osg::StateSet::TRANSPARENT_BIN );
-
-    // enable blending
-    stateSet->setAttributeAndModes( stateAttributes.blending.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
-
-    // turn off depth writes
-    stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
-}
-
-SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
-                                          TexturesCache* tc )
-    : materialsCache( mc ? mc : new MaterialsCache() )
-    , texturesCache( tc ? tc : new TexturesCache() )
-{}
-            
-osg::StateSet*
-SwMeshStateSetCache::get( const SwStateDesc& swsd )
-{
-    return getOrCreate( cache, swsd, this,
-                        &SwMeshStateSetCache::createSwMeshStateSet );
-}
-osg::StateSet*
-SwMeshStateSetCache::createSwMeshStateSet( const SwStateDesc& desc )
-{
-    osg::StateSet* stateSet = new osg::StateSet();
-
-    // -- setup material --
-    osg::Material* material = materialsCache->get( desc.material );
-    stateSet->setAttributeAndModes(material, osg::StateAttribute::ON);    
-
-    // -- setup diffuse map --
-    if ( desc.diffuseMap != "" )
-    {
-        osg::Texture2D* texture = texturesCache->get( desc.diffuseMap );
-
-        stateSet->setTextureAttributeAndModes( 0, texture, osg::StateAttribute::ON );
-    }
-
-    // -- setup sidedness --
-    switch ( desc.sides )
-    {
-        case 1:
-            // one sided mesh -- force backface culling
-            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::ON |
-                                            osg::StateAttribute::PROTECTED );
-            // PROTECTED, since overriding of this state (for example by
-            // pressing 'b') leads to incorrect display
-            break;
-
-        case 2:
-            // two sided mesh -- no culling (for sw mesh)
-            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::OFF |
-                                            osg::StateAttribute::PROTECTED );
-            break;
-
-        default:
-            // undefined sides count -- use default OSG culling
-            break;
-    }
-
-    // -- Check transparency modes --
-    if ( isRGBAStateSet( stateSet ) || desc.material.diffuseColor.a() < 1 )
-    {
-        setupTransparentStateSet( stateSet );
-        // and force backface culling
-        stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                        osg::StateAttribute::ON |
-                                        osg::StateAttribute::PROTECTED );
-        // TODO: actually for software meshes we need two pass render
-        // not only backface culling. But we can't use two meshes
-        // since it is one mesh (maybe add drawImplementation to
-        // software mesh?)
-    }
-    else
-    {
-        stateSet->setRenderingHint( osg::StateSet::OPAQUE_BIN );
-        // ^ this fixes some strange state sorting bug in OSG
-        // otherwise we sometimes get materials & lightmodels (and
-        // maybe something else) from another statesets.
-        // At least we get lightmodel from other stateset for
-        // transparent meshes.
-    }
-    return stateSet;
-}
-
-
-// -- Hardware state set cache --
-
-osg::Uniform*
-newFloatUniform( const std::string& name,
-                 GLfloat value )
-{
-    osg::Uniform* u = new osg::Uniform( osg::Uniform::FLOAT, name );
-    u->set( value );
-
-    return u;
-}
-
-osg::Uniform*
-newIntUniform( osg::Uniform::Type type,
-               const std::string& name,
-               int value )
-{
-    osg::Uniform* u = new osg::Uniform( type, name );
-    u->set( value );
-
-    return u;
-}
-
-HwMeshStateSetCache::HwMeshStateSetCache( SwMeshStateSetCache* swssc,
-                                          TexturesCache* tc )
-    : flags( 0 )
-    , swMeshStateSetCache( swssc ? swssc : new SwMeshStateSetCache() )
-    , texturesCache( tc ? tc : new TexturesCache() )
-{}
-            
-osg::StateSet*
-HwMeshStateSetCache::get( const HwStateDesc& swsd )
-{
-    return getOrCreate( cache, swsd, this,
-                        &HwMeshStateSetCache::createHwMeshStateSet );
-}
-
-osg::StateSet*
-HwMeshStateSetCache::createHwMeshStateSet( const HwStateDesc& desc )
-{
-    osg::StateSet* baseStateSet = swMeshStateSetCache->
-        get( static_cast< SwStateDesc >( desc ) );
-
-    osg::StateSet* stateSet = new osg::StateSet( *baseStateSet );
-//    stateSet->merge( *baseStateSet );
-    // 50 fps downs to 48 when merge used instead of new StateSet(*base)
-
-    // -- Setup shader --
-    int rgba = isRGBAStateSet( stateSet );
-
-    stateSet->setAttributeAndModes( skeletalShadersSet->get(
-                                        desc.shaderFlags
-                                        +
-                                        ( flags & CoreModel::USE_GL_FRONT_FACING
-                                          ? SHADER_FLAG_GL_FRONT_FACING
-                                          : 0 )
-                                        +
-                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
-                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
-                                          : 0 )
-                                        +
-                                        ( flags & CoreModel::FOG_LINEAR ) / CoreModel::FOG_EXP
-                                        * SHADER_FLAG_FOG_MODE_EXP
-                                        +
-                                        rgba * SHADER_FLAG_RGBA ),
-                                    osg::StateAttribute::ON );
-
-    stateSet->addUniform( newFloatUniform( "glossiness", desc.material.glossiness ) );
-
-    // -- setup normals map --
-    if ( desc.normalsMap != "" )
-    {
-        osg::Texture2D* texture = texturesCache->get( desc.normalsMap );
-
-        stateSet->setTextureAttributeAndModes( 1, texture, osg::StateAttribute::ON );
-        static osg::ref_ptr< osg::Uniform > normalMap =
-            newIntUniform( osg::Uniform::SAMPLER_2D, "normalMap", 1 );
-        stateSet->addUniform( normalMap.get() );
-    }
-
-    // -- setup bump map --
-    if ( desc.bumpMap != "" )
-    {
-        osg::Texture2D* texture = texturesCache->get( desc.bumpMap );        
-
-        stateSet->setTextureAttributeAndModes( 2, texture, osg::StateAttribute::ON );
-        static osg::ref_ptr< osg::Uniform > bumpMap =
-            newIntUniform( osg::Uniform::SAMPLER_2D, "bumpMap", 2 );
-        stateSet->addUniform( bumpMap.get() );
-        stateSet->addUniform( newFloatUniform( "bumpMapAmount", desc.bumpMapAmount ) );
-    }
-
-    // -- setup some uniforms --
-    if ( desc.diffuseMap != "" )
-    {
-        static osg::ref_ptr< osg::Uniform > decalMap =
-            newIntUniform( osg::Uniform::SAMPLER_2D, "decalMap", 0 );
-        stateSet->addUniform( decalMap.get() );
-    }
-
-    // -- setup sidedness --
-    switch ( desc.sides )
-    {
-        case 1:
-            // one sided mesh -- force backface culling
-            // do nothing since it already forced for software mesh
-            break;
-
-        case 2:
-            // two sided mesh -- enable culling
-            // (we use two pass render for double sided meshes,
-            //  or single pass when gl_FrontFacing used, but in only
-            //  works on GeForce >= 6.x and not works on ATI)
-            if ( !(flags & CoreModel::USE_GL_FRONT_FACING) )
+            // Terminates first token
+            *equal++ = 0;
+            // Removes ending newline ( CR & LF )
             {
-                stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                                osg::StateAttribute::ON |
-                                                osg::StateAttribute::PROTECTED );
+                int last = strlen( equal ) - 1;
+                if ( equal[last] == '\n' ) equal[last] = 0;
+                if ( last > 0 && equal[last-1] == '\r' ) equal[last-1] = 0;
             }
-            break;
 
-        default:
-            // undefined sides count -- use default OSG culling
-            break;
+            // extract file name. all animations, meshes and materials names
+            // are taken from file name without extension
+            std::string nameToLoad;            
+            char* point = strrchr( equal, '.' );
+            if ( point )
+            {
+                nameToLoad = std::string( equal, point );
+            }
+            else
+            {
+                nameToLoad = equal;
+            }
+                
+            std::string fullpath = dir + "/" + std::string( equal );
+
+            // process .cfg parameters
+            if ( !strcmp( buffer, "scale" ) ) 
+            { 
+                bScale	= true;
+                scale	= atof( equal );
+                continue;
+            }
+
+            if ( !strcmp( buffer, "skeleton" ) ) 
+            {
+                if( !calCoreModel->loadCoreSkeleton( fullpath ) )
+                {
+                    throw std::runtime_error( "Can't load skeleton: "
+                                             + CalError::getLastErrorDescription() );
+                }                
+            } 
+            else if ( !strcmp( buffer, "animation" ) )
+            {
+                int animationId = calCoreModel->loadCoreAnimation( fullpath );
+                if( animationId < 0 )
+                {
+                    throw std::runtime_error( "Can't load animation " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                }
+                calCoreModel->getCoreAnimation(animationId)->setName( nameToLoad );
+            }
+            else if ( !strcmp( buffer, "mesh" ) )
+            {
+                if ( ignoreMeshes )
+                {
+                    continue; // we don't need meshes since VBO data is already loaded from cache
+                }
+
+                int meshId = calCoreModel->loadCoreMesh( fullpath );
+                if( meshId < 0 )
+                {
+                    throw std::runtime_error( "Can't load mesh " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                }
+                calCoreModel->getCoreMesh( meshId )->setName( nameToLoad );
+
+                // -- Remove zero influence vertices --
+                // warning: this is a temporary workaround and subject to remove!
+                // (this actually must be fixed in blender exporter)
+                CalCoreMesh* cm = calCoreModel->getCoreMesh( meshId );
+
+                for ( int i = 0; i < cm->getCoreSubmeshCount(); i++ )
+                {
+                    CalCoreSubmesh* sm = cm->getCoreSubmesh( i );
+
+                    std::vector< CalCoreSubmesh::Vertex >& v = sm->getVectorVertex();
+
+                    for ( size_t j = 0; j < v.size(); j++ )
+                    {
+                        std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
+
+                        for ( size_t ii = 0; ii < infl.size(); ii++ )
+                        {
+                            if ( infl[ii].weight == 0 )
+                            {
+                                infl.erase( infl.begin() + ii );
+                                --ii;
+                            }
+                        }
+                    }
+                }
+            }
+            else if ( !strcmp( buffer, "material" ) )  
+            {
+                int materialId = calCoreModel->loadCoreMaterial( fullpath );
+
+                if( materialId < 0 ) 
+                {
+                    throw std::runtime_error( "Can't load material " + nameToLoad + ": "
+                                             + CalError::getLastErrorDescription() );
+                } 
+                else 
+                {
+                    calCoreModel->createCoreMaterialThread( materialId ); 
+                    calCoreModel->setCoreMaterialId( materialId, 0, materialId );
+
+                    CalCoreMaterial* material = calCoreModel->getCoreMaterial( materialId );
+                    material->setName( nameToLoad );
+                }
+            }
+        }
     }
 
-    if ( flags & CoreModel::USE_DEPTH_FIRST_MESHES )
+    // scaling must be done after everything has been created
+    if( bScale )
     {
-        stateSet->setAttributeAndModes( stateAttributes.depthFuncLequalWriteMaskFalse.get(),
-                                        osg::StateAttribute::ON |
-                                        osg::StateAttribute::PROTECTED );
+        calCoreModel->scale( scale );
     }
-    
-    return stateSet;
-}
+    fclose( f );
 
-osg::StateSet*
-DepthMeshStateSetCache::get( const HwStateDesc& desc )
-{
-    int bonesCount = desc.shaderFlags / SHADER_FLAG_BONES(1);
-    return getOrCreate( cache, std::make_pair( bonesCount, desc.sides ), this,
-                        &DepthMeshStateSetCache::createDepthMeshStateSet );
-}
-
-osg::StateSet*
-DepthMeshStateSetCache::createDepthMeshStateSet( const std::pair< int, int >& boneAndSidesCount )
-{
-    osg::StateSet* stateSet = new osg::StateSet();
-
-    stateSet->setAttributeAndModes( skeletalShadersSet->get(
-                                        boneAndSidesCount.first * SHADER_FLAG_BONES(1)
-                                        +
-                                        ( flags & CoreModel::DONT_CALCULATE_VERTEX_IN_SHADER
-                                          ? SHADER_FLAG_DONT_CALCULATE_VERTEX
-                                          : 0 )
-                                        +
-                                        SHADER_FLAG_DEPTH_ONLY ),
-                                    osg::StateAttribute::ON );
-    // -- setup sidedness --
-    switch ( boneAndSidesCount.second )
-    {
-        case 1:
-            // one sided mesh -- force backface culling
-            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::ON |
-                                            osg::StateAttribute::PROTECTED );
-            // PROTECTED, since overriding of this state (for example by
-            // pressing 'b') leads to incorrect display
-            break;
-
-        case 2:
-            // two sided mesh -- no culling (for sw mesh)
-            stateSet->setAttributeAndModes( stateAttributes.backFaceCulling.get(),
-                                            osg::StateAttribute::OFF |
-                                            osg::StateAttribute::PROTECTED );
-            break;
-
-        default:
-            // undefined sides count -- use default OSG culling
-            break;
-    }
-
-    stateSet->setAttributeAndModes( stateAttributes.depthFuncLessWriteMaskTrue.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
-    stateSet->setAttributeAndModes( stateAttributes.noColorWrites.get(),
-                                    osg::StateAttribute::ON |
-                                    osg::StateAttribute::PROTECTED );
-
-    stateSet->setRenderBinDetails( -10, "RenderBin" ); // we render depth meshes before any other meshes
-
-    return stateSet;
+    return calCoreModel.release();
 }

@@ -29,10 +29,11 @@ shaderText += "varying mat3 eyeBasis; // in tangent space\n";
 shaderText += "varying vec3 transformedNormal;\n";
 }
 shaderText += "\n";
-if ( !GL_FRONT_FACING ) {
-shaderText += "uniform half face;\n";
-}
 shaderText += "uniform float glossiness;\n";
+shaderText += "\n";
+if ( TWO_SIDED == 1 ) {
+shaderText += "uniform float frontFacing;\n";
+}
 shaderText += "\n";
 if ( FOG ) {
 shaderText += "varying vec3 eyeVec;\n";
@@ -40,15 +41,17 @@ shaderText += "varying vec3 eyeVec;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
+shaderText += "//     if ( dot( eyeVec, gl_ClipPlane[0].xyz ) + gl_ClipPlane[0].w < 0.0 \n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[1].xyz ) + gl_ClipPlane[1].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[2].xyz ) + gl_ClipPlane[2].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[3].xyz ) + gl_ClipPlane[3].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[4].xyz ) + gl_ClipPlane[4].w < 0.0\n";
+shaderText += "// //          || dot( eyeVec, gl_ClipPlane[5].xyz ) + gl_ClipPlane[5].w < 0.0\n";
+shaderText += "//         )\n";
+shaderText += "//     {        \n";
+shaderText += "//         discard; // <- VERY SLOW, nearly twice slower\n";
+shaderText += "//     }\n";
 shaderText += "    // -- Calculate normal --\n";
-if ( GL_FRONT_FACING == 1 ) {
-shaderText += "    half face = gl_FrontFacing ? half(1.0) : half(-1.0);\n";
-shaderText += "    // two-sided lighting\n";
-shaderText += "    // ATI doesn't know about gl_FrontFacing ???\n";
-shaderText += "    // it says that it unsupported language element\n";
-shaderText += "    // and shader will run in software\n";
-shaderText += "    // GeForce < 6.x also doesn't know about this.\n";
-}
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    half2 ag = half2(0.0);\n";
     if ( NORMAL_MAPPING == 1 ) {
@@ -57,19 +60,31 @@ shaderText += "      ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].
     if ( BUMP_MAPPING == 1 ) {
 shaderText += "       ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
     }
-shaderText += "    half3 hnormal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
+shaderText += "    half3 hnormal = half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
 shaderText += "    vec3 normal = normalize( vec3(hnormal) * eyeBasis );\n";
 shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
 shaderText += "//                                        normalize( eyeBasis[1] ),\n";
 shaderText += "//                                        normalize( eyeBasis[2] ) ) );\n";
 shaderText += "    // ^ not much difference\n";
 } else {
-shaderText += "    vec3 normal = face*normalize(transformedNormal);\n";
+shaderText += "    vec3 normal = normalize(transformedNormal);\n";
 shaderText += "    // Remark that we calculate lighting (normals) with full precision\n";
 shaderText += "    // but colors only with half one.\n";
 shaderText += "    // We previously calculated lighting in half precision too, but it gives us\n";
 shaderText += "    // precision errors on meshes with high glossiness, so we reverted to full precision.\n";
 }
+shaderText += "\n";
+if ( TWO_SIDED == 1 ) {
+shaderText += "//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,\n";
+shaderText += "                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB\n";
+shaderText += "//    if ( gl_Color.a == 0.0 )\n";
+shaderText += "    if ( frontFacing == 0.0 )\n";
+shaderText += "    {\n";
+shaderText += "        normal = -normal;\n";
+shaderText += "    }\n";
+shaderText += "//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster\n";
+}
+shaderText += "    \n";
 shaderText += "\n";
 if ( TEXTURING == 1 ) {
 shaderText += "    // -- Calculate decal (texture) color --\n";

@@ -19,19 +19,19 @@
 #include <cal3d/cal3d.h>
 
 #include <osg/Notify>
-#include <osgCal/SubMeshSoftware>
+#include <osgCal/SoftwareMesh>
 
 #include <iostream>
 
 using namespace osgCal;
 
-SubMeshSoftware::SubMeshSoftware( Model*                 _model,
-                                  const CoreModel::Mesh* _mesh )
-    : coreModel( _model->getCoreModel() )
-    , model( _model )
-    , mesh( _mesh )
+SoftwareMesh::SoftwareMesh( ModelData*      _modelData,
+                            const CoreMesh* _mesh )
+    : Mesh( _modelData, _mesh )
 {
-    if ( mesh->rigid || coreModel->getAnimationNames().empty() )
+    //setThreadSafeRefUnref( true );
+
+    if ( mesh->data->rigid )
     {
         setUseDisplayList( true );
         setSupportsDisplayList( true ); 
@@ -43,68 +43,46 @@ SubMeshSoftware::SubMeshSoftware( Model*                 _model,
     }
 
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( mesh->stateSet.get() );
+    setStateSet( mesh->stateSets->stateSet.get() );
 
-    create();
+    if ( !mesh->data->normalBuffer.valid() )
+    {
+        throw std::runtime_error( "no normal buffer exists for software mesh, "
+                                  "seems that you've used hardware meshes before "
+                                  "(which free unneded buffers after display list created), "
+                                  "never use software and hardware meshes for single model, "
+                                  "software meshes are for testing purpouses only" );
+    }
+    
+    if ( mesh->data->rigid )
+    {
+        setVertexArray( mesh->data->vertexBuffer.get() );
+        setNormalArray( mesh->data->normalBuffer.get() );
+    }
+    else
+    {
+        setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+        setNormalArray( (NormalBuffer*)mesh->data->normalBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
+        getNormalData().normalize = GL_TRUE;
+    }
+    setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
+    setTexCoordArray( 0, const_cast< TexCoordBuffer* >( mesh->data->texCoordBuffer.get() ) );
 
-    setUserData( getStateSet() /*any referenced*/ );
-    // ^ make this node not redundant and not suitable for merging for osgUtil::Optimizer
-}
+    addPrimitiveSet( mesh->data->indexBuffer.get() ); // DrawElementsUInt
 
-SubMeshSoftware::SubMeshSoftware( const SubMeshSoftware&, const osg::CopyOp& )
-    : Geometry() // to eliminate warning
-{
-    throw std::runtime_error( "SubMeshSoftware copying is not supported" );
+    boundingBox = mesh->data->boundingBox;
 }
 
 osg::Object*
-SubMeshSoftware::cloneType() const
+SoftwareMesh::cloneType() const
 {
     throw std::runtime_error( "cloneType() is not implemented" );
 }
 
 osg::Object*
-SubMeshSoftware::clone( const osg::CopyOp& ) const
+SoftwareMesh::clone( const osg::CopyOp& ) const
 {
     throw std::runtime_error( "clone() is not implemented" );
-}
-
-SubMeshSoftware::~SubMeshSoftware()
-{
-}
-
-void
-SubMeshSoftware::create()
-{
-    setVertexArray( model->getVertexBuffer() );
-    setNormalArray( model->getNormalBuffer() );
-    setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
-    getNormalData().normalize = GL_TRUE;
-    setTexCoordArray( 0, const_cast< TexCoordBuffer* >( coreModel->getTexCoordBuffer() ) );
-
-    osg::DrawElementsUInt* de = new osg::DrawElementsUInt( osg::PrimitiveSet::TRIANGLES,
-                                                           mesh->getIndexesCount() );
-    memcpy( &de->front(),
-            (GLuint*)&coreModel->getIndexBuffer()->front()
-            + mesh->getIndexInVbo(),
-            mesh->getIndexesCount() * sizeof ( GLuint ) );
-    addPrimitiveSet( de );
-
-// draw arrays are MORE slow than draw elements (at least twice)
-//     setVertexIndices( const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     setNormalIndices( const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     setTexCoordIndices( 0, const_cast< IndexBuffer* >( coreModel->getIndexBuffer() ) );
-//     addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::TRIANGLES,
-//                                           mesh->getIndexInVbo(),
-//                                           mesh->getIndexesCount() ) );
-    
-    boundingBox = mesh->boundingBox;
-}
-
-namespace osg {
-bool
-operator == ( const osg::Matrix3& m1,
-              const osg::Matrix3& m2 ); // defined in SubMeshHardware.cpp
 }
 
 static
@@ -143,64 +121,64 @@ mul3( const osg::Matrix3& m,
 }
 
 void
-SubMeshSoftware::update()
+SoftwareMesh::update()
 {
-    if ( mesh->rigid )
-    {
-        return; // no bones - no update
-    }
     // hmm. is it good to copy/paste? its nearly the same algorithm
     
     // -- Setup rotation matrices & translation vertices --
-    std::vector< std::pair< osg::Matrix3, osg::Vec3f > > rotationTranslationMatrices;
+    typedef std::pair< osg::Matrix3, osg::Vec3f > RTPair;
+    float rotationTranslationMatricesData[ 31 * sizeof (RTPair) / sizeof ( float ) ];
+    // we make data to not init matrices & vertex since we always set
+    // them to correct data
+    RTPair* rotationTranslationMatrices = (RTPair*)(void*)&rotationTranslationMatricesData;
 
-    for( int boneIndex = 0; boneIndex < mesh->getBonesCount(); boneIndex++ )
+    bool changed = false;
+
+    for( int boneIndex = 0; boneIndex < mesh->data->getBonesCount(); boneIndex++ )
     {
-        int boneId = mesh->getBoneId( boneIndex );
+        int boneId = mesh->data->getBoneId( boneIndex );
+        const ModelData::BoneParams& bp = modelData->getBoneParams( boneId );
 
-        rotationTranslationMatrices.push_back( model->getBoneRotationTranslation( boneId ) );
+        changed  |= bp.changed;
+
+        RTPair& rt = rotationTranslationMatrices[ boneIndex ];
+
+        rt.first  = bp.rotation;
+        rt.second = bp.translation;
+    }
+   
+    // -- Check changes --
+    if ( !changed )
+    {
+        return; // no changes
     }
 
-    rotationTranslationMatrices.resize( 31 );
     rotationTranslationMatrices[ 30 ] = // last always identity (see #68)
         std::make_pair( osg::Matrix3( 1, 0, 0,
                                       0, 1, 0,
                                       0, 0, 1 ),
                         osg::Vec3( 0, 0, 0 ) );
-    
-    // -- Check changes --
-    if ( rotationTranslationMatrices == previousRotationTranslationMatrices )
-    {
-        return; // no changes
-    }
-    else
-    {
-        previousRotationTranslationMatrices = rotationTranslationMatrices;
-    }
 
     // -- Scan indexes --
     boundingBox = osg::BoundingBox();
     
-    VertexBuffer&               vb  = *model->getVertexBuffer();
-    Model::SwNormalBuffer&      nb  = *model->getNormalBuffer();
-    const VertexBuffer&         svb = *coreModel->getVertexBuffer();
-    const NormalBuffer&         snb = *coreModel->getNormalBuffer();
-    const WeightBuffer&         wb  = *coreModel->getWeightBuffer();
-    const MatrixIndexBuffer&    mib = *coreModel->getMatrixIndexBuffer();    
+    VertexBuffer&               vb  = *(VertexBuffer*)getVertexArray();
+    NormalBuffer&               nb  = *(NormalBuffer*)getNormalArray();
+    const VertexBuffer&         svb = *mesh->data->vertexBuffer.get();
+    const NormalBuffer&         snb = *mesh->data->normalBuffer.get();
+    const WeightBuffer&         wb  = *mesh->data->weightBuffer.get();
+    const MatrixIndexBuffer&    mib = *mesh->data->matrixIndexBuffer.get();
 
-    int baseIndex = mesh->hardwareMesh->baseVertexIndex;
-    int vertexCount = mesh->hardwareMesh->vertexCount;
-    
-    osg::Vec3f*        v  = &vb.front()  + baseIndex; /* dest vector */   
-    osg::Vec3f*        n  = &nb.front()  + baseIndex; /* dest normal */   
-    const osg::Vec3f*  sv = &svb.front() + baseIndex; /* source vector */   
+    osg::Vec3f*        v  = &vb.front()  ; /* dest vector */   
+    osg::Vec3f*        n  = &nb.front()  ; /* dest normal */   
+    const osg::Vec3f*  sv = &svb.front() ; /* source vector */   
     const NormalBuffer::value_type*
-                       sn = &snb.front() + baseIndex; /* source normal */   
-    const osg::Vec4f*  w  = &wb.front()  + baseIndex; /* weights */         
+                       sn = &snb.front() ; /* source normal */   
+    const osg::Vec4f*  w  = &wb.front()  ; /* weights */         
     const MatrixIndexBuffer::value_type*
-                       mi = &mib.front() + baseIndex; /* bone indexes */		
+                       mi = &mib.front() ; /* bone indexes */		
 
-    osg::Vec3f*        vEnd = v + vertexCount;        /* dest vector end */   
+    osg::Vec3f*        vEnd = v + vb.size(); /* dest vector end */   
     
 #define ITERATE( _f )                           \
     while ( v < vEnd )                          \
@@ -273,7 +251,7 @@ SubMeshSoftware::update()
 
 #define STOP
 
-    switch ( mesh->maxBonesInfluence )
+    switch ( mesh->data->maxBonesInfluence )
     {
         case 1:
             ITERATE( PROCESS_X( STOP ) );

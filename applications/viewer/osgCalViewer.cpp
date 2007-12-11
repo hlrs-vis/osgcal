@@ -38,13 +38,12 @@
 
 osg::Node*
 makeModel( osgCal::CoreModel* cm,
-           osgCal::MeshTyper* mtf,
-           osgCal::MeshFilter* mf,                
+           osgCal::BasicMeshAdder* ma,
            int animNum = -1 )
 {
     osgCal::Model* model = new osgCal::Model();
 
-    model->load( cm, mtf, mf );
+    model->load( cm, ma );
 
     if ( animNum != -1 )
     {
@@ -92,7 +91,7 @@ addWindow( osgViewer::Viewer& viewer,
     camera->setDrawBuffer(buffer);
     camera->setReadBuffer(buffer);
 
-    // add this slave camra to the viewer, with a shift left of the projection matrix
+    // add this slave camera to the viewer, with a shift left of the projection matrix
     viewer.addSlave(camera.get(), osg::Matrixd::translate( xTranslate, yTranslate, 0.0),
                     osg::Matrixd());
 }
@@ -101,9 +100,10 @@ class AnimationToggleHandler : public osgGA::GUIEventHandler
 {
     public: 
 
-        AnimationToggleHandler( osgCal::Model* m )
+        AnimationToggleHandler( osgCal::Model* m,
+                                const std::vector< std::string >& an )
             : model( m )
-            , animationNames( m->getCoreModel()->getAnimationNames() )
+            , animationNames( an )
             , currentAnimation( -1 )
         {
         }
@@ -245,7 +245,9 @@ main( int argc,
     arguments.getApplicationUsage()->setCommandLineUsage("osgCalViewer [options] cal3d.cfg ...");
     arguments.getApplicationUsage()->addCommandLineOption("--sw", "Use software skinning and fixed-function drawing");
     arguments.getApplicationUsage()->addCommandLineOption("--hw", "Use hardware (GLSL) skinning and drawing");
+    arguments.getApplicationUsage()->addCommandLineOption("--df", "Use depth first meshes (improve performance when pixel shading is a bottleneck)");
     arguments.getApplicationUsage()->addCommandLineOption("--no-debug", "Don't display debug information");
+    arguments.getApplicationUsage()->addCommandLineOption("--four-window", "Run viewer in four window setup (to test multi-context applications)");
     arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display command line parameters");
     arguments.getApplicationUsage()->addCommandLineOption("--help-env","Display environmental variables available");
     arguments.getApplicationUsage()->addCommandLineOption("--help-all","Display all command line, env vars and keyboard & mouse bindings.");
@@ -299,13 +301,30 @@ main( int argc,
     }
 
     osg::Group* root = new osg::Group();
+    std::vector< std::string > animationNames;
     
     // -- Load model --
     { // scope for model ref_ptr
         osg::ref_ptr< osgCal::CoreModel > coreModel( new osgCal::CoreModel() );
         int         animNum = -1;
-        osg::ref_ptr< osgCal::MeshFilter > meshFilter = 0;
+        osg::ref_ptr< osgCal::BasicMeshAdder > meshAdder( new osgCal::DefaultMeshAdder );
+        osg::ref_ptr< osgCal::MeshParameters > p( new osgCal::MeshParameters );
+            
+        while ( arguments.read( "--df" ) )
+        {
+            p->useDepthFirstMesh = true;
+        }
 
+        while ( arguments.read( "--sw" ) )
+        {
+            p->software = true;
+        }
+
+        while ( arguments.read( "--hw" ) )
+        {
+            p->software = false; // default
+        }
+            
         try
         {
             std::string ext = osgDB::getLowerCaseFileExtension( fn );
@@ -319,7 +338,7 @@ main( int argc,
 
             if ( ext == "caf" )
             {
-                coreModel->load( dir + "/cal3d.cfg" );
+                coreModel->load( dir + "/cal3d.cfg", p.get() );
 
                 for ( size_t i = 0; i < coreModel->getAnimationNames().size(); i++ )
                 {
@@ -338,7 +357,7 @@ main( int argc,
                     std::cout << coreModel->getScale() << std::endl;
                     if ( coreModel->getScale() != 1 )
                     {
-                        // to eliminate scaling of the model by non-scaled anumation
+                        // to eliminate scaling of the model by non-scaled animation
                         // we scale model back, load animation, and rescale one more time
                         cm->scale( 1.0 / coreModel->getScale() );
                     }
@@ -353,12 +372,12 @@ main( int argc,
             }
             else if ( ext == "cmf" )
             {
-                coreModel->load( dir + "/cal3d.cfg" );
-                meshFilter = new osgCal::OneMesh( osgDB::getStrippedName( fn ) );
+                coreModel->load( dir + "/cal3d.cfg", p.get() );
+                meshAdder = new osgCal::OneMeshAdder( osgDB::getStrippedName( fn ) );
             }
             else
             {
-                coreModel->load( fn );
+                coreModel->load( fn, p.get() );
             }
         }
         catch ( std::runtime_error& e )
@@ -368,24 +387,23 @@ main( int argc,
             return EXIT_FAILURE;
         }
 
-        osg::ref_ptr< osgCal::MeshTyper > meshTyper = new osgCal::AllMeshesHardware;
-
-        while ( arguments.read( "--sw" ) ) { meshTyper = new osgCal::AllMeshesSoftware; }
-        while ( arguments.read( "--hw" ) ) { meshTyper = new osgCal::AllMeshesHardware; }
-            
         root->addChild( makeModel( coreModel.get(),
-                                   meshTyper.get(),
-                                   meshFilter.get(),
+                                   meshAdder.get(),
                                    animNum ) );
+
+        animationNames = coreModel->getAnimationNames();
     } // end of model's ref_ptr scope
 
     // -- Setup viewer --
     osgViewer::Viewer viewer;
-    
-//     addWindow( viewer,   0,   0, 640, 480,  1.0, -1.0 );
-//     addWindow( viewer, 640,   0, 640, 480, -1.0, -1.0 );
-//     addWindow( viewer,   0, 480, 640, 480,  1.0,  1.0 );
-//     addWindow( viewer, 640, 480, 640, 480, -1.0,  1.0 );
+
+    if ( arguments.read( "--four-window" ) )
+    {
+        addWindow( viewer,   0,   0, 640, 480,  1.0, -1.0 );
+        addWindow( viewer, 640,   0, 640, 480, -1.0, -1.0 );
+        addWindow( viewer,   0, 480, 640, 480,  1.0,  1.0 );
+        addWindow( viewer, 640, 480, 640, 480, -1.0,  1.0 );
+    }
 
     // add the state manipulator
     viewer.addEventHandler( new osgGA::StateSetManipulator( viewer.getCamera()->getOrCreateStateSet() ) );
@@ -400,10 +418,10 @@ main( int argc,
     viewer.addEventHandler( new osgViewer::StatsHandler );
 
     // add the help handler
-    viewer.addEventHandler(new osgViewer::HelpHandler(arguments.getApplicationUsage()));
+    viewer.addEventHandler(new osgViewer::HelpHandler( arguments.getApplicationUsage() ) );
 
     // add the animation toggle handler
-    viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0) ) );
+    viewer.addEventHandler( new AnimationToggleHandler( (osgCal::Model*)root->getChild(0), animationNames ) );
     
     // add the pause handler
     bool paused = false;
@@ -505,7 +523,8 @@ main( int argc,
         viewer.frame( currentTime - totalPauseTime );
     }
 
-    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
+//    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
+    // ^ buggy in multi-threaded mode, or not???
 
     return 0;
 }

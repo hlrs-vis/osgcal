@@ -29,10 +29,11 @@ varying mat3 eyeBasis; // in tangent space
 varying vec3 transformedNormal;
 #endif
 
-#if !GL_FRONT_FACING
-uniform half face;
-#endif
 uniform float glossiness;
+
+#if TWO_SIDED == 1
+uniform float frontFacing;
+#endif
 
 #if FOG
 varying vec3 eyeVec;
@@ -40,15 +41,17 @@ varying vec3 eyeVec;
 
 void main()
 {
+//     if ( dot( eyeVec, gl_ClipPlane[0].xyz ) + gl_ClipPlane[0].w < 0.0 
+// //          || dot( eyeVec, gl_ClipPlane[1].xyz ) + gl_ClipPlane[1].w < 0.0
+// //          || dot( eyeVec, gl_ClipPlane[2].xyz ) + gl_ClipPlane[2].w < 0.0
+// //          || dot( eyeVec, gl_ClipPlane[3].xyz ) + gl_ClipPlane[3].w < 0.0
+// //          || dot( eyeVec, gl_ClipPlane[4].xyz ) + gl_ClipPlane[4].w < 0.0
+// //          || dot( eyeVec, gl_ClipPlane[5].xyz ) + gl_ClipPlane[5].w < 0.0
+//         )
+//     {        
+//         discard; // <- VERY SLOW, nearly twice slower
+//     }
     // -- Calculate normal --
-#if GL_FRONT_FACING == 1
-    half face = gl_FrontFacing ? half(1.0) : half(-1.0);
-    // two-sided lighting
-    // ATI doesn't know about gl_FrontFacing ???
-    // it says that it unsupported language element
-    // and shader will run in software
-    // GeForce < 6.x also doesn't know about this.
-#endif
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     half2 ag = half2(0.0);
     #if NORMAL_MAPPING == 1
@@ -57,19 +60,31 @@ void main()
     #if BUMP_MAPPING == 1
        ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
-    half3 hnormal = face*half3(ag, sqrt(half(1.0) - dot( ag, ag )));
+    half3 hnormal = half3(ag, sqrt(half(1.0) - dot( ag, ag )));
     vec3 normal = normalize( vec3(hnormal) * eyeBasis );
 //     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
 //                                        normalize( eyeBasis[1] ),
 //                                        normalize( eyeBasis[2] ) ) );
     // ^ not much difference
 #else
-    vec3 normal = face*normalize(transformedNormal);
+    vec3 normal = normalize(transformedNormal);
     // Remark that we calculate lighting (normals) with full precision
     // but colors only with half one.
     // We previously calculated lighting in half precision too, but it gives us
     // precision errors on meshes with high glossiness, so we reverted to full precision.
 #endif
+
+#if TWO_SIDED == 1
+//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,
+                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB
+//    if ( gl_Color.a == 0.0 )
+    if ( frontFacing == 0.0 )
+    {
+        normal = -normal;
+    }
+//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster
+#endif
+    
 
 #if TEXTURING == 1
     // -- Calculate decal (texture) color --
