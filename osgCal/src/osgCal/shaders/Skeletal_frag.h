@@ -41,16 +41,6 @@ shaderText += "varying vec3 eyeVec;\n";
 shaderText += "\n";
 shaderText += "void main()\n";
 shaderText += "{\n";
-shaderText += "//     if ( dot( eyeVec, gl_ClipPlane[0].xyz ) + gl_ClipPlane[0].w < 0.0 \n";
-shaderText += "// //          || dot( eyeVec, gl_ClipPlane[1].xyz ) + gl_ClipPlane[1].w < 0.0\n";
-shaderText += "// //          || dot( eyeVec, gl_ClipPlane[2].xyz ) + gl_ClipPlane[2].w < 0.0\n";
-shaderText += "// //          || dot( eyeVec, gl_ClipPlane[3].xyz ) + gl_ClipPlane[3].w < 0.0\n";
-shaderText += "// //          || dot( eyeVec, gl_ClipPlane[4].xyz ) + gl_ClipPlane[4].w < 0.0\n";
-shaderText += "// //          || dot( eyeVec, gl_ClipPlane[5].xyz ) + gl_ClipPlane[5].w < 0.0\n";
-shaderText += "//         )\n";
-shaderText += "//     {        \n";
-shaderText += "//         discard; // <- VERY SLOW, nearly twice slower\n";
-shaderText += "//     }\n";
 shaderText += "    // -- Calculate normal --\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
 shaderText += "    half2 ag = half2(0.0);\n";
@@ -76,13 +66,10 @@ shaderText += "    // precision errors on meshes with high glossiness, so we rev
 shaderText += "\n";
 if ( TWO_SIDED == 1 ) {
 shaderText += "//    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,\n";
-shaderText += "                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB\n";
-shaderText += "//    if ( gl_Color.a == 0.0 )\n";
 shaderText += "    if ( frontFacing == 0.0 )\n";
 shaderText += "    {\n";
 shaderText += "        normal = -normal;\n";
 shaderText += "    }\n";
-shaderText += "//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster\n";
 }
 shaderText += "    \n";
 shaderText += "\n";
@@ -102,6 +89,7 @@ shaderText += "\n";
 shaderText += "    half3 color = half3(globalAmbient);\n";
 shaderText += "\n";
 shaderText += "    # define i 0\n";
+if ( 0 ) {
 shaderText += "    // ^ Strange but `int i=0;' or `float i=0.0;' & `gl_LightSource[int(i)]'\n";
 shaderText += "    // doesn't work on R300 (radeon 9600).\n";
 shaderText += "    // It says that 'available number of constants exceeded' for\n";
@@ -110,7 +98,8 @@ shaderText += "    // If `float i = 0.0' & `gl_LightSource[i]' used (`i' w/o cas
 shaderText += "    // int) all works ok on ATI (? ? ?). NVidia warns that implicit cast\n";
 shaderText += "    // is there. So now we just define i to be zero. Loop for several\n";
 shaderText += "    // lights must be tested on 9600.\n";
-shaderText += "     \n";
+}
+shaderText += "\n";
 shaderText += "    // -- Lights ambient --\n";
 shaderText += "    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[i].ambient.rgb);\n";
 shaderText += "    color += ambient;\n";
