@@ -1,0 +1,47 @@
+Wed Aug 22 2007 Vladimir Shabanov # 0.3.0
+	* Ported to OSG 2.0.0 and Cal3d 0.11.0 (not backward compatible
+	  with 0.10.0 due to some changes in animation mixer?)
+	* Bug fixes
+	* Some experiments in shaders
+
+Fri May 4 2007 Vladimir Shabanov # 0.3.0 preliminary
+	* Ported to OSG 1.9.1
+	* Added GLSL skinning
+	* Added support for normal mapped, transparent and two-sided
+	  materials
+	* Improved mesh deformation calculation
+	* Many small optimizations
+
+Wed Jun 1 2005 Ruben Lopez
+	* Ported to OSG 0.9.9
+	* Modified documentation and created Doxyfile
+	* Merged with Jan Ciger changes
+
+Wed Mar 16 2005 Ruben Lopez & Jose A. Iglesias # 0.1.5
+	* Ported to the new version of the Cal3d API (Cal3d 0.10.0)
+	* Fixed the problem with flip textures
+	* Fixed initial time values for the animations
+	* Fixed problem with the new empty constructor of Model class
+	* New method to load animations and associate one name to save
+          and recover them later.
+        * New code for read/write animations with its name associated.
+	* Fixed the problem of locate textures in the correct path, now
+          the .osg model can find them.
+
+Sun Nov 02 Ruben Lopez
+	* Now the loader can find cal3d files with paths relative to the
+	  .osg file.
+
+Sun Apr 20 Ruben Lopez
+	* Fixed 'bug?' with Materials, it seems that with textures
+          activated, the materials should be deactivated with
+          glColorMaterial :-m
+
+Sun Apr 20 Alberto Farre # 0.1.2
+	* Ported to windows
+	* Example enhaced to cicle through animations with 'm' key
+	* Visual studio projects now use osgProducer instead of osgGLUT
+
+Sat Apr 19 Rubén López # 0.1.1
+	* Ported to osgProducer instead of osgGLUT
+        * Cleaned up the example

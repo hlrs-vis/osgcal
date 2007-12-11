@@ -1,0 +1,66 @@
+TOPDIR = ../..
+include $(TOPDIR)/Make/makedefs 
+
+CXXFILES =\
+	MeshData.cpp \
+	MeshLoader.cpp \
+	Material.cpp \
+	ShadersCache.cpp \
+	StateSetCache.cpp \
+	MeshParameters.cpp \
+	MeshDisplayLists.cpp \
+	MeshStateSets.cpp \
+	CoreMesh.cpp \
+	CoreModel.cpp \
+	Model.cpp \
+	Mesh.cpp \
+	DepthMesh.cpp \
+	HardwareMesh.cpp \
+	SoftwareMesh.cpp
+
+#OPTF='-march=k8 -ftree-vectorize -O2 -ffast-math' # -fopenmp
+
+INC     += -I/usr/local/OpenSceneGraph/include -I/usr/local/include
+
+DEF     += -DOSGCAL_LIBRARY
+
+LIBS    += -L/usr/local/OpenSceneGraph/lib -L/usr/local/lib $(GL_LIBS) $(OTHER_LIBS) -lcal3d -losg -losgDB -losgUtil
+
+TARGET_BASENAME = osgCal
+LIB = $(LIB_PREFIX)$(TARGET_BASENAME).$(LIB_EXT)
+
+include $(TOPDIR)/Make/makerules 
+
+ShadersCache.cpp: \
+	shaders/Skeletal_vert.h \
+	shaders/Skeletal_frag.h \
+	shaders/SkeletalDepthOnly_vert.h \
+	shaders/SkeletalDepthOnly_frag.h
+
+shaders/Skeletal_vert.h: Skeletal.vert
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../Skeletal.vert >../shaders/Skeletal_vert.h
+else
+	sed -e s/\\r// <../Skeletal.vert | sed -f ../glsl2cpp.sed >../shaders/Skeletal_vert.h
+endif
+
+shaders/Skeletal_frag.h: Skeletal.frag
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../Skeletal.frag >../shaders/Skeletal_frag.h
+else
+	sed -e s/\\r// <../Skeletal.frag | sed -f ../glsl2cpp.sed >../shaders/Skeletal_frag.h
+endif
+
+shaders/SkeletalDepthOnly_vert.h: SkeletalDepthOnly.vert
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalDepthOnly.vert >../shaders/SkeletalDepthOnly_vert.h
+else
+	sed -e s/\\r// <../SkeletalDepthOnly.vert | sed -f ../glsl2cpp.sed >../shaders/SkeletalDepthOnly_vert.h
+endif
+
+shaders/SkeletalDepthOnly_frag.h: SkeletalDepthOnly.frag
+ifeq ($(OS),MINGW)
+	sed -f ../glsl2cpp.sed <../SkeletalDepthOnly.frag >../shaders/SkeletalDepthOnly_frag.h
+else
+	sed -e s/\\r// <../SkeletalDepthOnly.frag | sed -f ../glsl2cpp.sed >../shaders/SkeletalDepthOnly_frag.h
+endif
