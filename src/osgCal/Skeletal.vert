@@ -40,30 +40,18 @@ void main()
 #endif
 
 #if BONES_COUNT >= 1
-//     vec3 transformedPosition =
-//         (rotationMatrices[int(index.x)] * gl_Vertex.xyz
-//          + translationVectors[int(index.x)]) * weight.x;
     mat3 totalRotation = weight.x * rotationMatrices[int(index.x)];
     vec3 transformedPosition = weight.x * translationVectors[int(index.x)];
 
 #if BONES_COUNT >= 2
-//     transformedPosition +=
-//         (rotationMatrices[int(index.y)] * gl_Vertex.xyz
-//          + translationVectors[int(index.y)]) * weight.y;
     totalRotation += weight.y * rotationMatrices[int(index.y)];
     transformedPosition += weight.y * translationVectors[int(index.y)];
 
 #if BONES_COUNT >= 3
-//     transformedPosition +=
-//         (rotationMatrices[int(index.z)] * gl_Vertex.xyz
-//          + translationVectors[int(index.z)]) * weight.z;
     totalRotation += weight.z * rotationMatrices[int(index.z)];
     transformedPosition += weight.z * translationVectors[int(index.z)];
 
 #if BONES_COUNT >= 4
-//     transformedPosition +=
-//         (rotationMatrices[int(index.w)] * gl_Vertex.xyz
-//          + translationVectors[int(index.w)]) * weight.w;
     totalRotation += weight.w * rotationMatrices[int(index.w)];
     transformedPosition += weight.w * translationVectors[int(index.w)];
 #endif // BONES_COUNT >= 4
@@ -73,11 +61,9 @@ void main()
     transformedPosition += totalRotation * gl_Vertex.xyz;
     gl_Position = gl_ModelViewProjectionMatrix * vec4(transformedPosition, 1.0);
     # ifdef __GLSL_CG_DATA_TYPES
-//    if ( clipPlanesUsed )
-    {
-        gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
-    } 
+      gl_ClipVertex = gl_ModelViewMatrix * vec4(transformedPosition, 1.0);
     # endif
+#if 0
 //  8.5 -- no clip planes
 // 10.2 -- gl_ClipVertex always set (20% slowdown, on both 6600 and 8600)
 // 10.8 -- if ( clipPlanesUsed /* == true */  ) gl_ClipVertex = ...
@@ -97,22 +83,9 @@ void main()
 
 // ATI doesn't support programmable clipping, gl_ClipVertex assignment
 // in shaders throw it into software mode. ATI only support fixed
-// function clipping, when ftransform() is used. I.e. we can't get
-// correct clipping for our deformed meshes on ATI.
-//
-// R300/R400 ATI chips also doesn't support branching, so fragment
-// shader culling can be very slow?
-
-// Seems that we need separate shaders (with or w/o culling) and
-// switch culling shader only when it's necessary (since it also kills
-// speed-up at depth first pass). Also we can support only one
-// clipping plane for better performance.
-// To not make too many shaders when it not needed we may create
-// separate USE_CLIP_PLANES_CULLING flag.
-// `discard' in fragment shader is VERY slow. So for rigid meshes we
-// need turn on hardware culling, also we need two paths one for
-// NVidia with gl_ClipVertex used and one for ATI with discard.
-// Maybe not support clipping of dynamic meshes on ATI at all?
+// function clipping, when ftransform() is used. 
+// But people say clipping on ati works w/o any ftransform() or gl_ClipVertex
+#endif
 
 #if FOG
     eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
@@ -135,10 +108,7 @@ void main()
     // dont touch anything when no bones influence mesh
     gl_Position = ftransform();
     # ifdef __GLSL_CG_DATA_TYPES
-//    if ( clipPlanesUsed )
-    {
-        gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
-    }
+      gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;
     # endif
 #if FOG
     eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
@@ -157,9 +127,4 @@ void main()
 #endif // NORMAL_MAPPING == 1
 
 #endif // BONES_COUNT >= 1
-
-// #if TWO_SIDED == 1
-//     gl_FrontColor.a = 1.0;
-//     gl_BackColor.a =  0.0; // negative values not allowed
-// #endif
 }

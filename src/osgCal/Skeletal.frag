@@ -41,16 +41,6 @@ varying vec3 eyeVec;
 
 void main()
 {
-//     if ( dot( eyeVec, gl_ClipPlane[0].xyz ) + gl_ClipPlane[0].w < 0.0 
-// //          || dot( eyeVec, gl_ClipPlane[1].xyz ) + gl_ClipPlane[1].w < 0.0
-// //          || dot( eyeVec, gl_ClipPlane[2].xyz ) + gl_ClipPlane[2].w < 0.0
-// //          || dot( eyeVec, gl_ClipPlane[3].xyz ) + gl_ClipPlane[3].w < 0.0
-// //          || dot( eyeVec, gl_ClipPlane[4].xyz ) + gl_ClipPlane[4].w < 0.0
-// //          || dot( eyeVec, gl_ClipPlane[5].xyz ) + gl_ClipPlane[5].w < 0.0
-//         )
-//     {        
-//         discard; // <- VERY SLOW, nearly twice slower
-//     }
     // -- Calculate normal --
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     half2 ag = half2(0.0);
@@ -76,13 +66,10 @@ void main()
 
 #if TWO_SIDED == 1
 //    if ( !gl_FrontFacing ) // gl_FrontFacing is not always available,
-                           // but is faster than GL_VERTEX_PROGRAM_TWO_SIDE_ARB
-//    if ( gl_Color.a == 0.0 )
     if ( frontFacing == 0.0 )
     {
         normal = -normal;
     }
-//    normal *= (gl_Color.a - 0.5) * 2.0; // `if' is faster
 #endif
     
 
@@ -102,6 +89,7 @@ void main()
     half3 color = half3(globalAmbient);
 
     # define i 0
+#if 0
     // ^ Strange but `int i=0;' or `float i=0.0;' & `gl_LightSource[int(i)]'
     // doesn't work on R300 (radeon 9600).
     // It says that 'available number of constants exceeded' for
@@ -110,7 +98,8 @@ void main()
     // int) all works ok on ATI (? ? ?). NVidia warns that implicit cast
     // is there. So now we just define i to be zero. Loop for several
     // lights must be tested on 9600.
-     
+#endif
+
     // -- Lights ambient --
     half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_LightSource[i].ambient.rgb);
     color += ambient;
