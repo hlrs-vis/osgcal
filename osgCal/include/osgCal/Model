@@ -284,7 +284,7 @@ namespace osgCal {
             /**
              * Get rotation[9] and translation[3] ready for glUniform[Matrix]3fv.
              * Remark that you must pass not local bone index in mesh,
-             * but bone id (using CoreMesh::getBoneId(index)).
+             * but bone id (using MeshData::getBoneId(index)).
              */
             void getBoneRotationTranslation( int boneId,
                                              GLfloat* rotation,
