@@ -142,6 +142,12 @@ namespace osgCal {
             void update( double deltaTime );
 
             /**
+             * Forced update of meshes, use it when you change bone
+             * positions manually and don't run any animations.
+             */
+            void update();
+
+            /**
              * Blend animation cycle to the specified weight
              * in specified time.
              */
@@ -226,6 +232,8 @@ namespace osgCal {
              */
             void removeDepthMesh( DepthMesh* depthMesh );
 
+            void updateMeshes();
+
     };
 
     // -- Model data --
@@ -263,6 +271,12 @@ namespace osgCal {
              * Return true, if something was changed, false otherwise.
              */
             bool update( float deltaTime );
+
+            /**
+             * Forced update of bone matrices, use it when you change
+             * bone positions manually.
+             */
+            bool update();
 
             CalMixer* getCalMixer() { return calMixer; }
 

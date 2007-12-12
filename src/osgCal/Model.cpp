@@ -405,11 +405,24 @@ Model::removeDrawable( int boneId,
 void
 Model::update( double deltaTime ) 
 {
-    if ( modelData->update( deltaTime ) == false )
+    if ( modelData->update( deltaTime ) == true )
     {
-        return;
+        updateMeshes();
     }
+}
 
+void
+Model::update() 
+{
+    if ( modelData->update() == true )
+    {
+        updateMeshes();
+    }
+}
+
+void
+Model::updateMeshes() 
+{
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
@@ -575,6 +588,12 @@ ModelData::update( float deltaTime )
     calMixer->updateAnimation( deltaTime ); 
     calMixer->updateSkeleton();
 
+    return update();
+}
+
+bool
+ModelData::update()
+{
     // -- Update bone parameters --
     bool anythingChanged = false;
     for ( BoneParamsVector::iterator
