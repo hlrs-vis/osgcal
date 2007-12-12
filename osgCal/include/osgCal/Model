@@ -135,6 +135,7 @@ namespace osgCal {
 
             const CoreModel* getCoreModel() const;
             const ModelData* getModelData() const { return modelData.get(); }
+            CalModel*        getCalModel();
 
             /**
              * Update meshes.
@@ -311,6 +312,7 @@ namespace osgCal {
             }
 
             const CoreModel* getCoreModel() const { return coreModel.get(); }
+            CalModel*        getCalModel() { return calModel; }
 
             /**
              * Returns associated model, throws error if the model was deleted.
