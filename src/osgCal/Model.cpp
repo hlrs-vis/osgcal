@@ -402,6 +402,12 @@ Model::removeDrawable( int boneId,
     }
 }
 
+CalModel*
+Model::getCalModel()
+{
+    return modelData->getCalModel();
+}
+
 void
 Model::update( double deltaTime ) 
 {
