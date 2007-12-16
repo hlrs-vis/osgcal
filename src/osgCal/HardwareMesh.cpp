@@ -71,7 +71,8 @@ HardwareMesh::clone( const osg::CopyOp& ) const
 void
 HardwareMesh::onParametersChanged( const MeshParameters* previousDs )
 {
-    setStateSet( mesh->stateSets->staticStateSet.get() );
+    setStateSet( mesh->data->rigid ? mesh->stateSets->staticStateSet.get() : mesh->stateSets->stateSet.get() );
+//    setStateSet( mesh->stateSets->staticStateSet.get() );
     // Initially we use static (not skinning) state set. It will
     // changed to skinning (in update() method when some animation
     // starts.
@@ -133,7 +134,8 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
     const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
 
     // -- Setup rotation/translation uniforms --
-    if ( deformed )
+//    if ( deformed )
+    if ( mesh->data->rigid == false )
     {
         // -- Calculate and bind rotation/translation uniforms --
         GLint rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices" );
@@ -157,13 +159,27 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
 
         GLfloat rotationMatrices[9*31];
         GLfloat translationVectors[3*31];
-        
-        for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
-             boneIndex < boneCount; boneIndex++ )
+        const GLfloat noTranslation[3] = {0,0,0};
+        const GLfloat noRotation[9] = {1,0,0, 0,1,0, 0,0,1};
+
+        if ( deformed )
         {
-            modelData->getBoneRotationTranslation( mesh->data->getBoneId( boneIndex ),
-                                                   &rotationMatrices[boneIndex*9],
-                                                   &translationVectors[boneIndex*3] );
+            for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
+                 boneIndex < boneCount; boneIndex++ )
+            {
+                modelData->getBoneRotationTranslation( mesh->data->getBoneId( boneIndex ),
+                                                       &rotationMatrices[boneIndex*9],
+                                                       &translationVectors[boneIndex*3] );
+            }
+        }
+        else
+        {
+            for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
+                 boneIndex < boneCount; boneIndex++ )
+            {
+                memcpy( &translationVectors[boneIndex*3], noTranslation, sizeof (noTranslation) );
+                memcpy( &rotationMatrices[boneIndex*9]  , noRotation   , sizeof (noRotation) );
+            }
         }
     
         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
@@ -176,12 +192,10 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
                                          translationVectors );
         }
 
-        const GLfloat translation[3] = {0,0,0};
-        const GLfloat rotation[9] = {1,0,0, 0,1,0, 0,0,1};
-        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, rotation );
+        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, noRotation );
         if ( translationVectorsAttrib >= 0 )
         {
-            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, translation );
+            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, noTranslation );
         }
     }
 
@@ -245,6 +259,9 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
 void
 HardwareMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
+//    osg::notify( osg::INFO )
+//     std::cout
+//         << "HardwareMesh::compileGLObjects for " << mesh->data->name << std::endl;
     Geometry::compileGLObjects( renderInfo );
 
     unsigned int contextID = renderInfo.getContextID();
@@ -271,27 +288,35 @@ HardwareMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 void
 HardwareMesh::accept( osgUtil::GLObjectsVisitor* glv )
 {
-    glv->apply( *mesh->stateSets->staticStateSet.get() );
-
+    //osg::notify( osg::INFO )
+//     std::cout
+//         << "HardwareMesh::accept( osgUtil::GLObjectsVisitor* glv ) for "
+//         << mesh->data->name << std::endl;
     if ( !mesh->data->rigid )
     {
         glv->apply( *mesh->stateSets->stateSet.get() );
     }
+    else
+    {
+        glv->apply( *mesh->stateSets->staticStateSet.get() );
+    }
 
     if ( depthMesh.valid() )
     {
-        glv->apply( *mesh->stateSets->staticDepthOnly.get() );
-
         if ( !mesh->data->rigid )
         {
             glv->apply( *mesh->stateSets->depthOnly.get() );
+        }
+        else
+        {
+            glv->apply( *mesh->stateSets->staticDepthOnly.get() );            
         }
     }
 }
 
 void
 HardwareMesh::innerDrawImplementation( osg::RenderInfo&     renderInfo,
-                                          GLuint               displayList ) const
+                                       GLuint               displayList ) const
 {   
 #define glError()                                                       \
     {                                                                   \
@@ -380,7 +405,10 @@ HardwareMesh::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 
     // -- Draw our indexed triangles --
     if ( displayList != 0 )
+    {
+//         std::cout << "compiling display list for " << mesh->data->name << std::endl;
         glNewList( displayList, GL_COMPILE );
+    }
 
     mesh->data->indexBuffer->draw( state, false );
 //     // no visible speedup when using glDrawRangeElements
@@ -441,18 +469,17 @@ HardwareMesh::update()
     }
 
     // -- Check for deformation state and select state set type --
-//    std::cout << "deformed = " << deformed << std::endl;
-    if ( deformed )
-    {
-        setStateSet( mesh->stateSets->stateSet.get() );
-    }
-    else
-    {
-        setStateSet( mesh->stateSets->staticStateSet.get() );
-        // for undeformed meshes we use static state set which not
-        // perform vertex, normal, binormal and tangent deformations
-        // in vertex shader
-    }
+//     if ( deformed )
+//     {
+//         setStateSet( mesh->stateSets->stateSet.get() );
+//     }
+//     else
+//     {
+//         setStateSet( mesh->stateSets->staticStateSet.get() );
+//         // for undeformed meshes we use static state set which not
+//         // perform vertex, normal, binormal and tangent deformations
+//         // in vertex shader
+//     }
 
     // -- Update depthMesh --
     if ( depthMesh.valid() )
