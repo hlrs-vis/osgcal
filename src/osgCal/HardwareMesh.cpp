@@ -152,51 +152,50 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
             translationVectorsAttrib = program->getUniformLocation( "translationVectors[0]" );
         }
 
-        if ( rotationMatricesAttrib < 0 && translationVectorsAttrib < 0 )
+        if ( rotationMatricesAttrib < 0 || translationVectorsAttrib < 0 )
         {
             throw std::runtime_error( "no rotation/translation uniforms in deformed mesh?" );
         }
 
-        GLfloat rotationMatrices[9*31];
-        GLfloat translationVectors[3*31];
-        const GLfloat noTranslation[3] = {0,0,0};
-        const GLfloat noRotation[9] = {1,0,0, 0,1,0, 0,0,1};
+        static const std::vector< osg::Matrix3 > noRotation( 31 );
+        static const std::vector< osg::Vec3f >   noTranslation( 31 );
+
+        int boneCount = mesh->data->getBonesCount();
 
         if ( deformed )
         {
-            for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
-                 boneIndex < boneCount; boneIndex++ )
+            GLfloat rotationMatrices[31][9];
+            GLfloat translationVectors[31][3];
+
+            for( int boneIndex = 0; boneIndex < boneCount; boneIndex++ )
             {
                 modelData->getBoneRotationTranslation( mesh->data->getBoneId( boneIndex ),
-                                                       &rotationMatrices[boneIndex*9],
-                                                       &translationVectors[boneIndex*3] );
+                                                       &rotationMatrices[boneIndex][0],
+                                                       &translationVectors[boneIndex][0] );
             }
+
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
+                                               boneCount, GL_FALSE,
+                                               &rotationMatrices[0][0] );
+            gl2extensions->glUniform3fv( translationVectorsAttrib,
+                                         boneCount,
+                                         &translationVectors[0][0] );
         }
         else
         {
-            for( int boneIndex = 0, boneCount = mesh->data->getBonesCount();
-                 boneIndex < boneCount; boneIndex++ )
-            {
-                memcpy( &translationVectors[boneIndex*3], noTranslation, sizeof (noTranslation) );
-                memcpy( &rotationMatrices[boneIndex*9]  , noRotation   , sizeof (noRotation) );
-            }
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
+                                               boneCount, GL_FALSE,
+                                               (const GLfloat*)&noRotation.front() );
+            gl2extensions->glUniform3fv( translationVectorsAttrib,
+                                         boneCount,
+                                         (const GLfloat*)&noTranslation.front() );
         }
     
-        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
-                                           mesh->data->getBonesCount(), GL_FALSE,
-                                           rotationMatrices );
-        if ( translationVectorsAttrib >= 0 )
-        {
-            gl2extensions->glUniform3fv( translationVectorsAttrib,
-                                         mesh->data->getBonesCount(),
-                                         translationVectors );
-        }
 
-        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE, noRotation );
-        if ( translationVectorsAttrib >= 0 )
-        {
-            gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1, noTranslation );
-        }
+        gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE,
+                                           (const GLfloat*)&noRotation.front() );
+        gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1,
+                                     (const GLfloat*)&noTranslation.front() );
     }
 
     // -- Create display list if not yet exists --
