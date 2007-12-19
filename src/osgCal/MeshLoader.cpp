@@ -42,7 +42,8 @@ calculateBoundingBox( const VertexBuffer* vb )
 
 static
 void
-checkRigidness( osgCal::MeshData* m )
+checkRigidness( osgCal::MeshData* m,
+                int unriggedBoneIndex )
 {
     // -- Calculate maxBonesInfluence & rigidness --
     m->maxBonesInfluence = 0;
@@ -101,13 +102,15 @@ checkRigidness( osgCal::MeshData* m )
     {
         MatrixIndexBuffer::iterator mi = m->matrixIndexBuffer->begin();
         WeightBuffer::iterator      w  = m->weightBuffer->begin();
+        bool hasUnriggedVertices = false;
 
         while ( mi < m->matrixIndexBuffer->end() )
         {
             if ( (*w)[0] <= 0.0 ) // no influences at all
             {
                 (*w)[0] = 1.0;
-                (*mi)[0] = 30;
+                (*mi)[0] = m->bonesIndices.size();
+                hasUnriggedVertices = true;
                 // last+1 bone in shader is always identity matrix.
                 // we need this hack for meshes where some vertexes
                 // are rigged and some are not (so we create
@@ -116,6 +119,11 @@ checkRigidness( osgCal::MeshData* m )
             
             ++mi;
             ++w;
+        }
+
+        if ( hasUnriggedVertices )
+        {
+            m->bonesIndices.push_back( unriggedBoneIndex );
         }
     }
 }
@@ -396,6 +404,9 @@ loadMeshes( CalCoreModel* calCoreModel,
     }
 
     // -- And now create meshes data --
+    int unriggedBoneIndex = calCoreModel->getCoreSkeleton()->getVectorCoreBone().size();
+    // we add empty bone in ModelData to handle unrigged vertices;
+    
     for( int hardwareMeshId = 0; hardwareMeshId < calHardwareModel->getHardwareMeshCount(); hardwareMeshId++ )
     {
         calHardwareModel->selectHardwareMesh(hardwareMeshId);
@@ -474,7 +485,7 @@ loadMeshes( CalCoreModel* calCoreModel,
 
         m->bonesIndices = hardwareMesh->m_vectorBonesIndices;
 
-        checkRigidness( m );
+        checkRigidness( m, unriggedBoneIndex );
         checkForEmptyTexCoord( m );
         generateTangentAndHandednessBuffer( m, &indexBuffer[ startIndex ] );
 

@@ -542,12 +542,14 @@ ModelData::ModelData( CoreModel* cm,
 
     const std::vector< CalBone* >& vectorBone = calModel->getSkeleton()->getVectorBone();
 
-    bones.resize( vectorBone.size() );
+    bones.resize( vectorBone.size() + 1 );
+    // last bone is always no rotation/translation and used for
+    // unrigged vertices.
 
     std::vector< CalBone* >::const_iterator b = vectorBone.begin();        
     for ( BoneParamsVector::iterator
               bp = bones.begin(),
-              bpEnd = bones.end();
+              bpEnd = bones.end() - 1;
           bp < bpEnd; ++bp, ++b )
     {
         bp->bone = *b;
@@ -604,7 +606,7 @@ ModelData::update()
     bool anythingChanged = false;
     for ( BoneParamsVector::iterator
               b    = bones.begin(),
-              bEnd = bones.end();
+              bEnd = bones.end() - 1;
           b < bEnd; ++b )
     {
         const CalQuaternion& rotation = b->bone->getRotationBoneSpace();

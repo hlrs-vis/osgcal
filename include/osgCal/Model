@@ -306,6 +306,11 @@ namespace osgCal {
                                     t.x(), t.y(), t.z(), 1.0 );
             }
 
+            /**
+             * Get bone parameters. Remark that we have
+             * (skeleton bones count + 1) bones, since we add fake
+             * non-moving bone for unrigged vertices.
+             */
             const BoneParams& getBoneParams( int boneId ) const
             {
                 return bones[ boneId ];
