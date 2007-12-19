@@ -181,30 +181,23 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
                     (const GLfloat*)&noTranslation.front() + 3 * boneCount,
                     3 * sizeof ( GLfloat ) * ( 31 - boneCount ) );
 
-            for ( int i = 0; i < 31; i++ )
-            {
-                gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + i,
-                                                   1, GL_FALSE,
-                                                   &rotationMatrices[i][0] );
-                gl2extensions->glUniform3fv( translationVectorsAttrib + i,
-                                             1,
-                                             &translationVectors[i][0] );
-            }
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
+                                               31, GL_FALSE,
+                                               &rotationMatrices[0][0] );
+            gl2extensions->glUniform3fv( translationVectorsAttrib,
+                                         31,
+                                         &translationVectors[0][0] );
         }
         else
         {
-            for ( int i = 0; i < 31; i++ )
-            {
-                gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + i,
-                                                   1, GL_FALSE,
-                                                   (const GLfloat*)&noRotation.front() );
-                gl2extensions->glUniform3fv( translationVectorsAttrib + i,
-                                             1,
-                                             (const GLfloat*)&noTranslation.front() );
-            }
+            gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib,
+                                               31, GL_FALSE,
+                                               (const GLfloat*)&noRotation.front() );
+            gl2extensions->glUniform3fv( translationVectorsAttrib,
+                                         31,
+                                         (const GLfloat*)&noTranslation.front() );
         }
     
-
 //         gl2extensions->glUniformMatrix3fv( rotationMatricesAttrib + 30, 1, GL_FALSE,
 //                                            (const GLfloat*)&noRotation.front() );
 //         gl2extensions->glUniform3fv( translationVectorsAttrib + 30, 1,
