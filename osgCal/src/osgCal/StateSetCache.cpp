@@ -267,7 +267,7 @@ SwMeshStateSetCache::SwMeshStateSetCache( MaterialsCache* mc,
 osg::StateSet*
 SwMeshStateSetCache::get( const Key& swsd )
 {
-    return getOrCreate( cache, swsd, this,
+    return getOrCreate< Map, SwMeshStateSetCache >( cache, swsd, this,
                         &SwMeshStateSetCache::createSwMeshStateSet );
 }
 osg::StateSet*
@@ -402,7 +402,7 @@ HwMeshStateSetCache::get( const MKey& swsd,
                           int bonesCount,
                           MeshParameters* p )
 {
-    return getOrCreate( cache,
+    return getOrCreate< Map, HwMeshStateSetCache >( cache,
                         std::make_pair( swsd,
                                         HWKey( bonesCount,
                                                p->fogMode,
@@ -500,7 +500,7 @@ osg::StateSet*
 DepthMeshStateSetCache::get( const Material* m,
                              int bonesCount )
 {
-    return getOrCreate( cache, std::make_pair( bonesCount, m->sides ), this,
+    return getOrCreate< Map, DepthMeshStateSetCache >( cache, std::make_pair( bonesCount, m->sides ), this,
                         &DepthMeshStateSetCache::createDepthMeshStateSet );
 }
 
