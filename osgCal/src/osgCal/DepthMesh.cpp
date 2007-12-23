@@ -28,7 +28,14 @@ DepthMesh::DepthMesh( HardwareMesh* hw )
     setUseDisplayList( false );
     setSupportsDisplayList( false );
     setUseVertexBufferObjects( false ); // false is default
-    setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
+    if ( hwMesh->getCoreMesh()->data->rigid )
+    {
+        setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
+    }
+    else
+    {
+        setStateSet( hwMesh->getCoreMesh()->stateSets->depthOnly.get() );        
+    }
     dirtyBound();
 
     setUserData( const_cast< MeshParameters* >
@@ -49,16 +56,16 @@ DepthMesh::compileGLObjects(osg::RenderInfo& renderInfo) const
 }
 
 void
-DepthMesh::update( bool deformed, bool changed )
+DepthMesh::update( bool /*deformed*/, bool changed )
 {
-    if ( deformed )
-    {
-        setStateSet( hwMesh->getCoreMesh()->stateSets->depthOnly.get() );
-    }
-    else
-    {
-        setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
-    }
+//     if ( deformed )
+//     {
+//         setStateSet( hwMesh->getCoreMesh()->stateSets->depthOnly.get() );
+//     }
+//     else
+//     {
+//         setStateSet( hwMesh->getCoreMesh()->stateSets->staticDepthOnly.get() );
+//     }
 
     if ( changed )
     {
