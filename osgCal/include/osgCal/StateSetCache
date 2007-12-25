@@ -36,7 +36,7 @@ namespace osgCal
     struct ref_ptr_less : std::binary_function< osg::ref_ptr< T >, osg::ref_ptr< T >, bool >
     {
             bool operator () ( const osg::ref_ptr< T >& a,
-                               const osg::ref_ptr< T >& b )
+                               const osg::ref_ptr< T >& b ) const
             {
                 if ( a.get() == b.get() )
                 {
@@ -56,7 +56,7 @@ namespace osgCal
                                   bool >
     {
             bool operator () ( const std::pair< osg::ref_ptr< T >, Second >& a,
-                               const std::pair< osg::ref_ptr< T >, Second >& b )
+                               const std::pair< osg::ref_ptr< T >, Second >& b ) const
             {
 //                (a < b ? true : ( b < a ? false : t ))
                 if ( a.first.get() == b.first.get() )
