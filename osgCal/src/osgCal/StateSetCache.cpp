@@ -189,10 +189,11 @@ isRGBAStateSet( const osg::StateSet* stateSet )
 {
     const osg::Texture2D* texture = static_cast< const osg::Texture2D* >(
         stateSet->getTextureAttribute( 0, osg::StateAttribute::TEXTURE ) );
-    
-    return ( texture &&
+    return ( texture && 
+//               ( osg::Image::computeNumComponents( texture->getInternalFormat() ) == 4 )
              (    texture->getInternalFormat() == 4
-               || texture->getInternalFormat() == GL_RGBA ) );
+               || texture->getInternalFormat() == GL_RGBA )
+        );
 }
 
 static
