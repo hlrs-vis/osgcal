@@ -7,7 +7,7 @@
 # correspond to the ./configure --prefix=$CAL3D_DIR
 
 
-FIND_PATH(CAL3D_INCLUDE_DIR CAL3D/mesh.h
+FIND_PATH(CAL3D_INCLUDE_DIR cal3d/mesh.h
 	$ENV{CAL3D_DIR}/include
 )
 

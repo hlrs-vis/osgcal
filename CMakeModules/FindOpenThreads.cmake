@@ -18,6 +18,10 @@ FIND_LIBRARY(OPEN_THREADS_LIBRARY NAMES OpenThreads OpenThreadsd
 	PATHS
 	$ENV{OSG_DIR}/lib
 	$ENV{OPENTHREADS_DIR}/lib
+    /usr/local/lib64
+    /usr/local/lib
+    /usr/lib64
+    /usr/lib
 )
 
 SET(OPEN_THREADS_FOUND "NO")

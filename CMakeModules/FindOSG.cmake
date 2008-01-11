@@ -17,6 +17,10 @@ MACRO(FIND_OSG_LIBRARY MYLIBRARY MYLIBRARYNAME)
         NAMES ${MYLIBRARYNAME} ${MYLIBRARYNAME}d
         PATHS
 	      $ENV{OSG_DIR}/lib
+          /usr/local/lib64
+          /usr/local/lib
+          /usr/lib64
+          /usr/lib
 	    )
 
 ENDMACRO(FIND_OSG_LIBRARY LIBRARY LIBRARYNAME)
