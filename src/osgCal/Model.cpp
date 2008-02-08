@@ -457,9 +457,20 @@ Model::updateMeshes()
 void
 Model::blendCycle( int id,
                    float weight,
-                   float delay )
+                   float delay,
+                   float timeFactor )
 {
     modelData->getCalMixer()->blendCycle( id, weight, delay );
+
+    if ( timeFactor != 1.0f )
+    {
+        std::vector<CalAnimation *>& av = modelData->getCalMixer()->getAnimationVector();
+
+        if ( av[id] != 0 )
+        {
+            av[id]->setTimeFactor( timeFactor );
+        }
+    }
 }
 
 void
@@ -467,6 +478,35 @@ Model::clearCycle( int id,
                    float delay )
 {
     modelData->getCalMixer()->clearCycle( id, delay );
+}
+
+void
+Model::executeAction( int id,
+                      float delayIn,
+                      float delayOut,
+                      float weightTarget,
+                      bool autoLock,
+                      float timeFactor )
+{
+    modelData->getCalMixer()->executeAction( id, delayIn, delayOut, weightTarget, autoLock );
+
+    if ( timeFactor != 1.0f )
+    {
+        std::list<CalAnimationAction *>& aal =
+            modelData->getCalMixer()->getAnimationActionList();
+
+        if ( !aal.empty() )
+        {
+            aal.front()->setTimeFactor( timeFactor );
+            // last added action live in first element of list
+        }
+    }
+}
+
+void
+Model::removeAction( int id )
+{
+    modelData->getCalMixer()->removeAction( id );
 }
 
 const CoreModel*
