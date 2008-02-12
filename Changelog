@@ -1,3 +1,11 @@
+Tue Feb 12 2008 Vladimir Shabanov # 0.3.1
+	* Thanks to Anders Backman osgCal now have CMake build system.
+	* Major restructuring of osgCal internal classes
+	* Added possiblity to tune each mesh's parameters
+	* Moved from VBOs to Display lists for geometry (glCallList is
+	  faster for multiple meshes, than VBO setup)
+	* Reduced memory footprint
+
 Wed Aug 22 2007 Vladimir Shabanov # 0.3.0
 	* Ported to OSG 2.0.0 and Cal3d 0.11.0 (not backward compatible
 	  with 0.10.0 due to some changes in animation mixer?)

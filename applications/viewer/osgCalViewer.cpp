@@ -117,7 +117,16 @@ class AnimationToggleHandler : public osgGA::GUIEventHandler
             {
                 case(osgGA::GUIEventAdapter::KEYDOWN):
                 {
-                    if (ea.getKey() >= '1' && ea.getKey() < '1' + (int)animationNames.size())
+                    if ( ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL )
+                    {
+                        if ( ea.getKey() >= '1' &&
+                             ea.getKey() <  '1' + (int)animationNames.size() )
+                        {                           
+                            model->executeAction( ea.getKey() - '1' );
+                        }
+                    }
+                    else if ( ea.getKey() >= '1' &&
+                              ea.getKey() < '1' + (int)animationNames.size() )
                     {
                         if ( currentAnimation != -1 )
                         {

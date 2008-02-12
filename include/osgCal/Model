@@ -183,8 +183,8 @@ namespace osgCal {
              * animation finishes and stay.
              */
             void executeAction( int id,
-                                float delayIn,
-                                float delayOut,
+                                float delayIn = 0.0f,
+                                float delayOut = 0.0f,
                                 float weightTarget = 1.0f,
                                 bool autoLock = false,
                                 float timeFactor = 1.0f );
