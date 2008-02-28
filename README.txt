@@ -44,6 +44,13 @@ How to build:
 
      cmake . -DCMAKE_INSTALL_PREFIX=/usr
 
+ * If some libraries are not found using "cmake ." (for example under Windows)
+   you can use following environment variables
+
+     OSG_DIR
+     CAL3D_DIR
+
+
 After installation you get:
 
  * libosgCal{.so|.dll} -- the library itself.

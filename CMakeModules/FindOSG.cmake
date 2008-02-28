@@ -9,6 +9,7 @@
 
 FIND_PATH(OSG_INCLUDE_DIR osg/Node
 	$ENV{OSG_DIR}/include
+    /usr/local/OpenSceneGraph/include
 )
 
 MACRO(FIND_OSG_LIBRARY MYLIBRARY MYLIBRARYNAME)
@@ -21,6 +22,7 @@ MACRO(FIND_OSG_LIBRARY MYLIBRARY MYLIBRARYNAME)
           /usr/local/lib
           /usr/lib64
           /usr/lib
+          /usr/local/OpenSceneGraph
 	    )
 
 ENDMACRO(FIND_OSG_LIBRARY LIBRARY LIBRARYNAME)

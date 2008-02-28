@@ -28,7 +28,7 @@ INCLUDE(osgcalUtils)
 FIND_PACKAGE(OSG)
 FIND_PACKAGE(CAL3D)
 FIND_PACKAGE(OpenThreads)
-#FIND_PACKAGE(OpenGL)
+FIND_PACKAGE(OpenGL)
 
 IF (NOT OSG_FOUND)
   MESSAGE(FATAL_ERROR "Unable to locate OpenSceneGraph libary")
