@@ -1,8 +1,0 @@
-Ruben Lopez <ryu@gpul.org> : The core library
-Jose A. Iglesias <jalley@videalab.udc.es> : version 0.1.5
-
-Alberto Farre <afarre@evalfa.com>: Windows port
-
-Jan Ciger <jan.ciger@gmail.com>: version 0.2.1
-
-Vladimir Shabanov <vshabanoff@gmail.com> : version 0.3.0
