@@ -1,0 +1,138 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+ <meta http-equiv="content-type" content="text/html;charset=utf-8" />
+ <meta name="keywords" content="osgCal, osgCal2, OpenSceneGraph, skeletal, animation" />
+ <title>osgCal2 - Adapting cal3d to OpenSceneGraph</title>
+ <link href="css/basic.css" rel="stylesheet" type="text/css" media="all" />
+</head>
+<center><h1>osgCal2</h1></center>
+<br>
+<div class="heading_first">News?</div>
+<p><div class="date">May 4, 2007</div>
+  osgCal2 <b>0.3.0 preliminary</b> version availble!
+  <p class="p_small_bottom">Use:
+  <pre>svn co https://osgcal.svn.sourceforge.net/svnroot/osgcal/trunk/osgCal osgCal</pre>
+to get the sources. And:
+  <pre>svn co https://osgcal.svn.sourceforge.net/svnroot/osgcal/trunk/models models</pre>
+to get the test models.
+<p class="p_small_bottom">Then:
+<pre>make
+make install</pre>
+
+<p>You'll get the library + osgCalViewer, which can be used to view
+models, meshes and animations.
+
+<p>I hope it will work :)
+
+<p>Some preliminary version features:
+<div class="list"><ul>
+ <li>Works under OSG 1.9.x.
+ <li>Uses GLSL hardware skinning, yet supporting OSG picking.
+ <li>Can be swiched to fixed function implementation.
+ <li>Supports normal mapped, two-sided & transparent meshes.
+ <li>Uses different shaders (with minimum of instructions) for different
+ materials.
+ <li>Calculates deformations only when bone positions are changed.
+ <li>Uses non-skinning shader for fast drawing of non-deformed meshes.
+</ul></div>
+</p>
+
+<p><div class="date">June 1, 2005</div>
+  osgCal2 <b>0.2.1</b> released! The previous file was
+  wrong, use this new version. I forgot also to mention that it has Jan
+  Ciger's changes, to improve rendering code and state management.</p>
+
+<p><div class="date">June 1, 2005</div>
+  osgCal2 <b>0.2.0</b> released! Download it 
+  <a href="https://sourceforge.net/project/showfiles.php?group_id=79240">here</a>.
+  It's ported to OSG 0.9.9 and Cal3D 0.10.0. Other changes include:<p>
+<div class="list"><ul>
+ <li>Fixed the problem with flip textures.
+ <li>Fixed initial time values for the animations.
+ <li>Fixed problem with the new empty constructor of Model class.
+ <li>New method to load animations and associate one name to save and
+recover them later.
+ <li>New code for read/write animations with its name associated.
+ <li>Fixed the problem of locate textures in the correct path, now the .osg
+model can find them.
+</ul></div>
+Thanks to Jose A. Iglesias for most of these enhancements.</p>
+
+<p><div class="date">March 30, 2005: New status</div>
+  There are currently <b>two</b> active
+branches of this project. One of them is the one that was always at this
+page, it's LGPL as always, and it will remain the same. There is another
+branch, maintained by Loic Dachary, licensed under GPL, with changes that
+his group have made. Their policy is to release their changes under GPL and
+I respect this, but as this conflicts with my own policy for the project,
+both branches will be developed independently.<br>
+A new version of the (LGPL) sources will be uploaded to the SourceForge CVS as soon
+as possible with many improvements and synced with OSG 0.9.8.<br>
+You can access the GPL version at <a
+href="http://cvs.gna.org/viewcvs/underware/osgcal/">'Gna!'</a>, and their
+stable versions are published at <a
+href="http://download.gna.org/underware/debian/unstable/">the download area
+of Gna!</a><br>
+To minimize confussions, we will refer to the GPL version as osgCal, and to
+the LGPL version as osgCal2, as the GPL one is already in Debian with this
+name.<br>
+The SF.net CVS repository is reactivated and has the latest patches from
+Jose A. Iglesias.</p>
+
+<p><div class="date">April 27, 2003</div>
+  CVS moved to <a href="https://sourceforge.net/projects/osgcal/">sourceforge</a></p>
+
+<p><div class="date">April 20, 2003</div>
+  Version <b>0.1.2</b> &amp; <b>0.1.3</b>: Alberto Farre ported it to Windows, and
+added some VisualStudio project files.  He also enhaced the sample to cicle
+between animations with the 'm' key. Keep present that not all the
+animations are thinked for looping although they are all played as loops, so
+some of them can do extrange things... </p>
+
+<p><div class="date">April 19, 2003</div>
+  Version <b>0.1.1</b>: Ported to osgProducer and cleaned up the example.</p>
+
+<p><div class="date">April 19, 2003</div>
+  Version <b>0.1</b>: I've fixed some bugs found by Robert both in the
+library and in the data. Download the new files, please.</p><p></p>
+
+<p><div class="heading">What is it?</div>
+<tt>osgCal</tt> is an adapter for using <a
+href="http://cal3d.sourceforge.net">cal3d</a> inside <a
+href="http://www.openscenegraph.org">OpenSceneGraph</a>.</p>
+
+<p><tt>Cal3D</tt> is a character animation library based on skeletons and bones.</p>
+
+<p><div class="heading">Where to download?</div>
+<div class="list"><ul>
+  <li><a href="https://sourceforge.net/project/showfiles.php?group_id=79240">Here</a> is the latest release.
+</ul></div>
+If you are a <a href="http://www.debian.org">Debian</a> user, you
+can use APT to download the <b>GPL</b> version from Debian, but take into
+account that this is the GPL version, and you must ask questions on this
+branch to their authors.</p>
+
+<p><div class="heading">Some screenshots?</div>
+Yes, here you can see the cal3d paladin walking on top of a smoking
+cessnafire:<br>
+
+<a href="paladin_cessnafire.png"><img src="paladin_cessnafire_little.png"
+border="0"></a></p>
+
+<p>And here are some screenshots from version 0.3.0 currently under development:<br>
+<a href="gulchatai.png"><img src="gulchatai_small.png" border="0"></a>
+<a href="abdulla.png"><img src="abdulla_small.png" border="0"></a><br>
+<a href="skeleton.png"><img src="skeleton_small.png" border="0"></a>
+<a href="cally.png"><img src="cally_small.png" border="0"></a><br>
+<a href="cally_in_viewer.png"><img src="cally_in_viewer_small.png" border="0"></a><br>
+</p>
+<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+</script>
+<script type="text/javascript">
+_uacct = "UA-402739-7";
+urchinTracker();
+</script>
+</body>
+</html>

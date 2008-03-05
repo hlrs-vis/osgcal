@@ -1,0 +1,11 @@
+prefix=c:/prog/mingw
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: cal3d
+Description: The character animation library
+Version: 0.10.0
+Requires: 
+Libs: -L${libdir} -lcal3d
+Cflags: -I${includedir}

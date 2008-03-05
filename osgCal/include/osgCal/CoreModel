@@ -73,7 +73,6 @@ namespace osgCal
             
             const MeshVector&                   getMeshes()         const { return meshes; }
             const std::vector< std::string >&   getAnimationNames() const { return animationNames; }
-            const std::vector< float >&         getAnimationDurations() const { return animationDurations; }
 
         private:
 
@@ -87,7 +86,6 @@ namespace osgCal
 
             MeshVector                  meshes;
             std::vector< std::string >  animationNames;
-            std::vector< float >        animationDurations;
     };
 
 

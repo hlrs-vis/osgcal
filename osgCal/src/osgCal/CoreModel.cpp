@@ -149,7 +149,6 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
     for ( int i = 0; i < calCoreModel->getCoreAnimationCount(); i++ )
     {
         animationNames.push_back( calCoreModel->getCoreAnimation( i )->getName() );
-        animationDurations.push_back( calCoreModel->getCoreAnimation( i )->getDuration() );
     }
 }
 

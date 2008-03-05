@@ -1,0 +1,133 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: cal3d_max_exporter - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD2.tmp" with contents
+[
+/nologo /MD /W3 /GR /GX /O2 /I "." /I "..\src" /I "..\src\win32" /I "..\..\src" /I "e:\3dsmax7\maxsdk\include" /I "e:\3dsmax7\maxsdk\include\CS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_WINDLL" /D "_AFXDLL" /D "_MBCS" /D "_USRDLL" /FR"Release/" /Fp"Release/cal3d_max_exporter.pch" /Yu"stdafx.h" /Fo"Release/" /Fd"Release/" /FD /c 
+"E:\Install\_\3D\cal3d\cal3d-0.10.0\plugins\src\Lodder.cpp"
+]
+Creating command line "cl.exe @C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD2.tmp" 
+Creating temporary file "C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD3.tmp" with contents
+[
+cal3d.lib core.lib geom.lib gfx.lib mesh.lib maxutil.lib maxscrpt.lib paramblk2.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"Release/cal3d_max_exporter.pdb" /machine:I386 /def:".\cal3d_max_exporter.def" /out:"..\..\bin\Release\cal3d_max_exporter.dle" /implib:"Release/cal3d_max_exporter.lib" /libpath:"..\..\bin\Release" /libpath:"e:\3dsmax7\maxsdk\lib" 
+".\Release\AnimationExportSheet.obj"
+".\Release\AnimationTimePage.obj"
+".\Release\BaseInterface.obj"
+".\Release\BaseMaterial.obj"
+".\Release\BaseMesh.obj"
+".\Release\BaseNode.obj"
+".\Release\BoneAssignmentPage.obj"
+".\Release\BoneCandidate.obj"
+".\Release\cal3d_max_exporter.obj"
+".\Release\Exporter.obj"
+".\Release\LevelOfDetailPage.obj"
+".\Release\Lodder.obj"
+".\Release\MaterialCandidate.obj"
+".\Release\MaterialExportSheet.obj"
+".\Release\MaterialLibraryCandidate.obj"
+".\Release\MaterialMapDialog.obj"
+".\Release\MaterialMapsPage.obj"
+".\Release\MaterialSelectionPage.obj"
+".\Release\max2ogl.obj"
+".\Release\MaxAnimationExport.obj"
+".\Release\MaxAnimationExportDesc.obj"
+".\Release\MaxAnimationExportMaxscriptCall.obj"
+".\Release\MaxInterface.obj"
+".\Release\MaxMaterial.obj"
+".\Release\MaxMaterialExport.obj"
+".\Release\MaxMaterialExportDesc.obj"
+".\Release\MaxMaterialExportMaxscriptCall.obj"
+".\Release\MaxMesh.obj"
+".\Release\MaxMeshExport.obj"
+".\Release\MaxMeshExportDesc.obj"
+".\Release\MaxMeshExportMaxscriptCall.obj"
+".\Release\MaxNode.obj"
+".\Release\MaxNullView.obj"
+".\Release\MaxSkeletonExport.obj"
+".\Release\MaxSkeletonExportDesc.obj"
+".\Release\MaxSkeletonExportMaxscriptCall.obj"
+".\Release\MeshCandidate.obj"
+".\Release\MeshExportSheet.obj"
+".\Release\Quadric.obj"
+".\Release\SkeletonCandidate.obj"
+".\Release\SkeletonExportSheet.obj"
+".\Release\SkeletonFilePage.obj"
+".\Release\SkeletonHierarchyPage.obj"
+".\Release\SpringSystemPage.obj"
+".\Release\StdAfx.obj"
+".\Release\SubmeshCandidate.obj"
+".\Release\VertexCandidate.obj"
+".\Release\cal3d_max_exporter.res"
+]
+Creating command line "link.exe @C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD3.tmp"
+<h3>Output Window</h3>
+Compiling...
+Lodder.cpp
+Linking...
+   Creating library Release/cal3d_max_exporter.lib and object Release/cal3d_max_exporter.exp
+Creating temporary file "C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD7.tmp" with contents
+[
+/nologo /o"Release/cal3d_max_exporter.bsc" 
+".\Release\StdAfx.sbr"
+".\Release\AnimationExportSheet.sbr"
+".\Release\AnimationTimePage.sbr"
+".\Release\BaseInterface.sbr"
+".\Release\BaseMaterial.sbr"
+".\Release\BaseMesh.sbr"
+".\Release\BaseNode.sbr"
+".\Release\BoneAssignmentPage.sbr"
+".\Release\BoneCandidate.sbr"
+".\Release\cal3d_max_exporter.sbr"
+".\Release\Exporter.sbr"
+".\Release\LevelOfDetailPage.sbr"
+".\Release\Lodder.sbr"
+".\Release\MaterialCandidate.sbr"
+".\Release\MaterialExportSheet.sbr"
+".\Release\MaterialLibraryCandidate.sbr"
+".\Release\MaterialMapDialog.sbr"
+".\Release\MaterialMapsPage.sbr"
+".\Release\MaterialSelectionPage.sbr"
+".\Release\max2ogl.sbr"
+".\Release\MaxAnimationExport.sbr"
+".\Release\MaxAnimationExportDesc.sbr"
+".\Release\MaxAnimationExportMaxscriptCall.sbr"
+".\Release\MaxInterface.sbr"
+".\Release\MaxMaterial.sbr"
+".\Release\MaxMaterialExport.sbr"
+".\Release\MaxMaterialExportDesc.sbr"
+".\Release\MaxMaterialExportMaxscriptCall.sbr"
+".\Release\MaxMesh.sbr"
+".\Release\MaxMeshExport.sbr"
+".\Release\MaxMeshExportDesc.sbr"
+".\Release\MaxMeshExportMaxscriptCall.sbr"
+".\Release\MaxNode.sbr"
+".\Release\MaxNullView.sbr"
+".\Release\MaxSkeletonExport.sbr"
+".\Release\MaxSkeletonExportDesc.sbr"
+".\Release\MaxSkeletonExportMaxscriptCall.sbr"
+".\Release\MeshCandidate.sbr"
+".\Release\MeshExportSheet.sbr"
+".\Release\Quadric.sbr"
+".\Release\SkeletonCandidate.sbr"
+".\Release\SkeletonExportSheet.sbr"
+".\Release\SkeletonFilePage.sbr"
+".\Release\SkeletonHierarchyPage.sbr"
+".\Release\SpringSystemPage.sbr"
+".\Release\SubmeshCandidate.sbr"
+".\Release\VertexCandidate.sbr"]
+Creating command line "bscmake.exe @C:\DOCUME~1\DRG\LOCALS~1\Temp\RSPD7.tmp"
+Creating browse info file...
+<h3>Output Window</h3>
+
+
+
+<h3>Results</h3>
+cal3d_max_exporter.dle - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

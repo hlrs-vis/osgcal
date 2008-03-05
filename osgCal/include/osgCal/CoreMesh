@@ -44,7 +44,7 @@ namespace osgCal
      * many things that can be done offline [TBN calculation,
      * rigidness detection, etc.]).
      */
-    struct OSGCAL_EXPORT CoreMesh : public osg::Referenced
+    struct CoreMesh : public osg::Referenced
     {
         public:
 

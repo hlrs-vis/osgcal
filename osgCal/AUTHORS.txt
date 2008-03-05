@@ -5,6 +5,4 @@ Alberto Farre <afarre@evalfa.com>: Windows port
 
 Jan Ciger <jan.ciger@gmail.com>: version 0.2.1
 
-Vladimir Shabanov <vshabanoff@gmail.com> : version 0.3.x
-
-Anders Backman <andersb@cs.umu.se>: CMake build system
+Vladimir Shabanov <vshabanoff@gmail.com> : version 0.3.0

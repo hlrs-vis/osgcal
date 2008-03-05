@@ -26,9 +26,8 @@ Features:
  * Supports normal/bump mapped, two-sided & transparent meshes.
  * Uses different shaders (with minimum of instructions) for different
    materials.
- * Uses matrix transforms and non-skinning shader for fast drawing
-   of rigid meshes. 
  * Calculates deformations only when bone positions are changed.
+ * Uses non-skinning shader for fast drawing of non-deformed meshes. 
  * Puts each submesh inside a different osg::Drawable to take advantage of
    the OSG state sorting.
 
@@ -36,20 +35,12 @@ How to build:
 
  * Type the following commands:
 
-     cmake . -DCMAKE_BUILD_TYPE=Release
      make
-     sudo make install
+     make install
 
  * If you want to install into /usr/ instead of /usr/local, use this instead:
 
-     cmake . -DCMAKE_INSTALL_PREFIX=/usr
-
- * If some libraries are not found using "cmake ." (for example under Windows)
-   you can use following environment variables
-
-     OSG_DIR
-     CAL3D_DIR
-
+     make install DESTDIR=/usr
 
 After installation you get:
 
@@ -62,9 +53,8 @@ After installation you get:
      osgCalViewer <...>.caf   - view specified animation
      osgCalViewer --help      - for additional command line parameters
 
-   In the viewer itself you can run and switch animation cycles
-   using '1', '2', etc. keys and '0' key to stop animation. Using
-   'Ctrl+1', 'Ctrl+2', etc. keys you can run single animation.
+   In the viewer itself you can switch animations using '1', '2', etc. keys
+   and '0' key to stop animation.
    Also you can use 'h' key to see other available key combinations.
 
  * osgCalPreparer[.exe] -- meshes cache file preparer. Use it to

@@ -1,2 +1,0 @@
-ADD_SUBDIRECTORY(viewer)
-ADD_SUBDIRECTORY(preparer)
