@@ -1,0 +1,103 @@
+/* -*- c++ -*-
+    Copyright (C) 2003 <ryu@gpul.org>
+    Copyright (C) 2006 Vladimir Shabanov <vshabanoff@gmail.com>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+#ifndef __OSGCAL__CORE_MODEL_H__
+#define __OSGCAL__CORE_MODEL_H__
+
+#include <vector>
+#include <stdexcept>
+
+#include <cal3d/cal3d.h>
+
+#include <osgCal/Export>
+#include <osgCal/CoreMesh>
+
+namespace osgCal
+{
+    /**
+     * Core Model class that creates a templated core object.
+     * In order to create an animated model, a cal3d core model has to
+     * be created. Given this core model it is possible to instantiate it
+     * by creating a model which is in fact the real animated model and
+     * object which can be inserted into an osg graph.
+     */
+    class OSGCAL_EXPORT CoreModel : public osg::Object
+    {
+        public:
+            META_Object(osgCal, CoreModel);
+
+            CoreModel();
+
+            /**
+             * Loads cal3d core model and prepare all internal stuff for fast Models creation.
+             * This function may be called only once.
+             */
+            void load( const std::string& cfgFileName,
+                       MeshParametersSelector* p = 0 ) throw (std::runtime_error);
+
+            void load( const std::string& cfgFileName,
+                       MeshParameters* p ) throw (std::runtime_error)
+            {
+                load( cfgFileName, new ConstMeshParametersSelector( p ) );
+            }
+
+            /**
+             * Same as load, but doesn't throw exceptions on error.
+             */
+            bool loadNoThrow( const std::string& cfgFileName,
+                              std::string&       errorText,
+                              MeshParametersSelector* ps = 0 ) throw ();
+
+            CalCoreModel*  getCalCoreModel()  const  { return calCoreModel; }
+
+            StateSetCache* getStateSetCache() const  { return stateSetCache.get(); }
+
+            float getScale() const { return scale; }
+
+            typedef std::vector< osg::ref_ptr< CoreMesh > > MeshVector;
+            
+            const MeshVector&                   getMeshes()         const { return meshes; }
+            const std::vector< std::string >&   getAnimationNames() const { return animationNames; }
+            const std::vector< float >&         getAnimationDurations() const { return animationDurations; }
+
+        private:
+
+            CoreModel(const CoreModel&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
+            virtual ~CoreModel();
+
+            float               scale;
+            CalCoreModel*       calCoreModel;
+
+            osg::ref_ptr< StateSetCache > stateSetCache;
+
+            MeshVector                  meshes;
+            std::vector< std::string >  animationNames;
+            std::vector< float >        animationDurations;
+    };
+
+
+    // -- CalCoreModel I/O --
+
+    OSGCAL_EXPORT CalCoreModel* loadCoreModel( const std::string& cfgFileName,
+                                               float& scale,
+                                               bool ignoreMeshes = false )
+        throw (std::runtime_error);
+
+}; // namespace osgCal
+
+#endif
