@@ -248,7 +248,7 @@ def export_textures():
             print "Exporting", texture_display_name, " ... ",
             # check for bump texture
             if type_of_texture == "bump":
-                temp_normals_texture = "./tmp.nm.dds"
+                temp_normals_texture = os.path.join(output_dir, "tmp.nm.dds")
                 run_nvdxt(texture, temp_normals_texture,
                 #          "-n4 -u888 -rgb -nomipmap")
                           "-n4 -u888 -rgb -inputScale 5.0 5.0 5.0 5.0 -nomipmap")
@@ -256,7 +256,7 @@ def export_textures():
                 # and don't use -n3x3, 5x5, 7x7 or 9x9 filters since they
                 # make bump look too smooth in comparison with one rendered in 3DSMax.
                 run_nmexport(temp_normals_texture)
-                #os.remove(temp_normals_texture)
+                os.remove(temp_normals_texture)
             else:
                 run_nmexport(texture)                
             print "ok"

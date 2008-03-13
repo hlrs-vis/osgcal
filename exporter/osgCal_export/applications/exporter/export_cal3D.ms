@@ -207,8 +207,8 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 	label lbl10 "Min weight threshold" pos:[48,176] width:104 height:16
 	spinner spnMinThres "" pos:[152,176] width:64 height:16 range:[0.001,1,0.001] scale:0.01
 	GroupBox grp4 "Cal3D mini-viewer" pos:[8,200] width:216 height:56
-	checkbox chkCreateCFG "Create cal3D.cfg" pos:[24,216] width:112 height:16
-	checkbox chkPreviewCFG "Preview cal3D.cfg" pos:[24,232] width:112 height:16
+	checkbox chkCreateCFG "Create cal3D.cfg" pos:[24,216] width:112 height:16 checked:true
+	checkbox chkPreviewCFG "Preview cal3D.cfg" pos:[24,232] width:112 height:16 checked:true
 	GroupBox grp2 "Animations" pos:[232,8] width:224 height:248
 	listbox lbxAnims "" pos:[256,48] width:160 height:8
 	button btnAnimAdd "+" pos:[424,48] width:24 height:16 toolTip:"Add an animation entry"
@@ -366,7 +366,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 	(
 		aList = #()
 
-		lblExportDir.text = backslash (getDir #Export)
+		lblExportDir.text = backslash (getDir #temp)
 		cal3DDataNode = getNodeByName cal3DDataNodeName
 		if (cal3DDataNode==undefined) then return #()
 		sbuff = getUserPropBuffer cal3DDataNode
@@ -384,7 +384,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 		else
 		(
 			tmp = getStringKey sbuff "general" "exportDir"
-			if (tmp=="") then tmp=getDir #Export
+			if (tmp=="") then tmp=getDir #temp
 			lblExportDir.text = backSlash tmp
 			chkCreateCFG.checked = (getStringKey sbuff "general" "generateCFG")== "true"
 			chkPreviewCFG.checked = (getStringKey sbuff "general" "LaunchPreview")== "true"
@@ -524,6 +524,26 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
         )
 
 		--	Mat & Mesh
+
+        -- check for duplicate meshes
+        nodsNames = #()
+
+		for o in objSet do
+        (
+                if (isGroupHead o) then
+                (
+                    continue -- skip group heads since they are not meshes themselfs
+                )
+                else
+                (
+                    if (findItem nodsNames o.name != 0) then
+                    (
+				        return ("Duplicate mesh name found\n"+o.name)
+                    )
+                    append nodsNames o.name
+                )
+        )
+
 		num=0
 		for obj in objSet do
 		(
@@ -753,24 +773,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
             -- Export textures and prepare model --
             if exportType == "materials" or exportType == "all" then
             (
-            -- Create map paths list file --
-            f = createFile (maxFilePath + getFilenameFile maxFileName + "_map_paths.lst")
-			if (f==undefined) then
-			(
-				MessageBox ("Cannot create the map_paths.lst file\n"+f) title:"CAL3D Export"
-				return()
-			)
-            
-            format "%\n" maxFilePath to:f
-            -- max file path is first path to search
-            
-            for i=1 to mapPaths.count() do
-            (
-                format "%\n" (mapPaths.get i) to:f
-            )
-
-            close f
-
+            texturePaths = #()
             -- Create textures list file --
             f = createFile (maxFilePath + getFilenameFile maxFileName + "_current_textures.csv")
 			if (f==undefined) then
@@ -781,16 +784,18 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 
             for meshnod in nods do
 			(
-                fn printMat mat f =
+                fn printMat mat f texturePaths =
                 (
                         if mat.diffuseMapEnable and (classof mat.diffuseMap == BitmapTexture) then
                         (
                             format "%;DXT1;1024;1024\n" (filenameFromPath mat.diffuseMap.filename) to:f
+                            insertItem (getFilenamePath mat.diffuseMap.filename) texturePaths 1
                         )
                         
                         if mat.bumpMapEnable and (classof mat.bumpMap == Normal_Bump) then
                         (
                             format (filenameFromPath mat.bumpMap.normal_map.filename) to:f
+                            insertItem (getFilenamePath mat.bumpMap.normal_map.filename) texturePaths 1
                             format ";NormalsMap" to:f
                             if mat.bumpMap.flipred then
                             (
@@ -807,6 +812,7 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
                         (
                             format "bump:" to:f  -- we prefix bump textures with "bump:"
                             format (filenameFromPath mat.bumpMap.filename) to:f
+                            insertItem (getFilenamePath mat.bumpMap.filename) texturePaths 1
                             format ";Bump;1024;1024\n"to:f
                         )
                 )
@@ -815,13 +821,13 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				(
 					StandardMaterial:
 					(
-                        printMat mat f
+                        printMat mat f texturePaths
 					)
 					MultiMaterial:
 					(
 						for i=1 to mat.materialList.count do
 						(
-                            printMat (mat.materialList[i]) f
+                            printMat (mat.materialList[i]) f texturePaths
 						)
 					)
 					default:
@@ -831,6 +837,29 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
 				)
 			)
 			close f
+
+            -- Create map paths list file --
+            f = createFile (maxFilePath + getFilenameFile maxFileName + "_map_paths.lst")
+			if (f==undefined) then
+			(
+				MessageBox ("Cannot create the map_paths.lst file\n"+f) title:"CAL3D Export"
+				return()
+			)
+
+            format "%\n" maxFilePath to:f
+            -- max file path is first path to search
+            
+            for i=1 to texturePaths.count do -- used texture paths
+            (
+                format "%\n" (texturePaths[i]) to:f
+            )
+
+            for i=1 to mapPaths.count() do
+            (
+                format "%\n" (mapPaths.get i) to:f
+            )
+
+            close f
 
             -- Perform exporting of textures --
             export_textures_bat = lblExportDir.text + "export_textures.bat"

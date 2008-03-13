@@ -73,7 +73,7 @@ bool CMaxMesh::Create(INode *pINode, Mesh *pIMesh, TriObject* pTriObjectToDelete
   // recursively create materials
   if(!CreateMaterial(m_pINode->GetMtl())) { m_bDelete = false; return false; }
   
-  m_pIMesh->buildNormals(); // forced normal building
+//  m_pIMesh->buildNormals(); // forced normal building <- this call corrupts normals in 3dsmax9
   // build all normals if necessary
   m_pIMesh->checkNormals(TRUE);
 
@@ -672,6 +672,12 @@ CVertexCandidate *CMaxMesh::GetVertexCandidate(CSkeletonCandidate *pSkeletonCand
 
 Point3 CMaxMesh::GetVertexNormal(int faceId, int vertexId)
 {
+//   m_pIMesh->checkNormals(TRUE);
+//     if ( vertexId >= m_pIMesh->getNumVerts() )
+//     {
+// 	  AfxMessageBox("vertexId >= m_pIMesh->getNumVerts()", MB_OK | MB_ICONEXCLAMATION);
+// 	  return Point3( 0, 0, 0 );
+//     }
 	//return Point3( 0.0, 1.0, 0.0 );
   // get the "rendered" vertex
   RVertex *pRVertex;
@@ -703,7 +709,8 @@ Point3 CMaxMesh::GetVertexNormal(int faceId, int vertexId)
   else if((normalCount > 0) && (smGroup != 0))
   {
     // If there is only one vertex is found in the rn member.
-    if(normalCount == 1)
+//    if(normalCount == 1)
+    if(pRVertex->ern == NULL)
     {
       return pRVertex->rn.getNormal();
     }
