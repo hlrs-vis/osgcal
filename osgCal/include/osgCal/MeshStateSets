@@ -47,6 +47,8 @@ namespace osgCal
 
             osg::ref_ptr< osg::StateSet >   depthOnly; ///< depth only hw state ste
             osg::ref_ptr< osg::StateSet >   staticDepthOnly; ///< zero bones state set
+
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
     };
 
 }; // namespace osgCal

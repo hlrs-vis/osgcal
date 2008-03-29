@@ -75,6 +75,8 @@ namespace osgCal
             const std::vector< std::string >&   getAnimationNames() const { return animationNames; }
             const std::vector< float >&         getAnimationDurations() const { return animationDurations; }
 
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
+
         private:
 
             CoreModel(const CoreModel&, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);

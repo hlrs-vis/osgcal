@@ -77,6 +77,8 @@ namespace osgCal
             osg::ref_ptr< MeshDisplayLists >    displayLists;
             osg::ref_ptr< MeshStateSets >       stateSets;
 
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
+
     };
 
 }; // namespace osgCal

@@ -331,6 +331,18 @@ HardwareMesh::innerDrawImplementation( osg::RenderInfo&     renderInfo,
 #else
     #define NORMAL_TYPE         GL_FLOAT
 #endif
+
+    if ( !mesh->data->normalBuffer.valid() )
+    {
+        throw std::runtime_error( "HardwareMesh::innerDrawImplementation(): normalBuffer is not valid. "
+                                  "This could happend if your program uses maximum numbers of graphics contexts "
+                                  "(32 by default, or the number you set to osg::DisplaySettings::instance()"
+                                  "->setMaxNumberOfGraphicsContexts()) so the normals & tex coord buffers "
+                                  "are freed after display list is compiled for the all possible contexts. "
+                                  "Either increase the maximum number of graphics contexts or reload your model."
+            );
+    }
+    
     state.setNormalPointer( NORMAL_TYPE, 0,
                             mesh->data->normalBuffer->getDataPointer() );
 

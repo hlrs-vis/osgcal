@@ -23,16 +23,7 @@ using namespace osgCal;
 
 MeshDisplayLists::~MeshDisplayLists()
 {
-    OpenThreads::ScopedLock< OpenThreads::Mutex > lock( mutex ); 
-
-    for( size_t i = 0; i < lists.size(); i++ )
-    {
-        if ( lists[i] != 0 )
-        {
-            osg::Drawable::deleteDisplayList( i, lists[i], 0/*getGLObjectSizeHint()*/ );
-            lists[i] = 0;
-        }
-    }            
+    releaseGLObjects( 0 );
 }
 
 void
@@ -59,4 +50,35 @@ MeshDisplayLists::checkAllDisplayListsCompiled( MeshData* data ) const
     data->normalBuffer = 0;
     data->texCoordBuffer = 0;
     data->tangentAndHandednessBuffer = 0;
+}
+
+void
+MeshDisplayLists::releaseGLObjects( osg::State* state ) const
+{
+    OpenThreads::ScopedLock< OpenThreads::Mutex > lock( mutex ); 
+
+    if ( state )
+    {
+        size_t  id = state->getContextID();
+        GLuint& dl = lists[ id ];
+
+        if ( dl != 0 )
+        {
+            osg::Drawable::deleteDisplayList( id, dl, 0/*getGLObjectSizeHint()*/ );
+            dl = 0;
+        }
+    }
+    else
+    {
+        for( size_t id = 0; id < lists.size(); id++ )
+        {
+            GLuint& dl = lists[ id ];
+
+            if ( dl != 0 )
+            {
+                osg::Drawable::deleteDisplayList( id, dl, 0/*getGLObjectSizeHint()*/ );
+                dl = 0;
+            }
+        }            
+    }
 }

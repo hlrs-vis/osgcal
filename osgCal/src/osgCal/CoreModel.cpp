@@ -170,6 +170,24 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
     }
 }
 
+void
+CoreModel::releaseGLObjects( osg::State* state ) const
+{
+    // DL, StateSets, Shaders?
+    for ( MeshVector::const_iterator
+              coreMesh = meshes.begin(),
+              coreMeshEnd = meshes.end();
+          coreMesh != coreMeshEnd; ++coreMesh )
+    {
+        (*coreMesh)->releaseGLObjects( state );
+        // removes mesh display lists & state sets
+    }
+
+    ShadersCache::instance()->releaseGLObjects( state );
+    // ^ generally not needed since shaders are included in mesh state sets
+}
+
+
 // -- CoreModel loading --
 
 struct FileCloser

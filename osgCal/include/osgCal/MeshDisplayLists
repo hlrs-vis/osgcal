@@ -62,6 +62,8 @@ namespace osgCal
              */
             void checkAllDisplayListsCompiled( MeshData* data ) const;
 
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
+
     };
 
 }; // namespace osgCal

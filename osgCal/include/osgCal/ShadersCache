@@ -73,6 +73,8 @@ namespace osgCal
              */
             static ShadersCache* instance();
 
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
+
         private:
 
             osg::Shader* getVertexShader( int flags );

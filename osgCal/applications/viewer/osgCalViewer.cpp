@@ -309,7 +309,8 @@ main( int argc,
         osg::setNotifyLevel( osg::DEBUG_FP );
     }
 
-    osg::Group* root = new osg::Group();
+//    osg::Group* root = new osg::Group();
+    osg::ref_ptr< osg::Group > root = new osg::Group();
     std::vector< std::string > animationNames;
     
     // -- Load model --
@@ -404,6 +405,9 @@ main( int argc,
     } // end of model's ref_ptr scope
 
     // -- Setup viewer --
+//    while ( true )
+    // shaders recompiled and linked OK but doesn't work on reloads (glValidateProgram FAILED?)
+    {
     osgViewer::Viewer viewer;
 
     if ( arguments.read( "--four-window" ) )
@@ -472,7 +476,7 @@ main( int argc,
     osg::LightSource* lightSource0 = new osg::LightSource();
     lightSource0->setLight( light0 );
     lightSource0->setReferenceFrame( osg::LightSource::ABSOLUTE_RF );
-    lightSource0->addChild( root );
+    lightSource0->addChild( root.get() );
 
 //     // -- light #1 --
 //     osg::Light* light1 = new osg::Light();
@@ -534,6 +538,7 @@ main( int argc,
 
 //    viewer.setSceneData( new osg::Group() ); // destroy scene data before viewer
     // ^ buggy in multi-threaded mode, or not???
+    }
 
     return 0;
 }

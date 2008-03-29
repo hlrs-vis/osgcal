@@ -558,7 +558,14 @@ Model::accept( osg::NodeVisitor& nv )
         }
     }
 
-    osg::Group::accept( nv );        
+    osg::Group::accept( nv ); // for user nodes
+}
+
+void
+Model::releaseGLObjects( osg::State* state ) const
+{    
+    modelData->getCoreModel()->releaseGLObjects( state );
+    osg::Group::releaseGLObjects( state ); // for user nodes
 }
 
 // -- MeshAdder --

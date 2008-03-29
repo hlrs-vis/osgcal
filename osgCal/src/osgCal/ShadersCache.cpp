@@ -239,6 +239,27 @@ ShadersCache::getFragmentShader( int flags )
     }
 }
 
+template < typename Map >
+void
+releaseGLObjectsInMap( const Map& map,
+                       osg::State* state )
+{
+    for ( typename Map::const_iterator
+              o = map.begin(),
+              oEnd = map.end();
+          o != oEnd; ++o )
+    {
+        o->second->releaseGLObjects( state );
+    }
+}
+
+void
+ShadersCache::releaseGLObjects( osg::State* state ) const
+{
+    releaseGLObjectsInMap( vertexShaders, state );
+    releaseGLObjectsInMap( fragmentShaders, state );
+    releaseGLObjectsInMap( programs, state );
+}
 
 /**
  * Global instance of ShadersCache.

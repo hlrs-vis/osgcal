@@ -49,3 +49,10 @@ CoreMesh::CoreMesh( const CoreModel* model,
                                     newP ) )
 {
 }
+
+void
+CoreMesh::releaseGLObjects( osg::State* state ) const
+{
+    displayLists->releaseGLObjects( state );
+    stateSets->releaseGLObjects( state );    
+}

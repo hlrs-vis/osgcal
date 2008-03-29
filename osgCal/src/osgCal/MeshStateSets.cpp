@@ -50,3 +50,20 @@ MeshStateSets::MeshStateSets( StateSetCache*  c,
         }
     }
 }
+
+static void release( const osg::ref_ptr< osg::StateSet >& ss, osg::State* state )
+{
+    if ( ss.valid() )
+    {
+        ss->releaseGLObjects( state );
+    }
+}
+
+void
+MeshStateSets::releaseGLObjects( osg::State* state ) const
+{
+    release( stateSet, state );
+    release( staticStateSet, state );
+    release( depthOnly, state );
+    release( staticDepthOnly, state );
+}

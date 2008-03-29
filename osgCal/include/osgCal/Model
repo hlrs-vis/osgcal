@@ -210,6 +210,25 @@ namespace osgCal {
              */
             virtual void accept( osg::NodeVisitor& nv );
 
+            /**
+             * If State is non-zero, this function releases any
+             * associated OpenGL objects for the specified graphics
+             * context.
+             *
+             * Otherwise, releases OpenGL objexts for all graphics
+             * contexts.
+             *
+             * This function is needed to remove shaders & display
+             * lists when the osg::GraphicsContext is closed from
+             * osgViewer::~Viewer().
+             *
+             * Since the scene is typically owned by osgViewer::Viewer
+             * CoreModel's destructor will be called only after
+             * GraphicsContext is already closed so display lists and
+             * shaders will be removed from non-existing context.
+             */
+            virtual void releaseGLObjects( osg::State* state = 0 ) const;
+
         protected:
 
             virtual ~Model();
