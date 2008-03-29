@@ -172,6 +172,21 @@ CoreModel::loadNoThrow( const std::string& cfgFileName,
 
 // -- CoreModel loading --
 
+struct FileCloser
+{
+        FILE* f;
+        FileCloser( FILE* f )
+            : f( f )
+        {}
+        ~FileCloser()
+        {
+            if ( f )
+            {
+                fclose( f );
+            }
+        }
+};
+
 CalCoreModel*
 osgCal::loadCoreModel( const std::string& cfgFileName,
                        float& scale,
@@ -187,6 +202,7 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
     {
         throw std::runtime_error( "Can't open " + cfgFileName );
     }
+    FileCloser closer( f );
 
     std::auto_ptr< CalCoreModel > calCoreModel( new CalCoreModel( "dummy" ) );
 
@@ -322,7 +338,6 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
     {
         calCoreModel->scale( scale );
     }
-    fclose( f );
 
     return calCoreModel.release();
 }

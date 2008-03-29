@@ -19,12 +19,13 @@ shaderText += "uniform mat3 rotationMatrices[31];\n";
 shaderText += "uniform vec3 translationVectors[31];\n";
 }
 shaderText += "\n";
+shaderText += "varying vec3 vNormal;\n";
+shaderText += "\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "# define tangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)\n";
-shaderText += "# define handedness   gl_MultiTexCoord1.w\n";
-shaderText += "varying mat3 eyeBasis; // in tangent space\n";
-} else {
-shaderText += "varying vec3 transformedNormal;\n";
+shaderText += "# define inputTangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)\n";
+shaderText += "# define inputHandedness   gl_MultiTexCoord1.w\n";
+shaderText += "varying vec3 tangent;\n";
+shaderText += "varying vec3 binormal;\n";
 }
 shaderText += "\n";
 if ( FOG ) {
@@ -91,17 +92,11 @@ if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;\n";
 } // no fog
 shaderText += "\n";
+shaderText += "    vNormal = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "    vec3 t = gl_NormalMatrix * (totalRotation * tangent);\n";
-shaderText += "    vec3 n = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
-shaderText += "    vec3 b = cross( n, t ) * handedness;\n";
-shaderText += "\n";
-shaderText += "    eyeBasis = mat3( t[0], b[0], n[0],\n";
-shaderText += "                     t[1], b[1], n[1],\n";
-shaderText += "                     t[2], b[2], n[2] );\n";
-} else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);\n";
-} // NORMAL_MAPPING == 1
+shaderText += "    tangent = gl_NormalMatrix * (totalRotation * inputTangent);\n";
+shaderText += "    binormal = cross( vNormal, tangent ) * inputHandedness;\n";
+} // no tangent space
 shaderText += "\n";
 } else { // no bones
 shaderText += "\n";
@@ -114,17 +109,11 @@ if ( FOG ) {
 shaderText += "    eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;\n";
 } // no fog
 shaderText += "\n";
+shaderText += "    vNormal = gl_NormalMatrix * gl_Normal;\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "    vec3 t = gl_NormalMatrix * tangent;\n";
-shaderText += "    vec3 n = gl_NormalMatrix * gl_Normal;\n";
-shaderText += "    vec3 b = cross( n, t ) * handedness;\n";
-shaderText += "\n";
-shaderText += "    eyeBasis = mat3( t[0], b[0], n[0],\n";
-shaderText += "                     t[1], b[1], n[1],\n";
-shaderText += "                     t[2], b[2], n[2] );\n";
-} else { // NORMAL_MAPPING == 1
-shaderText += "    transformedNormal = gl_NormalMatrix * gl_Normal;\n";
-} // NORMAL_MAPPING == 1
+shaderText += "    tangent = gl_NormalMatrix * inputTangent;\n";
+shaderText += "    binormal = cross( vNormal, tangent ) * inputHandedness;\n";
+} // no tangent space
 shaderText += "\n";
 } // BONES_COUNT >= 1
 shaderText += "}\n";

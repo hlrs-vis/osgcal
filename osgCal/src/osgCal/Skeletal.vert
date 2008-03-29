@@ -19,12 +19,13 @@ uniform mat3 rotationMatrices[31];
 uniform vec3 translationVectors[31];
 #endif
 
+varying vec3 vNormal;
+
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-# define tangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)
-# define handedness   gl_MultiTexCoord1.w
-varying mat3 eyeBasis; // in tangent space
-#else
-varying vec3 transformedNormal;
+# define inputTangent     (gl_MultiTexCoord1.xyz /* / 32767.0 */)
+# define inputHandedness   gl_MultiTexCoord1.w
+varying vec3 tangent;
+varying vec3 binormal;
 #endif
 
 #if FOG
@@ -91,17 +92,11 @@ void main()
     eyeVec = (gl_ModelViewMatrix * vec4(transformedPosition, 1.0)).xyz;
 #endif // no fog
 
+    vNormal = gl_NormalMatrix * (totalRotation * gl_Normal);
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-    vec3 t = gl_NormalMatrix * (totalRotation * tangent);
-    vec3 n = gl_NormalMatrix * (totalRotation * gl_Normal);
-    vec3 b = cross( n, t ) * handedness;
-
-    eyeBasis = mat3( t[0], b[0], n[0],
-                     t[1], b[1], n[1],
-                     t[2], b[2], n[2] );
-#else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * (totalRotation * gl_Normal);
-#endif // NORMAL_MAPPING == 1
+    tangent = gl_NormalMatrix * (totalRotation * inputTangent);
+    binormal = cross( vNormal, tangent ) * inputHandedness;
+#endif // no tangent space
 
 #else // no bones
 
@@ -114,17 +109,11 @@ void main()
     eyeVec = (gl_ModelViewMatrix * gl_Vertex).xyz;
 #endif // no fog
 
+    vNormal = gl_NormalMatrix * gl_Normal;
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-    vec3 t = gl_NormalMatrix * tangent;
-    vec3 n = gl_NormalMatrix * gl_Normal;
-    vec3 b = cross( n, t ) * handedness;
-
-    eyeBasis = mat3( t[0], b[0], n[0],
-                     t[1], b[1], n[1],
-                     t[2], b[2], n[2] );
-#else // NORMAL_MAPPING == 1
-    transformedNormal = gl_NormalMatrix * gl_Normal;
-#endif // NORMAL_MAPPING == 1
+    tangent = gl_NormalMatrix * inputTangent;
+    binormal = cross( vNormal, tangent ) * inputHandedness;
+#endif // no tangent space
 
 #endif // BONES_COUNT >= 1
 }

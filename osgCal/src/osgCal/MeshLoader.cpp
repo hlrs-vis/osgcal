@@ -338,15 +338,15 @@ loadMeshes( CalCoreModel* calCoreModel,
     osg::ref_ptr< NormalBuffer >      tangentBuffer( new NormalBuffer( maxVertices ) );
     osg::ref_ptr< NormalBuffer >      binormalBuffer( new NormalBuffer( maxVertices ) );
     osg::ref_ptr< TexCoordBuffer >    texCoordBuffer( new TexCoordBuffer( maxVertices ) );
-    CalIndex*                         indexBuffer = new CalIndex[ maxFaces*3 ];
+    std::vector< CalIndex >           indexBuffer( maxFaces*3 );
 
-    float* floatMatrixIndexBuffer = new float[maxVertices*4];
+    std::vector< float > floatMatrixIndexBuffer( maxVertices*4 );
 
     calHardwareModel->setVertexBuffer((char*)vertexBuffer->getDataPointer(),
                                       3*sizeof(float));
 #ifdef OSG_CAL_BYTE_BUFFERS
-    float* floatNormalBuffer = new float[getVertexCount()*3];
-    calHardwareModel->setNormalBuffer((char*)floatNormalBuffer,
+    std::vector< float > floatNormalBuffer( getVertexCount()*3 );
+    calHardwareModel->setNormalBuffer((char*)&floatNormalBuffer.begin(),
                                       3*sizeof(float));
 #else
     calHardwareModel->setNormalBuffer((char*)normalBuffer->getDataPointer(),
@@ -354,13 +354,13 @@ loadMeshes( CalCoreModel* calCoreModel,
 #endif
     calHardwareModel->setWeightBuffer((char*)weightBuffer->getDataPointer(),
                                       4*sizeof(float));
-    calHardwareModel->setMatrixIndexBuffer((char*)floatMatrixIndexBuffer,
+    calHardwareModel->setMatrixIndexBuffer((char*)&floatMatrixIndexBuffer.front(),
                                            4*sizeof(float));
     calHardwareModel->setTextureCoordNum( 1 );
     calHardwareModel->setTextureCoordBuffer(0, // texture stage #
                                             (char*)texCoordBuffer->getDataPointer(),
                                             2*sizeof(float));
-    calHardwareModel->setIndexBuffer( indexBuffer );
+    calHardwareModel->setIndexBuffer( &indexBuffer.front() );
     // calHardwareModel->setCoreMeshIds(_activeMeshes);
     // if ids not set all meshes will be used at load() time
 
@@ -380,8 +380,6 @@ loadMeshes( CalCoreModel* calCoreModel,
         matrixIndexBufferData[i] = static_cast< GLubyte >( floatMatrixIndexBuffer[i] );
     }
 
-    delete[] floatMatrixIndexBuffer;
-
 #ifdef OSG_CAL_BYTE_BUFFERS
     GLbyte* normals = (GLbyte*) normalBuffer->getDataPointer();
 
@@ -389,8 +387,6 @@ loadMeshes( CalCoreModel* calCoreModel,
     {
         normals[i]  = static_cast< GLbyte >( floatNormalBuffer[i]*127.0 );
     }
-
-    delete[] floatNormalBuffer;
 #endif
 
     // invert UVs for OpenGL (textures are inverted otherwise - for example, see abdulla/klinok)
@@ -420,10 +416,23 @@ loadMeshes( CalCoreModel* calCoreModel,
         CalHardwareModel::CalHardwareMesh* hardwareMesh =
             &calHardwareModel->getVectorHardwareMesh()[ hardwareMeshId ];
 
-        MeshData* m = new MeshData;
+        osg::ref_ptr< MeshData > m( new MeshData );
         
         m->name = calCoreModel->getCoreMesh( hardwareMesh->meshId )->getName();
         m->coreMaterial = hardwareMesh->pCoreMaterial;
+        if ( m->coreMaterial == NULL )
+        {
+            CalCoreMesh*    coreMesh    = calCoreModel->getCoreMesh( hardwareMesh->meshId );
+            CalCoreSubmesh* coreSubmesh = coreMesh->getCoreSubmesh( hardwareMesh->submeshId );
+            // hardwareMesh->pCoreMaterial =
+            //   coreModel->getCoreMaterial( coreSubmesh->getCoreMaterialThreadId() );
+            char buf[ 1024 ];
+            snprintf( buf, 1024,
+                      "pCoreMaterial == NULL for mesh '%s' (mesh material id = %d), verify your mesh file data",
+                      m->name.c_str(),
+                      coreSubmesh->getCoreMaterialThreadId() );
+            throw std::runtime_error( buf );
+        }
 
         // -- Create index buffer --
         int indexesCount = faceCount * 3;
@@ -485,14 +494,12 @@ loadMeshes( CalCoreModel* calCoreModel,
 
         m->bonesIndices = hardwareMesh->m_vectorBonesIndices;
 
-        checkRigidness( m, unriggedBoneIndex );
-        checkForEmptyTexCoord( m );
-        generateTangentAndHandednessBuffer( m, &indexBuffer[ startIndex ] );
+        checkRigidness( m.get(), unriggedBoneIndex );
+        checkForEmptyTexCoord( m.get() );
+        generateTangentAndHandednessBuffer( m.get(), &indexBuffer[ startIndex ] );
 
-        meshes.push_back( m );
+        meshes.push_back( m.get() );
     }
-
-    delete[] indexBuffer;
 }
 
 // -- Meshes I/O --

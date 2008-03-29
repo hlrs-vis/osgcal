@@ -23,10 +23,10 @@ shaderText += "uniform sampler2D bumpMap;\n";
 shaderText += "uniform half      bumpMapAmount;\n";
 }
 shaderText += "\n";
+shaderText += "varying vec3 vNormal;\n";
 if ( NORMAL_MAPPING == 1 || BUMP_MAPPING == 1 ) {
-shaderText += "varying mat3 eyeBasis; // in tangent space\n";
-} else {
-shaderText += "varying vec3 transformedNormal;\n";
+shaderText += "varying vec3 tangent;\n";
+shaderText += "varying vec3 binormal;\n";
 }
 shaderText += "\n";
 shaderText += "uniform float glossiness;\n";
@@ -50,14 +50,10 @@ shaderText += "      ag += half(2.0)*(half2(texture2D(normalMap, gl_TexCoord[0].
     if ( BUMP_MAPPING == 1 ) {
 shaderText += "       ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));\n";
     }
-shaderText += "    half3 hnormal = half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
-shaderText += "    vec3 normal = normalize( vec3(hnormal) * eyeBasis );\n";
-shaderText += "//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),\n";
-shaderText += "//                                        normalize( eyeBasis[1] ),\n";
-shaderText += "//                                        normalize( eyeBasis[2] ) ) );\n";
-shaderText += "    // ^ not much difference\n";
+shaderText += "    half3 n = half3(ag, sqrt(half(1.0) - dot( ag, ag )));\n";
+shaderText += "    vec3 normal = normalize( n.x * tangent + n.y * binormal + n.z * vNormal );\n";
 } else {
-shaderText += "    vec3 normal = normalize(transformedNormal);\n";
+shaderText += "    vec3 normal = normalize(vNormal);\n";
 shaderText += "    // Remark that we calculate lighting (normals) with full precision\n";
 shaderText += "    // but colors only with half one.\n";
 shaderText += "    // We previously calculated lighting in half precision too, but it gives us\n";

@@ -23,10 +23,10 @@ uniform sampler2D bumpMap;
 uniform half      bumpMapAmount;
 #endif
 
+varying vec3 vNormal;
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
-varying mat3 eyeBasis; // in tangent space
-#else
-varying vec3 transformedNormal;
+varying vec3 tangent;
+varying vec3 binormal;
 #endif
 
 uniform float glossiness;
@@ -50,14 +50,10 @@ void main()
     #if BUMP_MAPPING == 1
        ag += bumpMapAmount * half(2.0)*(half2(texture2D(bumpMap, gl_TexCoord[0].st).ag) - half(0.5));
     #endif
-    half3 hnormal = half3(ag, sqrt(half(1.0) - dot( ag, ag )));
-    vec3 normal = normalize( vec3(hnormal) * eyeBasis );
-//     normal = normalize( normal * mat3( normalize( eyeBasis[0] ),
-//                                        normalize( eyeBasis[1] ),
-//                                        normalize( eyeBasis[2] ) ) );
-    // ^ not much difference
+    half3 n = half3(ag, sqrt(half(1.0) - dot( ag, ag )));
+    vec3 normal = normalize( n.x * tangent + n.y * binormal + n.z * vNormal );
 #else
-    vec3 normal = normalize(transformedNormal);
+    vec3 normal = normalize(vNormal);
     // Remark that we calculate lighting (normals) with full precision
     // but colors only with half one.
     // We previously calculated lighting in half precision too, but it gives us
