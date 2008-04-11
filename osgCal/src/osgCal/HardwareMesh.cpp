@@ -113,12 +113,13 @@ getProgram( osg::State& state,
 {
     const osg::Program* stateProgram =
         static_cast< const osg::Program* >
-        ( stateSet->getAttribute( osg::StateAttribute::PROGRAM ) );
-//        ( state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM ) ); <- don't work in display lists
+//        ( stateSet->getAttribute( osg::StateAttribute::PROGRAM ) );
+        ( state.getLastAppliedAttribute( osg::StateAttribute::PROGRAM ) );
 
     if ( stateProgram == 0 )
     {
-        throw std::runtime_error( "HardwareMesh::drawImplementation(): can't get program (shader compilation failed?" );
+        return 0;
+//        throw std::runtime_error( "HardwareMesh::drawImplementation(): can't get program (shader compilation failed?" );
     }
 
     return stateProgram->getPCP( state.getContextID() );
@@ -135,7 +136,7 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
 
     // -- Setup rotation/translation uniforms --
 //    if ( deformed )
-    if ( mesh->data->rigid == false )
+    if ( mesh->data->rigid == false && program )
     {
         // -- Calculate and bind rotation/translation uniforms --
         GLint rotationMatricesAttrib = program->getUniformLocation( "rotationMatrices" );
@@ -214,15 +215,21 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
 
     // -- Call display list --
     bool transparent = stateSet->getRenderingHint() & osg::StateSet::TRANSPARENT_BIN;
-    GLint frontFacing = program->getUniformLocation( "frontFacing" );
+    GLint frontFacing = program ? program->getUniformLocation( "frontFacing" ) : -1;
 
     if ( transparent )
     {
         glCullFace( GL_FRONT ); // first draw only back faces
-        gl2extensions->glUniform1f( frontFacing, 0.0 );
+        if ( frontFacing >= 0 )
+        {   // ^ there can be no "frontFacing" in user shader
+            gl2extensions->glUniform1f( frontFacing, 0.0 );
+        }
         glCallList( dl );
         glCullFace( GL_BACK ); // then draw only front faces
-        gl2extensions->glUniform1f( frontFacing, 1.0 );
+        if ( frontFacing >= 0 )
+        {
+            gl2extensions->glUniform1f( frontFacing, 1.0 );
+        }
         glCallList( dl );
     }
     else if ( frontFacing >= 0 )
