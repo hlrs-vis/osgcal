@@ -479,6 +479,11 @@ rollout cal3DexportR "Cal3D Multi-export" width:464 height:400
         exportAnimations = (exportType == "animations" or exportType == "all")
         exportMaterials  = (exportType == "materials" or exportType == "all")
 
+		if not (doesFileExist lblExportDir.text) then
+		(
+            return ("Export dir does not exists:\n" + lblExportDir.text)
+        )
+
         -- remove all previous meshes, materials and caches
         deleteFile (lblExportDir.text + "cal3d.cfg")
         if exportAnimations then (for f in getFiles (lblExportDir.text + "*.caf") do deleteFile f)

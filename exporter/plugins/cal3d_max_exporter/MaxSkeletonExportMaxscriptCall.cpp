@@ -183,7 +183,7 @@ bool CMaxInterface::ExportSkeletonFromMaxscriptCall(const std::string& strFilena
 	// save core skeleton to the file
 	if(!CalSaver::saveCoreSkeleton(strFilename, &coreSkeleton))
 	{
-		theExporter.SetLastError(CalError::getLastErrorText(), __FILE__, __LINE__);
+		theExporter.SetLastError(CalError::getLastErrorDescription() + ": " + CalError::getLastErrorText(), __FILE__, __LINE__);
 		return false;
 	}
 
