@@ -21,6 +21,7 @@
 
 #include <map>
 #include <vector>
+#include <string.h>
 
 #include <osg/Group>
 #include <osg/Geometry>
