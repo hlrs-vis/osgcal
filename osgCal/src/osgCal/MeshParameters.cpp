@@ -24,6 +24,7 @@ MeshParameters::MeshParameters()
     , showTBN( false )
     , fogMode( (osg::Fog::Mode)0 )
     , useDepthFirstMesh( false )
+    , noSoftwareVertexUpdate( false )
 {
 }
 

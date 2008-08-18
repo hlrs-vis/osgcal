@@ -74,6 +74,16 @@ namespace osgCal
              * since it will cause incorrect display to them.
              */
             bool useDepthFirstMesh;
+
+            /**
+             * Turn of vertex position calculation on CPU. Can cause
+             * incorrect mesh bounding boxes (some meshes may not draw
+             * when they are actually on screen). This option free
+             * some CPU resources, but use it only when model is fully
+             * visible on the screen in default mode (hence with
+             * default bounding boxes).
+             */
+            bool noSoftwareVertexUpdate;
     };
 
     /**

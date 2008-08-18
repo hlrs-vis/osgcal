@@ -87,6 +87,7 @@ class CalUpdateCallback: public osg::NodeCallback
 };
 
 Model::Model()
+    : timeFactor( 1.0 )
 {
     setDataVariance( DYNAMIC ); // we can add or remove objects dynamically
 }
@@ -413,7 +414,7 @@ Model::getCalModel()
 void
 Model::update( double deltaTime ) 
 {
-    if ( modelData->update( deltaTime ) == true )
+    if ( modelData->update( deltaTime * timeFactor ) == true )
     {
         updateMeshes();
     }
@@ -507,6 +508,18 @@ void
 Model::removeAction( int id )
 {
     modelData->getCalMixer()->removeAction( id );
+}
+
+void
+Model::setTimeFactor( double tf )
+{
+    timeFactor = tf;
+}
+
+double
+Model::getTimeFactor() const
+{
+    return timeFactor;
 }
 
 const CoreModel*

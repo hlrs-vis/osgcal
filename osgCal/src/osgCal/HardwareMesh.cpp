@@ -500,7 +500,7 @@ HardwareMesh::update()
     }
 
     // -- Check changes --
-    if ( !changed )
+    if ( !changed || mesh->parameters->noSoftwareVertexUpdate )
     {
 //        std::cout << "didn't changed" << std::endl;
         return; // no changes

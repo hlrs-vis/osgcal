@@ -195,6 +195,9 @@ namespace osgCal {
              */
             void removeAction( int id );
 
+            void   setTimeFactor( double timeFactor = 1.0f );
+            double getTimeFactor() const;
+
             typedef std::vector< Mesh* > MeshesList;
             typedef std::map< std::string, MeshesList > MeshMap;
 
@@ -262,6 +265,9 @@ namespace osgCal {
              * Non updatable (rigid) meshes, needed for compiling state sets.
              */
             std::vector< Mesh* >     nonUpdatableMeshes;
+
+            double timeFactor;
+            
 
             void addMeshDrawable( const CoreMesh* mesh,
                                   osg::Drawable*  drawable );
