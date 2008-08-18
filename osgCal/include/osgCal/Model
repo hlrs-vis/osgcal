@@ -383,6 +383,11 @@ namespace osgCal {
             Model* getModel()
                 throw (std::runtime_error);
 
+            void setUpdateForced()
+            {
+                updateForced = true;
+            }
+
         private:
 
             osg::ref_ptr< CoreModel >   coreModel;
@@ -392,6 +397,7 @@ namespace osgCal {
 
             typedef std::vector< BoneParams > BoneParamsVector;
             BoneParamsVector            bones;
+            bool                        updateForced;
     };
     
 }; // namespace osgCal

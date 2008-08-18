@@ -508,6 +508,7 @@ void
 Model::removeAction( int id )
 {
     modelData->getCalMixer()->removeAction( id );
+    modelData->setUpdateForced();
 }
 
 void
@@ -648,13 +649,15 @@ bool
 ModelData::update( float deltaTime )
 {
     // -- Update calMixer & skeleton --
-    if ( //calMixer->getAnimationVector().size() == <total animations count>
+    if ( !updateForced &&
+         //calMixer->getAnimationVector().size() == <total animations count>
          calMixer->getAnimationActionList().size() == 0 &&
          calMixer->getAnimationCycle().size() == 0 )
     {
         return false; // no animations, nothing to update
     }
 
+    updateForced = false;
     calMixer->updateAnimation( deltaTime ); 
     calMixer->updateSkeleton();
 
