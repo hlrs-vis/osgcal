@@ -29,7 +29,9 @@ SET(LIB_PUBLIC_HEADERS
 FILE(GLOB cpp_files ${OSGCAL_SOURCE_DIR}/osgCal/*.cpp) #${OSGCAL_SOURCE_DIR}/osgCal/shaders/*.h )
 #message(${cpp_files})
 
-ADD_LIBRARY(${LIB_NAME} SHARED ${BUILD_MODE} ${LIB_PUBLIC_HEADERS} ${cpp_files})
+ADD_LIBRARY(${LIB_NAME}
+            ${OPENSCENEGRAPH_USER_DEFINED_DYNAMIC_OR_STATIC}
+            ${BUILD_MODE} ${LIB_PUBLIC_HEADERS} ${cpp_files})
 
 LINK_INTERNAL(${LIB_NAME} osg osgUtil osgDB OpenThreads)
 LINK_EXTERNAL(${LIB_NAME} cal3d ${OPENGL_LIBRARIES})

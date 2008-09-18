@@ -1,6 +1,6 @@
 SET(TARGET_NAME osgCalViewer)
 
-SET(OSG_LIBS OpenThreads osg osgDB osgUtil osgGA osgViewer osgText)
+SET(OSG_LIBS OpenThreads osgViewer osgDB osg osgUtil osgGA osgText)
 
 SET(SOURCE_FILES osgCalViewer.cpp)
 
