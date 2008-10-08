@@ -139,6 +139,12 @@ namespace osgCal {
             CalModel*        getCalModel();
 
             /**
+             * Enable/disable automatic model updating using
+             * UpdateCallback. Enabled by default.
+             */
+            void setAutoUpdate( bool enabled );
+
+            /**
              * Update meshes.
              */
             void update( double deltaTime );

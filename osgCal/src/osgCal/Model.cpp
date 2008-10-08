@@ -130,7 +130,7 @@ Model::load( CoreModel*      _coreModel,
 
     modelData = new ModelData( _coreModel, this );
 
-    setUpdateCallback( new CalUpdateCallback() );
+    setAutoUpdate( true );
 
     osg::ref_ptr< BasicMeshAdder > meshAdder( _meshAdder ? _meshAdder :
                                               new DefaultMeshAdder );
@@ -409,6 +409,12 @@ CalModel*
 Model::getCalModel()
 {
     return modelData->getCalModel();
+}
+
+void
+Model::setAutoUpdate( bool enabled )
+{
+    setUpdateCallback( enabled ? new CalUpdateCallback() : 0 );
 }
 
 void
