@@ -604,6 +604,7 @@ ModelData::ModelData( CoreModel* cm,
                       Model*     m )
     : coreModel( cm )
     , model( m )
+    , updateForced( false )
 {
     calModel = new CalModel( coreModel->getCalCoreModel() );
     calModel->update( 0 );
