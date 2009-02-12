@@ -219,8 +219,10 @@ def export_textures():
                        + (" -clampScale %s, %s " % (max_width, max_height))
                        + (" -rescale nearest ")
                        #+ (" -rescale hi ")
-                       + " -RescaleCubic " # rescaling as in photoshop
+                       #+ " -RescaleCubic " # rescaling as in photoshop
+                       + " -RescaleBox " 
                        + " -Box " # more sharp details on mipmaps
+                       #+ " -sharpenMethod ContrastMore " # too sharp
                        + swaprgb
                        + options # compression                       
                       )
