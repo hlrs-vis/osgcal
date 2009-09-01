@@ -19,6 +19,7 @@
 #include <memory>
 #include <string.h>
 #include <sys/stat.h>
+#include <algorithm>
 
 #include <osg/Notify>
 #include <osgDB/FileNameUtils>
@@ -28,7 +29,24 @@
 #include <osgCal/CoreModel>
 
 using namespace osgCal;
+using namespace std;
 
+////////////////////////////////////////////////////////////////////////////////
+#define FIELD_OFFSET(type, field)    ((long)&(((type *)0)->field))
+////////////////////////////////////////////////////////////////////////////////
+template <class K, class T> class DataCmp {
+public:
+  DataCmp( unsigned int offset ) : _offset(offset) 
+  {
+  }
+  bool operator()(const K & lhs, const K & rhs) const 
+  { 
+    return (T)*((T*)(((char*)&lhs)+_offset)) > (T)*((T*)(((char*)&rhs)+_offset)); 
+  }
+
+  unsigned int _offset;
+};
+////////////////////////////////////////////////////////////////////////////////
 CoreModel::CoreModel()
     : calCoreModel( 0 )
 {
@@ -319,16 +337,19 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
 
                     for ( size_t j = 0; j < v.size(); j++ )
                     {
+
                         std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
 
-                        for ( size_t ii = 0; ii < infl.size(); ii++ )
+                        std::vector< CalCoreSubmesh::Influence >::iterator it=infl.begin();
+                        for ( ;it != infl.end(); )
                         {
-                            if ( infl[ii].weight == 0 )
-                            {
-                                infl.erase( infl.begin() + ii );
-                                --ii;
-                            }
+                            if ( it->weight <= 0.0001 ) it = infl.erase( it );
+                            else ++it;
                         }
+
+                        std::sort( infl.begin(), infl.end(),
+                          DataCmp<CalCoreSubmesh::Influence,float>
+                            (FIELD_OFFSET(CalCoreSubmesh::Influence,weight)) );
                     }
                 }
             }
