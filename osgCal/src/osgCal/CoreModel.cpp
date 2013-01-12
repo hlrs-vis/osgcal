@@ -292,7 +292,6 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
             // process .cfg parameters
             if ( !strcmp( buffer, "scale" ) )
             {
-                setlocale(LC_NUMERIC, "es_ES.UTF-8");
                 bScale	= true;
                 std::istringstream equal_stream(equal);
                 equal_stream.imbue(std::locale::classic());
