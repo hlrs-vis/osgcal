@@ -20,6 +20,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <sstream>
 
 #include <osg/Notify>
 #include <osgDB/FileNameUtils>
@@ -36,12 +37,13 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 template <class K, class T> class DataCmp {
 public:
-  DataCmp( unsigned int offset ) : _offset(offset) 
+  DataCmp( unsigned int offset ) : _offset(offset)
   {
   }
-  bool operator()(const K & lhs, const K & rhs) const 
-  { 
-    return (T)*((T*)(((char*)&lhs)+_offset)) > (T)*((T*)(((char*)&rhs)+_offset)); 
+  bool operator()(const K & lhs, const K & rhs) const
+  {
+    return (T)*((T*)(((char*)&lhs)+_offset))
+         > (T)*((T*)(((char*)&rhs)+_offset));
   }
 
   unsigned int _offset;
@@ -118,12 +120,12 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         cfgFileName = "./" + cfgFileNameOriginal;
     }
     else
-    {       
+    {
         cfgFileName = cfgFileNameOriginal;
     }
 
     MeshesVector meshesData;
-    
+
     if ( isFileExists( meshesCacheFileName( cfgFileName ) ) == false )
     {
         calCoreModel = loadCoreModel( cfgFileName, scale );
@@ -134,10 +136,11 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         // We don't check file dates, since after `svn up' they can be
         // in any order. So, yes, if cache file doesn't correspond to
         // model we can SIGSEGV.
-        calCoreModel = loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
+        calCoreModel =
+            loadCoreModel( cfgFileName, scale, true/*ignoreMeshes*/ );
         loadMeshes( meshesCacheFileName( cfgFileName ),
                     calCoreModel, meshesData );
-    }    
+    }
 
     // -- Preparing meshes and materials for fast Model creation --
     for ( MeshesVector::iterator
@@ -157,19 +160,22 @@ CoreModel::load( const std::string& cfgFileNameOriginal,
         osg::notify( osg::INFO )
             << "mesh              : " << m->data->name << std::endl
             << "maxBonesInfluence : " << m->data->maxBonesInfluence << std::endl
-            << "trianglesCount    : " << m->data->getIndicesCount() / 3 << std::endl
-            << "vertexCount       : " << m->data->vertexBuffer->size() << std::endl
+            << "trianglesCount    : " << (m->data->getIndicesCount() / 3)
+                << std::endl
+            << "vertexCount       : " << m->data->vertexBuffer->size()
+                << std::endl
             << "rigid             : " << m->data->rigid << std::endl
-            << "rigidBoneId       : " << m->data->rigidBoneId << std::endl //<< std::endl
-//            << "-- material: " << m->data->coreMaterial->getName() << " --" << std::endl
+            << "rigidBoneId       : " << m->data->rigidBoneId << std::endl
             << *m->material << std::endl;
     }
 
     // -- Collecting animation names --
     for ( int i = 0; i < calCoreModel->getCoreAnimationCount(); i++ )
     {
-        animationNames.push_back( calCoreModel->getCoreAnimation( i )->getName() );
-        animationDurations.push_back( calCoreModel->getCoreAnimation( i )->getDuration() );
+        animationNames.push_back(
+            calCoreModel->getCoreAnimation( i )->getName() );
+        animationDurations.push_back(
+            calCoreModel->getCoreAnimation( i )->getDuration() );
     }
 }
 
@@ -270,7 +276,7 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
 
             // extract file name. all animations, meshes and materials names
             // are taken from file name without extension
-            std::string nameToLoad;            
+            std::string nameToLoad;
             char* point = strrchr( equal, '.' );
             if ( point )
             {
@@ -280,67 +286,79 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
             {
                 nameToLoad = equal;
             }
-                
+
             std::string fullpath = dir + "/" + std::string( equal );
 
             // process .cfg parameters
-            if ( !strcmp( buffer, "scale" ) ) 
-            { 
+            if ( !strcmp( buffer, "scale" ) )
+            {
+                setlocale(LC_NUMERIC, "es_ES.UTF-8");
                 bScale	= true;
-                scale	= atof( equal );
+                std::istringstream equal_stream(equal);
+                equal_stream.imbue(std::locale::classic());
+                equal_stream >> scale;
                 continue;
             }
 
-            if ( !strcmp( buffer, "skeleton" ) ) 
+            if ( !strcmp( buffer, "skeleton" ) )
             {
                 if( !calCoreModel->loadCoreSkeleton( fullpath ) )
                 {
-                    throw std::runtime_error( "Can't load skeleton: "
-                                             + CalError::getLastErrorDescription() );
-                }                
-            } 
+                    throw std::runtime_error(
+                        "Can't load skeleton: "
+                        + CalError::getLastErrorDescription() );
+                }
+            }
             else if ( !strcmp( buffer, "animation" ) )
             {
                 int animationId = calCoreModel->loadCoreAnimation( fullpath );
                 if( animationId < 0 )
                 {
-                    throw std::runtime_error( "Can't load animation " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
+                    throw std::runtime_error(
+                         "Can't load animation " + nameToLoad + ": "
+                         + CalError::getLastErrorDescription() );
                 }
-                calCoreModel->getCoreAnimation(animationId)->setName( nameToLoad );
+                calCoreModel->getCoreAnimation(animationId)
+                    ->setName( nameToLoad );
             }
             else if ( !strcmp( buffer, "mesh" ) )
             {
                 if ( ignoreMeshes )
                 {
-                    continue; // we don't need meshes since VBO data is already loaded from cache
+                     // we don't need meshes since VBO data is already loaded
+                     // from cache
+                    continue;
                 }
 
                 int meshId = calCoreModel->loadCoreMesh( fullpath );
                 if( meshId < 0 )
                 {
-                    throw std::runtime_error( "Can't load mesh " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
+                    throw std::runtime_error(
+                        "Can't load mesh " + nameToLoad + ": "
+                        + CalError::getLastErrorDescription() );
                 }
                 calCoreModel->getCoreMesh( meshId )->setName( nameToLoad );
 
                 // -- Remove zero influence vertices --
-                // warning: this is a temporary workaround and subject to remove!
-                // (this actually must be fixed in blender exporter)
+                // warning: this is a temporary workaround and subject to
+                // remove! (this actually must be fixed in blender exporter)
                 CalCoreMesh* cm = calCoreModel->getCoreMesh( meshId );
 
                 for ( int i = 0; i < cm->getCoreSubmeshCount(); i++ )
                 {
                     CalCoreSubmesh* sm = cm->getCoreSubmesh( i );
 
-                    std::vector< CalCoreSubmesh::Vertex >& v = sm->getVectorVertex();
+                    std::vector< CalCoreSubmesh::Vertex >& v =
+                        sm->getVectorVertex();
 
                     for ( size_t j = 0; j < v.size(); j++ )
                     {
 
-                        std::vector< CalCoreSubmesh::Influence >& infl = v[j].vectorInfluence;
+                        std::vector< CalCoreSubmesh::Influence >& infl =
+                             v[j].vectorInfluence;
 
-                        std::vector< CalCoreSubmesh::Influence >::iterator it=infl.begin();
+                        std::vector< CalCoreSubmesh::Influence >::iterator it =
+                            infl.begin();
                         for ( ;it != infl.end(); )
                         {
                             if ( it->weight <= 0.0001 ) it = infl.erase( it );
@@ -353,21 +371,24 @@ osgCal::loadCoreModel( const std::string& cfgFileName,
                     }
                 }
             }
-            else if ( !strcmp( buffer, "material" ) )  
+            else if ( !strcmp( buffer, "material" ) )
             {
                 int materialId = calCoreModel->loadCoreMaterial( fullpath );
 
-                if( materialId < 0 ) 
+                if( materialId < 0 )
                 {
-                    throw std::runtime_error( "Can't load material " + nameToLoad + ": "
-                                             + CalError::getLastErrorDescription() );
-                } 
-                else 
+                    throw std::runtime_error(
+                        "Can't load material " + nameToLoad + ": "
+                        + CalError::getLastErrorDescription() );
+                }
+                else
                 {
-                    calCoreModel->createCoreMaterialThread( materialId ); 
-                    calCoreModel->setCoreMaterialId( materialId, 0, materialId );
+                    calCoreModel->createCoreMaterialThread( materialId );
+                    calCoreModel->setCoreMaterialId(
+                        materialId, 0, materialId );
 
-                    CalCoreMaterial* material = calCoreModel->getCoreMaterial( materialId );
+                    CalCoreMaterial* material =
+                        calCoreModel->getCoreMaterial( materialId );
                     material->setName( nameToLoad );
                 }
             }
