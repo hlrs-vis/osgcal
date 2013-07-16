@@ -63,7 +63,6 @@ SoftwareMesh::SoftwareMesh( ModelData*      _modelData,
     {
         setVertexArray( (VertexBuffer*)mesh->data->vertexBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
         setNormalArray( (NormalBuffer*)mesh->data->normalBuffer->clone( osg::CopyOp::DEEP_COPY_ALL ) );
-        getNormalData().normalize = GL_TRUE;
     }
     setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
     setTexCoordArray( 0, const_cast< TexCoordBuffer* >( mesh->data->texCoordBuffer.get() ) );
