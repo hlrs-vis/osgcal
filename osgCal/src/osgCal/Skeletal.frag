@@ -101,7 +101,7 @@ void main()
     color += ambient;
 
     // -- Lights diffuse --
-    vec3 lightDir = gl_LightSource[i].position.xyz;
+    vec3 lightDir = normalize(gl_LightSource[i].position.xyz);
     half  NdotL = max( half(0.0), half(dot( normal, lightDir )) );
     half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[i].diffuse.rgb);
     color += NdotL * diffuse;

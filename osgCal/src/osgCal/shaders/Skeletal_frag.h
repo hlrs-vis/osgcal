@@ -101,7 +101,7 @@ shaderText += "    half3 ambient = half3(gl_FrontMaterial.ambient.rgb * gl_Light
 shaderText += "    color += ambient;\n";
 shaderText += "\n";
 shaderText += "    // -- Lights diffuse --\n";
-shaderText += "    vec3 lightDir = gl_LightSource[i].position.xyz;\n";
+shaderText += "    vec3 lightDir = normalize(gl_LightSource[i].position.xyz);\n";
 shaderText += "    half  NdotL = max( half(0.0), half(dot( normal, lightDir )) );\n";
 shaderText += "    half3 diffuse = half3(gl_FrontMaterial.diffuse.rgb * gl_LightSource[i].diffuse.rgb);\n";
 shaderText += "    color += NdotL * diffuse;\n";
