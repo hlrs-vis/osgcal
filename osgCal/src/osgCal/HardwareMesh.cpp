@@ -122,7 +122,7 @@ getProgram( osg::State& state,
 //        throw std::runtime_error( "HardwareMesh::drawImplementation(): can't get program (shader compilation failed?" );
     }
 
-    return stateProgram->getPCP( state.getContextID() );
+    return stateProgram->getPCP( state );
 }
 
 void
@@ -132,7 +132,7 @@ HardwareMesh::drawImplementation( osg::RenderInfo&     renderInfo,
     osg::State& state = *renderInfo.getState();
 
     const osg::Program::PerContextProgram* program = getProgram( state, stateSet );
-    const osg::GL2Extensions* gl2extensions = osg::GL2Extensions::Get( state.getContextID(), true );
+    const osg::GLExtensions* gl2extensions = osg::GLExtensions::Get( state.getContextID(), true );
 
     // -- Setup rotation/translation uniforms --
 //    if ( deformed )

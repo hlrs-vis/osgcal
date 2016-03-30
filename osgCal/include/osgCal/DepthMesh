@@ -40,7 +40,7 @@ namespace osgCal
 
             virtual void compileGLObjects(osg::RenderInfo& renderInfo) const;
 
-            osg::BoundingBox computeBound() const;
+            osg::BoundingBox computeBoundingBox() const;
 
             /**
              * See Mesh::supports() for the comments.

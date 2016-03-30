@@ -74,7 +74,7 @@ DepthMesh::update( bool /*deformed*/, bool changed )
 }
 
 osg::BoundingBox
-DepthMesh::computeBound() const
+DepthMesh::computeBoundingBox() const
 {
-    return hwMesh->computeBound();
+    return hwMesh->computeBoundingBox();
 }

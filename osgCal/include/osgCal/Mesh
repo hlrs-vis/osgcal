@@ -44,7 +44,7 @@ namespace osgCal
 
             virtual void update() = 0;
 
-            osg::BoundingBox computeBound() const { return boundingBox; }
+            osg::BoundingBox computeBoundingBox() const { return boundingBox; }
 
             const CoreMesh* getCoreMesh() const { return mesh.get(); }
 
