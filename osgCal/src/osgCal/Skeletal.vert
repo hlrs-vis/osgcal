@@ -110,9 +110,12 @@ void main()
 #endif // no fog
 
     vNormal = gl_NormalMatrix * gl_Normal;
+    vNormal.normalize();
 #if NORMAL_MAPPING == 1 || BUMP_MAPPING == 1
     tangent = gl_NormalMatrix * inputTangent;
+    tangent.normalize();
     binormal = cross( vNormal, tangent ) * inputHandedness;
+    binormal.normalize();
 #endif // no tangent space
 
 #endif // BONES_COUNT >= 1
