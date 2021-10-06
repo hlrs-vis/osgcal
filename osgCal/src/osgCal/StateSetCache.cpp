@@ -148,7 +148,6 @@ TexturesCache::get( const TextureDesc& td )
 
 osg::Texture2D*
 TexturesCache::createTexture( const TextureDesc& fileName )
-    throw ( std::runtime_error )
 {
 //    std::cout << "load texture: " << fileName << std::endl;
     osg::Image* img = osgDB::readImageFile( fileName );

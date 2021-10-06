@@ -36,17 +36,14 @@ namespace osgCal
 
     OSGCAL_EXPORT void loadMeshes( const std::string&  fileName,
                                    const CalCoreModel* calCoreModel,
-                                   MeshesVector& meshes )
-        throw (std::runtime_error);
+                                   MeshesVector& meshes );
 
     OSGCAL_EXPORT void saveMeshes( const CalCoreModel* calCoreModel,
                                    const MeshesVector& meshes,
-                                   const std::string&  fileName )
-        throw (std::runtime_error);
+                                   const std::string&  fileName );
 
     OSGCAL_EXPORT void loadMeshes( CalCoreModel* calCoreModel,
-                                   MeshesVector& meshes )
-        throw (std::runtime_error);
+                                   MeshesVector& meshes );
 
 }; // namespace osgCal
 

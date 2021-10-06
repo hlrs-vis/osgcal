@@ -116,8 +116,7 @@ namespace osgCal
             typedef std::map< TextureDesc, osg::Texture2D* > Map;
             Map cache;
             
-            osg::Texture2D* createTexture( const TextureDesc& fileName )
-                throw (std::runtime_error);
+            osg::Texture2D* createTexture( const TextureDesc& fileName );
     };
 
     class SwMeshStateSetCache : public osg::Referenced
