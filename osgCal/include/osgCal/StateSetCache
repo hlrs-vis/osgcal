@@ -33,7 +33,7 @@
 namespace osgCal
 {
     template < typename T >
-    struct ref_ptr_less : std::binary_function< osg::ref_ptr< T >, osg::ref_ptr< T >, bool >
+    struct ref_ptr_less
     {
             bool operator () ( const osg::ref_ptr< T >& a,
                                const osg::ref_ptr< T >& b ) const
@@ -50,10 +50,7 @@ namespace osgCal
     };
 
     template < typename T, typename Second >
-    struct ref_ptr_second_less :
-            std::binary_function< std::pair< osg::ref_ptr< T >, Second >,
-                                  std::pair< osg::ref_ptr< T >, Second >,
-                                  bool >
+    struct ref_ptr_second_less
     {
             bool operator () ( const std::pair< osg::ref_ptr< T >, Second >& a,
                                const std::pair< osg::ref_ptr< T >, Second >& b ) const
