@@ -157,7 +157,7 @@ class AnimationToggleHandler : public osgGA::GUIEventHandler
             
             for ( size_t i = 0; i < animationNames.size(); i++ )
             {
-                char k[] = { i + '1', '\0' };
+                char k[] = { (char)(i + '1'), '\0' };
                 usage.addKeyboardMouseBinding( k, animationNames[i] );
             }
         }
